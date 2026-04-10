@@ -43,10 +43,9 @@ const slides = [
     bg: "#0a0a0a",
     textColor: "#FFFFFF",
     accentColor: "#1B4FFF",
-    // Full-bleed image: covers 100% of section, gradient left for text
-    type: "fullimage" as const,
-    image: `${CDN}/mac-macbook-pro-size-unselect-202601-gallery-1?wid=1600&hei=1024&fmt=jpeg&qlt=88`,
-    imageAlt: "MacBook Pro 14 y 16 pulgadas para empresas",
+    type: "image" as const,
+    image: `${CDN}/mac-macbook-pro-size-select-202601-14inch?wid=1000&hei=700&fmt=png-alpha&qlt=95`,
+    imageAlt: "MacBook Pro 14 pulgadas para empresas",
   },
 ];
 
