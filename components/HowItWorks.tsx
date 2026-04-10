@@ -6,25 +6,25 @@ const steps = [
     n: "1",
     icon: "🖥️",
     title: "Elige tu Mac",
-    desc: "Selecciona el modelo, la configuración y el plan que mejor se adapta a tu empresa o equipo.",
+    desc: "Air o Pro, elige el modelo y cuántos meses quieres. Simple, sin letra chica.",
   },
   {
     n: "2",
     icon: "💳",
     title: "Paga el primer mes",
-    desc: "El primer mes se cobra al confirmar. Eso activa el pedido y lo enviamos en 24-48h.",
+    desc: "Solo pagas el primer mes para activar tu pedido. Sin matrícula ni depósito.",
   },
   {
     n: "3",
     icon: "📦",
-    title: "Recibe y trabaja",
-    desc: "Tu Mac llega lista para usar. Con MDM configurado si lo necesitas. Sin complicaciones.",
+    title: "Recibe y a trabajar",
+    desc: "Tu Mac llega a Lima en 24-48h, lista para usar. MDM incluido si lo necesitas.",
   },
   {
     n: "4",
     icon: "🔄",
-    title: "Devuelve o compra",
-    desc: "Al terminar el plazo: devuelves sin costo, extiendes o la compras al valor residual.",
+    title: "Tú decides al final",
+    desc: "La devuelves sin costo, la compras al valor residual o tu trabajador la compra en cuotas.",
   },
 ];
 

@@ -99,7 +99,7 @@ function SuccessContent() {
               {[
                 { icon: "📧", text: `Recibirás un correo de confirmación en ${email || "tu email"}` },
                 { icon: "📞", text: "Te llamaremos en las próximas 24 horas hábiles para coordinar la entrega" },
-                { icon: "🚚", text: "Entregamos en tu empresa en Lima (en 2-3 días hábiles)" },
+                { icon: "🚚", text: "Tu Mac llega a tu empresa en Lima en 24-48 horas hábiles" },
                 { icon: "💳", text: "Los meses siguientes se cobrarán automáticamente" },
               ].map(item => (
                 <div key={item.text} className="flex items-start gap-3">
@@ -127,7 +127,7 @@ function SuccessContent() {
 
         <p className="text-center text-xs text-[#999999] mt-6">
           ¿Tienes preguntas? Escríbenos a{" "}
-          <a href="mailto:hola@tika.pe" className="text-[#1B4FFF]">hola@tika.pe</a>
+          <a href="mailto:hola@flux.pe" className="text-[#1B4FFF]">hola@flux.pe</a>
         </p>
       </div>
     </div>

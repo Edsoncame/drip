@@ -5,21 +5,21 @@ import { motion } from "framer-motion";
 const fadeUp = { hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0 } };
 
 const steps = [
-  { n: "01", icon: "🖥️", title: "Elige tu Mac y tu plazo", desc: "Selecciona el modelo (Air o Pro), la configuración y cuántos meses quieres: 8, 16 o 24. Mientras más largo el plazo, menor el precio mensual." },
-  { n: "02", icon: "👤", title: "Crea tu cuenta", desc: "Datos básicos de tu empresa o como persona. Hacemos una evaluación rápida para confirmar el pedido." },
-  { n: "03", icon: "💳", title: "Paga el primer mes", desc: "El primer pago mensual se cobra al confirmar. Eso activa el pedido. Aceptamos tarjeta de crédito, débito y transferencia." },
-  { n: "04", icon: "📦", title: "Recibe tu Mac", desc: "Entrega en Lima en 24-48 horas hábiles. El equipo llega en perfectas condiciones, con todos sus accesorios originales." },
-  { n: "05", icon: "🔄", title: "Paga mes a mes", desc: "El cobro se realiza automáticamente cada mes desde la fecha de entrega. Puedes cambiar el método de pago desde tu cuenta." },
-  { n: "06", icon: "🏁", title: "Al terminar el plazo", desc: "Tienes 3 opciones: devuelves la Mac sin costo, la compras al valor residual pactado, o tu colaborador la compra en cuotas." },
+  { n: "01", icon: "🖥️", title: "Elige tu Mac y tu plazo", desc: "Air o Pro, 8, 16 o 24 meses. Cuanto más largo el plazo, más barata la cuota mensual. Simple." },
+  { n: "02", icon: "👤", title: "Crea tu cuenta", desc: "Tus datos básicos como empresa o persona natural. Hacemos una evaluación rápida — sin papeleo eterno." },
+  { n: "03", icon: "💳", title: "Paga el primer mes", desc: "Con tarjeta o transferencia. Ese primer pago activa tu pedido al toque. Sin matrícula, sin letra chica." },
+  { n: "04", icon: "📦", title: "Recibe tu Mac", desc: "La llevamos a tu oficina en Lima en 24-48 horas hábiles. Lista para usar, con todos sus accesorios originales." },
+  { n: "05", icon: "🔄", title: "Paga mes a mes, sin preocuparte", desc: "El cobro va automático cada mes. Si necesitas cambiar tu método de pago, lo haces desde tu cuenta en segundos." },
+  { n: "06", icon: "🏁", title: "Al terminar, tú decides", desc: "La devuelves sin costo, la compras al valor residual que acordamos desde el inicio, o tu colaborador la compra en cuotas." },
 ];
 
 const faqs = [
-  { q: "¿Necesito un depósito de garantía?", a: "No. FLUX no exige depósito. El primer mes de renta actúa como pago de activación del pedido." },
-  { q: "¿Puedo cancelar antes del plazo mínimo?", a: "Puedes cancelar desde el mes siguiente al plazo mínimo contratado (8, 16 o 24 meses). Solo devuelves el equipo." },
-  { q: "¿Qué pasa si el equipo se daña?", a: "El arrendatario es responsable por daños fuera del desgaste normal. Recomendamos contratar AppleCare+ que ofrecemos como add-on." },
-  { q: "¿Puedo comprar la Mac al final?", a: "Sí. Al terminar el plazo puedes comprarla al valor residual pactado desde el inicio: 77.5% a 8m, 55% a 16m, 32.5% a 24m." },
-  { q: "¿Mis colaboradores pueden comprar la Mac en cuotas?", a: "Sí. Es una opción disponible para empresas. El colaborador paga en 16 cuotas mensuales al valor residual del ciclo." },
-  { q: "¿Cuánto demora la entrega en Lima?", a: "Entre 24 y 48 horas hábiles desde que confirmamos el pedido." },
+  { q: "¿Necesito pagar un depósito de garantía?", a: "Para nada. FLUX no te pide depósito. El primer mes de renta es el único pago al inicio — y ese ya cubre tu primer mes de uso." },
+  { q: "¿Puedo salirme antes de terminar el plazo?", a: "Puedes cancelar una vez que completes tu plazo mínimo (8, 16 o 24 meses según lo que hayas elegido). Solo coordinas la devolución del equipo y listo." },
+  { q: "¿Qué pasa si se me cae o se daña la Mac?", a: "Los daños por accidente o mal uso están fuera de la cobertura básica, así que corren por tu cuenta. Por eso ofrecemos AppleCare+ como add-on — te cubre casi todo." },
+  { q: "¿Puedo comprar la Mac al terminar?", a: "Sí, y muchos lo hacen. El precio de compra está fijado desde el inicio: 77.5% del valor original a 8 meses, 55% a 16 meses y 32.5% a 24 meses." },
+  { q: "¿Mis trabajadores pueden comprar la Mac en cuotas?", a: "Sí, es una opción disponible para empresas. Tu colaborador paga en 16 cuotas mensuales al valor residual — tú no gestionas nada." },
+  { q: "¿Cuánto demora la entrega en Lima?", a: "Entre 24 y 48 horas hábiles desde que confirmamos tu pedido. Entregamos en tu oficina o donde nos digas en Lima." },
 ];
 
 export default function ComoFunciona() {

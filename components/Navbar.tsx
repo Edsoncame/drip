@@ -43,7 +43,7 @@ export default function Navbar() {
     <>
       {/* Top promo bar */}
       <div style={{ background: "var(--primary)" }} className="text-white text-sm font-semibold text-center py-2.5 px-4">
-        🖥️ Nuevo en FLUX: MacBook Pro M5 ya disponible — desde $115/mes
+        🔥 Nuevo: MacBook Pro M5 ya en FLUX — desde $115/mes · Envío a Lima en 24h
       </div>
 
       {/* Main navbar */}

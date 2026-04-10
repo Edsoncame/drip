@@ -22,10 +22,10 @@ export default function Empresas() {
             FLUX para Empresas
           </span>
           <h1 className="text-4xl md:text-5xl font-black text-white mb-5" style={{ letterSpacing: "-0.02em", lineHeight: 1.1 }}>
-            Equipa a tu equipo con Mac.<br />Sin invertir un sol.
+            Dale Mac a tu equipo.<br />Sin gastar un sol hoy.
           </h1>
           <p className="text-lg text-white/70 mb-8 max-w-2xl mx-auto">
-            Contratos corporativos, MDM incluido, opción de compra para colaboradores. Todo en un solo modelo mensual.
+            Paga mensual, olvídate del hardware y enfócate en lo que realmente importa. FLUX arma el plan para tu empresa en 24 horas.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link href="/laptops" className="px-8 py-4 font-bold rounded-full text-sm transition-all hover:opacity-90"
@@ -34,7 +34,7 @@ export default function Empresas() {
             </Link>
             <a href="mailto:hola@flux.pe" className="px-8 py-4 font-bold rounded-full text-sm text-white transition-all hover:bg-white/10"
               style={{ border: "2px solid rgba(255,255,255,0.3)" }}>
-              Hablar con ventas
+              Escríbenos, sin compromiso
             </a>
           </div>
         </motion.div>
@@ -51,12 +51,12 @@ export default function Empresas() {
             className="grid grid-cols-1 md:grid-cols-3 gap-6"
           >
             {[
-              { icon: "🏦", title: "Cero CAPEX", desc: "La inversión en hardware sale de OPEX. Liberas capital para lo que importa." },
-              { icon: "🔒", title: "MDM & control", desc: "Enrolamiento MDM, control remoto, gestión de accesos. Tu equipo IT lo maneja todo." },
-              { icon: "💼", title: "Contratos corporativos", desc: "Contratos marco, adendas por equipo, facturación mensual consolidada." },
-              { icon: "💰", title: "Compra para colaboradores", desc: "El colaborador puede comprar su Mac en 16 cuotas. Tú no gestionas nada." },
-              { icon: "🔄", title: "Rotación inteligente", desc: "Equipos que salen del contrato se re-asignan o se venden al residual. Sin desperdiciar activos." },
-              { icon: "📊", title: "Reporte por equipo", desc: "Dashboard con el estado de cada dispositivo, vencimientos y opciones de compra." },
+              { icon: "🏦", title: "Cero CAPEX", desc: "Todo sale de OPEX. Tu flujo de caja queda libre para crecer, contratar o invertir en lo que importa." },
+              { icon: "🔒", title: "MDM incluido", desc: "Enrola, controla y gestiona los equipos de tu equipo desde el día uno. Sin configuraciones raras." },
+              { icon: "💼", title: "Contratos a tu medida", desc: "Arreglamos un contrato marco para tu empresa con facturación mensual consolidada. Sin papeleo infinito." },
+              { icon: "💰", title: "Tu equipo puede comprarla", desc: "Al terminar el plazo, tu trabajador compra la Mac en 16 cuotas. Tú no tienes que gestionar nada." },
+              { icon: "🔄", title: "Sin activos tirados", desc: "Cuando un equipo termina su ciclo, se reasigna o se vende al valor residual. Cero desperdicio." },
+              { icon: "📊", title: "Todo en un dashboard", desc: "Ves el estado de cada dispositivo, cuándo vence, quién lo tiene y qué opciones hay. Sin llamadas." },
             ].map(v => (
               <motion.div
                 key={v.title}
@@ -117,12 +117,12 @@ export default function Empresas() {
       {/* Contact CTA */}
       <section className="py-16" style={{ background: "var(--primary)" }}>
         <div className="max-w-2xl mx-auto px-4 sm:px-6 text-center">
-          <h2 className="text-3xl font-black text-white mb-3">¿Cuántos equipos necesitas?</h2>
-          <p className="text-white/80 mb-8">Cuéntanos y armamos el plan en 24h. Sin compromiso.</p>
+          <h2 className="text-3xl font-black text-white mb-3">¿Cuántas Macs necesita tu equipo?</h2>
+          <p className="text-white/80 mb-8">Escríbenos y en menos de 24 horas tienes una propuesta lista. Sin vueltas.</p>
           <a href="mailto:hola@flux.pe"
             className="inline-flex items-center gap-2 px-8 py-4 bg-white font-bold rounded-full hover:bg-gray-100 transition-all text-sm"
             style={{ color: "var(--primary)" }}>
-            Escribirnos → hola@flux.pe
+            Escríbenos a hola@flux.pe
           </a>
         </div>
       </section>

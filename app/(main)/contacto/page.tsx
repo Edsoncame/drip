@@ -7,8 +7,8 @@ export default function ContactoPage() {
         <Link href="/" className="text-sm text-[#1B4FFF] hover:underline">← Volver al inicio</Link>
       </div>
 
-      <h1 className="text-3xl font-800 text-[#18191F] mb-2">Contacto</h1>
-      <p className="text-[#666666] mb-10">¿Tienes preguntas? Estamos aquí para ayudarte.</p>
+      <h1 className="text-3xl font-800 text-[#18191F] mb-2">Hablemos</h1>
+      <p className="text-[#666666] mb-10">¿Tienes dudas? Escríbenos sin miedo — respondemos rápido.</p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-10">
         {[
@@ -17,7 +17,7 @@ export default function ContactoPage() {
             title: "Correo general",
             value: "hola@flux.pe",
             href: "mailto:hola@flux.pe",
-            desc: "Respuesta en menos de 24h hábiles",
+            desc: "Te respondemos en menos de 24 horas",
           },
           {
             icon: "💬",
@@ -31,7 +31,7 @@ export default function ContactoPage() {
             title: "Ventas corporativas",
             value: "ventas@flux.pe",
             href: "mailto:ventas@flux.pe",
-            desc: "Para flotas de 5+ equipos",
+            desc: "Para 5 o más Macs en tu empresa",
           },
           {
             icon: "🔒",
@@ -59,7 +59,7 @@ export default function ContactoPage() {
       </div>
 
       <div className="mt-8 text-center">
-        <p className="text-sm text-[#666666] mb-4">¿Listo para empezar?</p>
+        <p className="text-sm text-[#666666] mb-4">¿Ya te convenciste?</p>
         <Link href="/laptops"
           className="inline-flex items-center gap-2 px-6 py-3.5 bg-[#1B4FFF] text-white font-700 rounded-full hover:bg-[#1340CC] transition-colors">
           Ver MacBooks disponibles
