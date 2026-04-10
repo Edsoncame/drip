@@ -2,17 +2,11 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { loadStripe } from "@stripe/stripe-js";
-import {
-  Elements,
-  PaymentElement,
-  useStripe,
-  useElements,
-} from "@stripe/react-stripe-js";
+import { initMercadoPago, CardPayment } from "@mercadopago/sdk-react";
+import { motion } from "framer-motion";
 import { getProduct } from "@/lib/products";
 import type { Product } from "@/lib/products";
-
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
+import type { ICardPaymentFormData, ICardPaymentBrickPayer, IAdditionalData } from "@mercadopago/sdk-react/esm/bricks/cardPayment/type";
 
 // ─── Step indicator ────────────────────────────────────────────────────────────
 function Steps({ current }: { current: number }) {
@@ -28,11 +22,7 @@ function Steps({ current }: { current: number }) {
             <div className="flex flex-col items-center">
               <div
                 className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-700 transition-all ${
-                  done
-                    ? "bg-[#1B4FFF] text-white"
-                    : active
-                    ? "bg-[#1B4FFF] text-white"
-                    : "bg-[#E5E5E5] text-[#999999]"
+                  done || active ? "bg-[#1B4FFF] text-white" : "bg-[#E5E5E5] text-[#999999]"
                 }`}
               >
                 {done ? "✓" : n}
@@ -52,17 +42,9 @@ function Steps({ current }: { current: number }) {
 }
 
 // ─── Step 1 — Plan summary ─────────────────────────────────────────────────────
-function Step1({
-  product,
-  months,
-  onNext,
-}: {
-  product: Product;
-  months: number;
-  onNext: () => void;
-}) {
-  const plan = product.pricing.find(p => p.months === months)!;
+function Step1({ product, months, onNext }: { product: Product; months: number; onNext: () => void }) {
   const router = useRouter();
+  const plan = product.pricing.find((p) => p.months === months)!;
 
   return (
     <div>
@@ -75,7 +57,9 @@ function Step1({
           </div>
           <div>
             <p className="font-700 text-[#18191F] text-lg">{product.name}</p>
-            <p className="text-sm text-[#666666]">{product.chip} · {product.ram} · {product.ssd}</p>
+            <p className="text-sm text-[#666666]">
+              {product.chip} · {product.ram} · {product.ssd}
+            </p>
           </div>
         </div>
 
@@ -99,9 +83,8 @@ function Step1({
         </div>
       </div>
 
-      {/* What's included */}
       <div className="bg-[#E5F3DF] rounded-2xl p-5 mb-6">
-        <p className="font-700 text-[#2D7D46] mb-3">Incluye en tu renta</p>
+        <p className="font-700 text-[#2D7D46] mb-3">Incluido en tu renta</p>
         <ul className="space-y-2">
           {[
             "Entrega en tu empresa (Lima)",
@@ -109,7 +92,7 @@ function Step1({
             "Soporte técnico incluido",
             "Sin deuda en tu historial crediticio",
             "Cancela con 30 días de aviso",
-          ].map(item => (
+          ].map((item) => (
             <li key={item} className="flex items-center gap-2 text-sm text-[#2D7D46]">
               <span className="font-700">✓</span>
               {item}
@@ -171,41 +154,38 @@ function Step2({
     if (validate()) onNext();
   };
 
-  const field = (
-    key: keyof CustomerData,
-    label: string,
-    placeholder: string,
-    type = "text",
-    required = true
-  ) => (
-    <div>
-      <label className="block text-sm font-600 text-[#333333] mb-1">
-        {label} {required && <span className="text-[#1B4FFF]">*</span>}
-      </label>
-      <input
-        type={type}
-        value={data[key]}
-        onChange={e => onChange({ ...data, [key]: e.target.value })}
-        placeholder={placeholder}
-        className={`w-full px-4 py-3 rounded-xl border text-sm outline-none transition-all ${
-          errors[key]
-            ? "border-red-400 bg-red-50"
-            : "border-[#E5E5E5] focus:border-[#1B4FFF] focus:ring-2 focus:ring-[#1B4FFF]/10"
-        }`}
-      />
-      {errors[key] && <p className="text-red-500 text-xs mt-1">{errors[key]}</p>}
-    </div>
-  );
-
   return (
     <form onSubmit={handleSubmit}>
       <h2 className="text-2xl font-800 text-[#18191F] mb-6">Tus datos</h2>
 
       <div className="space-y-4">
-        {field("name", "Nombre completo", "Juan Pérez")}
-        {field("email", "Correo electrónico", "juan@empresa.com", "email")}
-        {field("phone", "Teléfono / WhatsApp", "+51 999 000 000", "tel")}
-        {field("company", "Empresa", "Mi Empresa S.A.C.")}
+        {(
+          [
+            { key: "name", label: "Nombre completo", placeholder: "Juan Pérez", type: "text" },
+            { key: "email", label: "Correo electrónico", placeholder: "juan@empresa.com", type: "email" },
+            { key: "phone", label: "Teléfono / WhatsApp", placeholder: "+51 999 000 000", type: "tel" },
+            { key: "company", label: "Empresa", placeholder: "Mi Empresa S.A.C.", type: "text" },
+          ] as const
+        ).map(({ key, label, placeholder, type }) => (
+          <div key={key}>
+            <label className="block text-sm font-600 text-[#333333] mb-1">
+              {label} <span className="text-[#1B4FFF]">*</span>
+            </label>
+            <input
+              type={type}
+              value={data[key]}
+              onChange={(e) => onChange({ ...data, [key]: e.target.value })}
+              placeholder={placeholder}
+              className={`w-full px-4 py-3 rounded-xl border text-sm outline-none transition-all ${
+                errors[key]
+                  ? "border-red-400 bg-red-50"
+                  : "border-[#E5E5E5] focus:border-[#1B4FFF] focus:ring-2 focus:ring-[#1B4FFF]/10"
+              }`}
+            />
+            {errors[key] && <p className="text-red-500 text-xs mt-1">{errors[key]}</p>}
+          </div>
+        ))}
+
         <div>
           <label className="block text-sm font-600 text-[#333333] mb-1">
             RUC <span className="text-[#999999] font-400">(opcional)</span>
@@ -213,7 +193,7 @@ function Step2({
           <input
             type="text"
             value={data.ruc}
-            onChange={e => onChange({ ...data, ruc: e.target.value })}
+            onChange={(e) => onChange({ ...data, ruc: e.target.value })}
             placeholder="20123456789"
             className="w-full px-4 py-3 rounded-xl border border-[#E5E5E5] text-sm outline-none focus:border-[#1B4FFF] focus:ring-2 focus:ring-[#1B4FFF]/10 transition-all"
           />
@@ -241,7 +221,7 @@ function Step2({
   );
 }
 
-// ─── Step 3 — Payment (Stripe Elements) ────────────────────────────────────────
+// ─── Step 3 — Mercado Pago Card Brick ─────────────────────────────────────────
 function PaymentForm({
   product,
   months,
@@ -253,61 +233,84 @@ function PaymentForm({
   customer: CustomerData;
   onBack: () => void;
 }) {
-  const stripe = useStripe();
-  const elements = useElements();
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const plan = product.pricing.find(p => p.months === months)!;
+  const plan = product.pricing.find((p) => p.months === months)!;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!stripe || !elements) return;
-
+  const handleSubmit = async (formData: ICardPaymentFormData<ICardPaymentBrickPayer>, _additionalData?: IAdditionalData) => {
     setLoading(true);
     setError(null);
 
-    const { error: submitError } = await elements.submit();
-    if (submitError) {
-      setError(submitError.message ?? "Error al procesar el pago");
-      setLoading(false);
-      return;
-    }
+    try {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slug: product.slug,
+          months,
+          cardToken: formData.token,
+          customer,
+        }),
+      });
 
-    const { error: confirmError } = await stripe.confirmPayment({
-      elements,
-      confirmParams: {
-        return_url: `${window.location.origin}/checkout/success?slug=${product.slug}&months=${months}&name=${encodeURIComponent(customer.name)}&email=${encodeURIComponent(customer.email)}`,
-        payment_method_data: {
-          billing_details: {
-            name: customer.name,
-            email: customer.email,
-            phone: customer.phone,
-          },
-        },
-      },
-    });
+      const data = await res.json();
 
-    if (confirmError) {
-      setError(confirmError.message ?? "Error al procesar el pago");
+      if (!res.ok) {
+        setError(data.error ?? "Error al procesar el pago");
+        setLoading(false);
+        return;
+      }
+
+      router.push(
+        `/checkout/success?slug=${product.slug}&months=${months}&name=${encodeURIComponent(customer.name)}&email=${encodeURIComponent(customer.email)}`
+      );
+    } catch {
+      setError("Error de conexión. Intenta de nuevo.");
       setLoading(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit}>
+    <div>
       <h2 className="text-2xl font-800 text-[#18191F] mb-2">Pago seguro</h2>
       <p className="text-sm text-[#666666] mb-6">
-        Se cobrará <strong className="text-[#18191F]">${plan.price}</strong> por el primer mes.
-        Los siguientes meses se cobrarán automáticamente.
+        Se cobrará <strong className="text-[#18191F]">${plan.price}</strong> hoy por el primer mes.
+        Los siguientes meses se cobran automáticamente.
       </p>
 
-      <div className="bg-[#F7F7F7] rounded-2xl p-5 mb-6">
-        <PaymentElement
-          options={{
-            layout: "tabs",
-            fields: { billingDetails: { email: "never", name: "never" } },
+      {/* Order summary mini */}
+      <div className="bg-[#EEF2FF] rounded-xl p-4 mb-6 flex justify-between items-center">
+        <div className="text-sm">
+          <p className="font-700 text-[#18191F]">{product.shortName}</p>
+          <p className="text-[#666666]">
+            {months} meses · ${plan.price}/mes
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="text-xs text-[#666666]">Cobro hoy</p>
+          <p className="text-xl font-800 text-[#1B4FFF]">${plan.price}</p>
+        </div>
+      </div>
+
+      {/* MP Card Brick */}
+      <div className="mb-4">
+        <CardPayment
+          initialization={{ amount: plan.price, payer: { email: customer.email } }}
+          customization={{
+            paymentMethods: {
+              minInstallments: 1,
+              maxInstallments: 1,
+            },
+            visual: {
+              hideFormTitle: true,
+              hidePaymentButton: loading,
+            },
+          }}
+          onSubmit={handleSubmit}
+          onError={(err) => {
+            setError(err?.message ?? "Error en el formulario de pago");
           }}
         />
       </div>
@@ -318,48 +321,27 @@ function PaymentForm({
         </div>
       )}
 
-      {/* Order summary mini */}
-      <div className="bg-[#EEF2FF] rounded-xl p-4 mb-6 flex justify-between items-center">
-        <div className="text-sm">
-          <p className="font-700 text-[#18191F]">{product.shortName}</p>
-          <p className="text-[#666666]">{months} meses · ${plan.price}/mes</p>
+      {loading && (
+        <div className="flex items-center justify-center gap-3 py-4 text-[#1B4FFF] font-600">
+          <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="30 70" />
+          </svg>
+          Procesando suscripción…
         </div>
-        <div className="text-right">
-          <p className="text-xs text-[#666666]">Cobro hoy</p>
-          <p className="text-xl font-800 text-[#1B4FFF]">${plan.price}</p>
-        </div>
-      </div>
+      )}
 
-      <button
-        type="submit"
-        disabled={!stripe || loading}
-        className="w-full py-4 rounded-full bg-[#1B4FFF] text-white font-700 text-lg hover:bg-[#1340CC] transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-      >
-        {loading ? (
-          <>
-            <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="30 70" />
-            </svg>
-            Procesando…
-          </>
-        ) : (
-          `Pagar $${plan.price} y confirmar`
-        )}
-      </button>
-
-      <div className="flex items-center justify-center gap-2 mt-4 text-xs text-[#999999]">
+      <div className="flex items-center justify-center gap-2 mt-3 mb-4 text-xs text-[#999999]">
         <span>🔒</span>
-        <span>Pago encriptado con SSL — procesado por Stripe</span>
+        <span>Pago seguro con cifrado SSL — procesado por Mercado Pago</span>
       </div>
 
       <button
-        type="button"
         onClick={onBack}
-        className="w-full py-3 mt-3 rounded-full border border-[#E5E5E5] text-[#666666] font-600 text-sm hover:border-[#1B4FFF] hover:text-[#1B4FFF] transition-colors cursor-pointer"
+        className="w-full py-3 rounded-full border border-[#E5E5E5] text-[#666666] font-600 text-sm hover:border-[#1B4FFF] hover:text-[#1B4FFF] transition-colors cursor-pointer"
       >
         Volver
       </button>
-    </form>
+    </div>
   );
 }
 
@@ -370,10 +352,10 @@ function CheckoutContent() {
 
   const slug = searchParams.get("slug") ?? "";
   const months = parseInt(searchParams.get("months") ?? "8", 10);
-
   const product = getProduct(slug);
 
   const [step, setStep] = useState(1);
+  const [mpReady, setMpReady] = useState(false);
   const [customer, setCustomer] = useState<CustomerData>({
     name: "",
     email: "",
@@ -381,47 +363,30 @@ function CheckoutContent() {
     company: "",
     ruc: "",
   });
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const [creatingIntent, setCreatingIntent] = useState(false);
+
+  useEffect(() => {
+    initMercadoPago(process.env.NEXT_PUBLIC_MP_PUBLIC_KEY!, { locale: "es-PE" });
+    setMpReady(true);
+  }, []);
 
   if (!product) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <p className="text-lg font-700 text-[#333333] mb-4">Producto no encontrado</p>
-          <a href="/laptops" className="text-[#1B4FFF] font-600">Ver todos los MacBooks</a>
+          <a href="/laptops" className="text-[#1B4FFF] font-600">
+            Ver todos los MacBooks
+          </a>
         </div>
       </div>
     );
   }
 
-  const plan = product.pricing.find(p => p.months === months);
+  const plan = product.pricing.find((p) => p.months === months);
   if (!plan) {
     router.push("/laptops");
     return null;
   }
-
-  const goToStep3 = async () => {
-    setCreatingIntent(true);
-    try {
-      const res = await fetch("/api/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug, months, customer }),
-      });
-      const data = await res.json();
-      if (data.clientSecret) {
-        setClientSecret(data.clientSecret);
-        setStep(3);
-      } else {
-        alert(data.error ?? "Error al preparar el pago");
-      }
-    } catch {
-      alert("Error de conexión. Intenta de nuevo.");
-    } finally {
-      setCreatingIntent(false);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-[#F7F7F7] py-10">
@@ -433,62 +398,36 @@ function CheckoutContent() {
 
         <Steps current={step} />
 
-        <div className="bg-white rounded-3xl p-8 shadow-sm">
-          {step === 1 && (
-            <Step1
-              product={product}
-              months={months}
-              onNext={() => setStep(2)}
-            />
-          )}
+        <motion.div
+          key={step}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25 }}
+          className="bg-white rounded-3xl p-8 shadow-sm"
+        >
+          {step === 1 && <Step1 product={product} months={months} onNext={() => setStep(2)} />}
 
           {step === 2 && (
             <Step2
               data={customer}
               onChange={setCustomer}
               onBack={() => setStep(1)}
-              onNext={goToStep3}
+              onNext={() => setStep(3)}
             />
           )}
 
-          {step === 2 && creatingIntent && (
-            <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-              <div className="bg-white rounded-2xl p-8 flex flex-col items-center gap-4">
-                <svg className="animate-spin w-8 h-8 text-[#1B4FFF]" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="30 70" />
-                </svg>
-                <p className="font-600 text-[#333333]">Preparando pago seguro…</p>
-              </div>
-            </div>
+          {step === 3 && mpReady && (
+            <PaymentForm
+              product={product}
+              months={months}
+              customer={customer}
+              onBack={() => setStep(2)}
+            />
           )}
-
-          {step === 3 && clientSecret && (
-            <Elements
-              stripe={stripePromise}
-              options={{
-                clientSecret,
-                appearance: {
-                  theme: "stripe",
-                  variables: {
-                    colorPrimary: "#1B4FFF",
-                    fontFamily: "Inter, sans-serif",
-                    borderRadius: "12px",
-                  },
-                },
-              }}
-            >
-              <PaymentForm
-                product={product}
-                months={months}
-                customer={customer}
-                onBack={() => setStep(2)}
-              />
-            </Elements>
-          )}
-        </div>
+        </motion.div>
 
         <p className="text-center text-xs text-[#999999] mt-6">
-          © 2025 DRIP — Tika Services S.A.C. · RUC 20608888888
+          © 2025 DRIP — Tika Services S.A.C.
         </p>
       </div>
     </div>
@@ -497,11 +436,13 @@ function CheckoutContent() {
 
 export default function CheckoutPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-[#F7F7F7]">
-        <div className="text-[#666666] font-600">Cargando…</div>
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-[#F7F7F7]">
+          <div className="text-[#666666] font-600">Cargando…</div>
+        </div>
+      }
+    >
       <CheckoutContent />
     </Suspense>
   );

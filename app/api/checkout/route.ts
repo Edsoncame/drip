@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import Stripe from "stripe";
+import { MercadoPagoConfig, PreApprovalPlan, PreApproval } from "mercadopago";
 import { getProduct } from "@/lib/products";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2026-03-25.dahlia",
+const client = new MercadoPagoConfig({
+  accessToken: process.env.MP_ACCESS_TOKEN!,
+  options: { timeout: 5000 },
 });
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { slug, months, customer } = body as {
+    const { slug, months, cardToken, customer } = body as {
       slug: string;
       months: number;
+      cardToken: string;
       customer: {
         name: string;
         email: string;
@@ -26,40 +28,48 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Producto no encontrado" }, { status: 404 });
     }
 
-    const plan = product.pricing.find(p => p.months === months);
+    const plan = product.pricing.find((p) => p.months === months);
     if (!plan) {
       return NextResponse.json({ error: "Plan no válido" }, { status: 400 });
     }
 
-    // Amount in cents (USD → multiply by 100)
-    const amountCents = plan.price * 100;
-
-    // Create PaymentIntent for first month charge
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: amountCents,
-      currency: "usd",
-      automatic_payment_methods: { enabled: true },
-      metadata: {
-        product_slug: slug,
-        product_name: product.name,
-        plan_months: months.toString(),
-        monthly_price: plan.price.toString(),
-        customer_name: customer.name,
-        customer_email: customer.email,
-        customer_phone: customer.phone,
-        customer_company: customer.company,
-        customer_ruc: customer.ruc,
+    // 1 — Create a subscription plan (one per checkout)
+    const preApprovalPlan = await new PreApprovalPlan(client).create({
+      body: {
+        reason: `DRIP — ${product.name} · ${months} meses`,
+        auto_recurring: {
+          frequency: 1,
+          frequency_type: "months",
+          repetitions: months,
+          billing_day: new Date().getDate(),
+          transaction_amount: plan.price,
+          currency_id: "USD",
+        },
+        back_url: `${process.env.NEXT_PUBLIC_APP_URL}/checkout/success`,
       },
-      description: `DRIP — ${product.name} (${months} meses) — Primer mes`,
-      receipt_email: customer.email,
     });
 
-    return NextResponse.json({ clientSecret: paymentIntent.client_secret });
-  } catch (err) {
-    console.error("Stripe error:", err);
-    return NextResponse.json(
-      { error: "Error al crear el pago. Intenta de nuevo." },
-      { status: 500 }
-    );
+    if (!preApprovalPlan.id) {
+      throw new Error("No se pudo crear el plan de suscripción");
+    }
+
+    // 2 — Subscribe the customer using the card token from the frontend
+    const preApproval = await new PreApproval(client).create({
+      body: {
+        preapproval_plan_id: preApprovalPlan.id,
+        payer_email: customer.email,
+        card_token_id: cardToken,
+        status: "authorized",
+      },
+    });
+
+    return NextResponse.json({
+      subscriptionId: preApproval.id,
+      status: preApproval.status,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Error al procesar el pago";
+    console.error("MP error:", err);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
