@@ -79,19 +79,29 @@ export default function Hero() {
         >
           {!imgErrors[active] && (
             <>
-              <Image
-                src={slide.image}
-                alt={slide.imageAlt}
-                fill
-                className={
-                  slide.imageMode === "cover"
-                    ? "object-cover object-center"
-                    : "object-contain object-right-bottom"
-                }
-                priority={active === 0}
-                unoptimized
-                onError={() => setImgErrors(prev => ({ ...prev, [active]: true }))}
-              />
+              {slide.imageMode === "cover" ? (
+                <Image
+                  src={slide.image}
+                  alt={slide.imageAlt}
+                  fill
+                  className="object-cover object-center"
+                  priority={active === 0}
+                  unoptimized
+                  onError={() => setImgErrors(prev => ({ ...prev, [active]: true }))}
+                />
+              ) : (
+                /* PNG transparent — natural aspect ratio, anchored bottom-right */
+                <Image
+                  src={slide.image}
+                  alt={slide.imageAlt}
+                  width={900}
+                  height={600}
+                  className="absolute bottom-0 right-0 h-full w-auto object-contain object-right-bottom"
+                  priority={active === 0}
+                  unoptimized
+                  onError={() => setImgErrors(prev => ({ ...prev, [active]: true }))}
+                />
+              )}
               {/* Seamless left-edge fade into section background */}
               <div
                 className="absolute inset-0 pointer-events-none"
