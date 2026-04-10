@@ -79,7 +79,7 @@ export default function Hero() {
   return (
     <section
       className="relative overflow-hidden"
-      style={{ background: slide.bg, minHeight: 420, transition: "background 0.6s ease" }}
+      style={{ background: slide.bg, height: 460, transition: "background 0.6s ease" }}
     >
       {/* ── VIDEO SLIDE (MacBook Pro) ─────────────────────────── */}
       {slides.map((s, i) =>
@@ -125,8 +125,8 @@ export default function Hero() {
               alt={slide.imageAlt}
               width={1200}
               height={770}
-              className="w-full h-full object-contain object-right-center"
-              style={{ padding: "20px 28px 20px 0" }}
+              className="w-full h-full"
+              style={{ objectFit: "contain", objectPosition: "right center", padding: "12px 24px 12px 0" }}
               unoptimized
               priority={active > 0}
               onError={() => setImgError(prev => ({ ...prev, [active]: true }))}
