@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { query } from "@/lib/db";
 import { signToken, sessionCookieOptions } from "@/lib/auth";
 import { generateUniqueReferralCode, applyReferralCode } from "@/lib/referrals";
+import { sendWelcomeEmail } from "@/lib/email";
 
 export async function POST(req: NextRequest) {
   try {
@@ -46,6 +47,9 @@ export async function POST(req: NextRequest) {
     }
 
     const token = await signToken({ userId: user.id, email: user.email, name: user.name });
+
+    // Non-blocking welcome email
+    sendWelcomeEmail({ to: user.email, name: user.name, referralCode: myReferralCode }).catch(() => {});
 
     const res = NextResponse.json({ user: { id: user.id, name: user.name, email: user.email } }, { status: 201 });
     res.cookies.set(sessionCookieOptions(token));

@@ -30,6 +30,16 @@ interface Stat {
   total_subs: string;
 }
 
+interface Referral {
+  referrer_name: string;
+  referrer_email: string;
+  referred_name: string;
+  referred_email: string;
+  created_at: string;
+  status: string;
+  referral_id: string;
+}
+
 const STATUS_COLORS: Record<string, string> = {
   active:    "bg-green-100 text-green-700",
   paused:    "bg-yellow-100 text-yellow-700",
@@ -43,7 +53,7 @@ export default async function AdminPage() {
     redirect("/");
   }
 
-  const [statsResult, subsResult] = await Promise.all([
+  const [statsResult, subsResult, referralsResult] = await Promise.all([
     query<Stat>(`
       SELECT
         COUNT(*) FILTER (WHERE status = 'active') AS active_count,
@@ -61,10 +71,21 @@ export default async function AdminPage() {
       ORDER BY s.started_at DESC
       LIMIT 200
     `),
+    query<Referral>(`
+      SELECT r.id AS referral_id, r.status, r.created_at,
+             ru.name AS referrer_name, ru.email AS referrer_email,
+             rd.name AS referred_name, rd.email AS referred_email
+      FROM referrals r
+      JOIN users ru ON ru.id = r.referrer_id
+      JOIN users rd ON rd.id = r.referred_id
+      ORDER BY r.created_at DESC
+      LIMIT 100
+    `).catch(() => ({ rows: [] as Referral[] })),
   ]);
 
   const stats = statsResult.rows[0];
   const subs = subsResult.rows;
+  const referrals = referralsResult.rows;
 
   return (
     <div className="min-h-screen bg-[#F7F7F7]">
@@ -103,10 +124,21 @@ export default async function AdminPage() {
         </div>
 
         {/* Subscriptions table */}
-        <div className="bg-white rounded-2xl border border-[#E5E5E5] overflow-hidden">
-          <div className="px-6 py-4 border-b border-[#E5E5E5]">
-            <h2 className="font-700 text-[#18191F]">Todas las rentas</h2>
-            <p className="text-xs text-[#999999] mt-0.5">{subs.length} registros</p>
+        <div className="bg-white rounded-2xl border border-[#E5E5E5] overflow-hidden mb-8">
+          <div className="px-6 py-4 border-b border-[#E5E5E5] flex items-center justify-between">
+            <div>
+              <h2 className="font-700 text-[#18191F]">Todas las rentas</h2>
+              <p className="text-xs text-[#999999] mt-0.5">{subs.length} registros</p>
+            </div>
+            <a
+              href="/api/admin/export"
+              className="flex items-center gap-1.5 px-4 py-2 bg-[#18191F] text-white text-xs font-700 rounded-full hover:bg-[#333333] transition-colors"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+              </svg>
+              Exportar CSV
+            </a>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -150,6 +182,52 @@ export default async function AdminPage() {
             </table>
           </div>
         </div>
+        {/* Referrals table */}
+        {referrals.length > 0 && (
+          <div className="bg-white rounded-2xl border border-[#E5E5E5] overflow-hidden">
+            <div className="px-6 py-4 border-b border-[#E5E5E5]">
+              <h2 className="font-700 text-[#18191F]">Programa de referidos</h2>
+              <p className="text-xs text-[#999999] mt-0.5">{referrals.length} referidos</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-[#F7F7F7]">
+                  <tr>
+                    {["Referidor", "Referido", "Fecha", "Estado"].map(h => (
+                      <th key={h} className="text-left px-4 py-3 text-xs font-700 text-[#666666] whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#F0F0F0]">
+                  {referrals.map(r => (
+                    <tr key={r.referral_id} className="hover:bg-[#FAFAFA] transition-colors">
+                      <td className="px-4 py-3">
+                        <p className="font-600 text-[#18191F]">{r.referrer_name}</p>
+                        <p className="text-xs text-[#999999]">{r.referrer_email}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="font-600 text-[#18191F]">{r.referred_name}</p>
+                        <p className="text-xs text-[#999999]">{r.referred_email}</p>
+                      </td>
+                      <td className="px-4 py-3 text-[#666666] whitespace-nowrap">
+                        {new Date(r.created_at).toLocaleDateString("es-PE", { day: "2-digit", month: "short", year: "2-digit" })}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-700 ${
+                          r.status === "rewarded"
+                            ? "bg-green-100 text-green-700"
+                            : "bg-yellow-100 text-yellow-700"
+                        }`}>
+                          {r.status === "rewarded" ? "Recompensado" : "Pendiente"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

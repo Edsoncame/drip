@@ -332,7 +332,7 @@ function PaymentForm({
       }
 
       router.push(
-        `/checkout/success?slug=${product.slug}&months=${months}&name=${encodeURIComponent(customer.name)}&email=${encodeURIComponent(customer.email)}`
+        `/checkout/success?slug=${product.slug}&months=${months}&name=${encodeURIComponent(customer.name)}&email=${encodeURIComponent(customer.email)}&total=${totalMonthly}&qty=${quantity}`
       );
     } catch {
       setError("Error de conexión. Intenta de nuevo.");
@@ -444,6 +444,22 @@ function CheckoutContent() {
   useEffect(() => {
     initMercadoPago(process.env.NEXT_PUBLIC_MP_PUBLIC_KEY!, { locale: "es-PE" });
     setMpReady(true);
+
+    // Pre-fill customer data if logged in
+    fetch("/api/auth/me")
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.user) {
+          setCustomer(prev => ({
+            name: prev.name || data.user.name || "",
+            email: prev.email || data.user.email || "",
+            phone: prev.phone || data.user.phone || "",
+            company: prev.company || data.user.company || "",
+            ruc: prev.ruc,
+          }));
+        }
+      })
+      .catch(() => {});
   }, []);
 
   if (!product) {

@@ -15,10 +15,12 @@ const tag = "[checkout]";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { slug, months, cardToken, customer } = body as {
+    const { slug, months, cardToken, customer, quantity = 1, appleCare = false } = body as {
       slug: string;
       months: number;
       cardToken: string;
+      quantity?: number;
+      appleCare?: boolean;
       customer: {
         name: string;
         email: string;
@@ -55,16 +57,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Plan no válido" }, { status: 400 });
     }
 
+    const qty = Math.max(1, Math.min(20, Math.floor(quantity)));
+    const APPLECARE_PRICE = 15;
+    const totalMonthly = (plan.price + (appleCare ? APPLECARE_PRICE : 0)) * qty;
+
     // 1 — Create a subscription plan (one per checkout)
     const preApprovalPlan = await new PreApprovalPlan(client).create({
       body: {
-        reason: `FLUX — ${product.name} · ${months} meses`,
+        reason: `FLUX — ${product.name}${qty > 1 ? ` ×${qty}` : ""} · ${months} meses`,
         auto_recurring: {
           frequency: 1,
           frequency_type: "months",
           repetitions: months,
           billing_day: new Date().getDate(),
-          transaction_amount: plan.price,
+          transaction_amount: totalMonthly,
           currency_id: "USD",
         },
         back_url: `${process.env.NEXT_PUBLIC_APP_URL}/checkout/success`,
@@ -100,7 +106,7 @@ export async function POST(req: NextRequest) {
         product.slug,
         product.name,
         months,
-        plan.price,
+        totalMonthly,
         endsAt,
         preApproval.id ?? null,
         customer.name,
@@ -117,7 +123,7 @@ export async function POST(req: NextRequest) {
       name: customer.name,
       productName: product.name,
       months,
-      price: plan.price,
+      price: totalMonthly,
       endsAt,
     }).catch(() => {});
 

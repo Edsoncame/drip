@@ -13,9 +13,12 @@ function SuccessContent() {
   const months = parseInt(searchParams.get("months") ?? "8", 10);
   const name = searchParams.get("name") ?? "";
   const email = searchParams.get("email") ?? "";
+  const total = parseInt(searchParams.get("total") ?? "0", 10);
+  const qty = parseInt(searchParams.get("qty") ?? "1", 10);
 
   const product = getProduct(slug);
   const plan = product?.pricing.find(p => p.months === months);
+  const displayTotal = total > 0 ? total : (plan?.price ?? 0);
 
   useEffect(() => {
     setMounted(true);
@@ -71,7 +74,7 @@ function SuccessContent() {
                   💻
                 </div>
                 <div>
-                  <p className="font-700 text-[#18191F]">{product.name}</p>
+                  <p className="font-700 text-[#18191F]">{product.name}{qty > 1 ? ` ×${qty}` : ""}</p>
                   <p className="text-sm text-[#666666]">{product.chip} · {product.ram}</p>
                 </div>
               </div>
@@ -86,7 +89,7 @@ function SuccessContent() {
                 </div>
                 <div className="flex justify-between pt-2 border-t border-[#E5E5E5]">
                   <span className="font-700 text-[#333333]">Cobrado hoy</span>
-                  <span className="font-800 text-[#1B4FFF]">${plan.price}</span>
+                  <span className="font-800 text-[#1B4FFF]">${displayTotal}</span>
                 </div>
               </div>
             </div>
