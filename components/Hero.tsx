@@ -40,13 +40,12 @@ const slides = [
     subtitle: "Contratos flexibles, MDM incluido, opción de compra para colaboradores.",
     cta: "Conocer planes empresa",
     href: "/empresas",
-    bg: "#0d1b4b",
+    bg: "#0d1117",
     textColor: "#FFFFFF",
-    accentColor: "#FFFFFF",
-    type: "video" as const,
-    video: "https://www.apple.com/105/media/us/macbook-air/2026/ff11cb38-708e-4c28-9653-1b01a2f8fd2b/anim/hero/large.mp4",
-    poster: "https://www.apple.com/v/macbook-air/z/images/overview/hero/hero_endframe__c67cz35iy9me_large.png",
-    imageAlt: "MacBook Air para empresas",
+    accentColor: "#1B4FFF",
+    type: "image" as const,
+    image: `${CDN}/mac-macbook-pro-size-select-202601-14inch?wid=960&hei=720&fmt=png-alpha&qlt=95`,
+    imageAlt: "MacBook Pro para empresas",
   },
 ];
 
