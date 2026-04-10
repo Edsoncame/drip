@@ -31,7 +31,7 @@ const slides = [
     textColor: "#18191F",
     accentColor: "#1B4FFF",
     type: "image" as const,
-    image: `${CDN}/macbook-air-size-unselect-202601-gallery-1?wid=1200&hei=770&fmt=png-alpha&qlt=95`,
+    image: `${CDN}/macbook-air-size-unselect-202601-gallery-1?wid=700&hei=448&fmt=png-alpha&qlt=80`,
     imageAlt: "MacBook Air 13 y 15 pulgadas M4",
   },
   {
@@ -44,7 +44,7 @@ const slides = [
     textColor: "#FFFFFF",
     accentColor: "#1B4FFF",
     type: "image" as const,
-    image: `${CDN}/mac-macbook-pro-size-select-202601-14inch?wid=1000&hei=700&fmt=png-alpha&qlt=95`,
+    image: `${CDN}/mac-macbook-pro-size-select-202601-14inch?wid=700&hei=490&fmt=png-alpha&qlt=80`,
     imageAlt: "MacBook Pro 14 pulgadas para empresas",
   },
 ];
@@ -123,12 +123,12 @@ export default function Hero() {
             <Image
               src={(slide as { image: string }).image}
               alt={slide.imageAlt}
-              width={1200}
-              height={770}
+              width={700}
+              height={490}
               className="w-full h-full"
               style={{ objectFit: "contain", objectPosition: "right center", padding: "12px 24px 12px 0" }}
               unoptimized
-              priority={active > 0}
+              priority
               onError={() => setImgError(prev => ({ ...prev, [active]: true }))}
             />
             {/* Left-edge blend */}
