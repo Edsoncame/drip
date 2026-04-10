@@ -2,7 +2,10 @@ import Hero from "@/components/Hero";
 import ProductCard from "@/components/ProductCard";
 import HowItWorks from "@/components/HowItWorks";
 import { products } from "@/lib/products";
+import { getAppleImageSets } from "@/lib/appleImages";
 import Link from "next/link";
+
+export const revalidate = 86400; // refresh images daily
 
 const testimonials = [
   { name: "Andrea C.", role: "Head of Ops · Fintech Lima", text: "Equipamos a 12 personas con MacBook Pro en una semana. Sin comprar nada. DRIP lo hizo fácil.", stars: 5 },
@@ -10,7 +13,9 @@ const testimonials = [
   { name: "Lucía R.", role: "CFO · Startup SaaS", text: "Lo mejor: cero CAPEX. Todo va a OPEX y eso cambia totalmente el flujo de caja.", stars: 5 },
 ];
 
-export default function Home() {
+export default async function Home() {
+  const imageSets = await getAppleImageSets();
+
   return (
     <>
       <Hero />
@@ -29,7 +34,13 @@ export default function Home() {
             </Link>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {products.map(p => <ProductCard key={p.slug} product={p} />)}
+            {products.map(p => (
+              <ProductCard
+                key={p.slug}
+                product={p}
+                imageUrl={imageSets[p.slug]?.open}
+              />
+            ))}
           </div>
         </div>
       </section>

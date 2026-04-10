@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import ProductCard from "@/components/ProductCard";
 import { products } from "@/lib/products";
-import { Suspense } from "react";
 
 const FILTERS = ["Todos", "MacBook Air", "MacBook Pro", "Chip M4", "Chip M5"];
 
@@ -20,6 +19,7 @@ function filterProducts(active: string) {
 function LaptopsContent() {
   const searchParams = useSearchParams();
   const urlFilter = searchParams.get("filter");
+  const [imageSets, setImageSets] = useState<Record<string, { open: string }>>({});
 
   const getInitialFilter = () => {
     if (urlFilter === "air") return "MacBook Air";
@@ -34,6 +34,13 @@ function LaptopsContent() {
     setActive(getInitialFilter());
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlFilter]);
+
+  useEffect(() => {
+    fetch("/api/apple-images")
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setImageSets(data); })
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
@@ -62,7 +69,9 @@ function LaptopsContent() {
       {/* Grid */}
       {filtered.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filtered.map(p => <ProductCard key={p.slug} product={p} />)}
+          {filtered.map(p => (
+            <ProductCard key={p.slug} product={p} imageUrl={imageSets[p.slug]?.open} />
+          ))}
         </div>
       ) : (
         <div className="text-center py-16">

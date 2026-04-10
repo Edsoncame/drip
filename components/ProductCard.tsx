@@ -1,18 +1,27 @@
 "use client";
 import Link from "next/link";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { useState } from "react";
 import type { Product } from "@/lib/products";
 
-export default function ProductCard({ product }: { product: Product }) {
+interface ProductCardProps {
+  product: Product;
+  imageUrl?: string;
+}
+
+export default function ProductCard({ product, imageUrl }: ProductCardProps) {
   const [liked, setLiked] = useState(false);
+  const [imgError, setImgError] = useState(false);
   const minPrice = Math.min(...product.pricing.map(p => p.price));
 
   return (
-    <motion.div whileHover={{ y: -4 }} transition={{ type: "spring", stiffness: 300, damping: 25 }}
+    <motion.div
+      whileHover={{ y: -4 }}
+      transition={{ type: "spring", stiffness: 300, damping: 25 }}
       className="relative bg-white rounded-2xl overflow-hidden group"
-      style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.07)", border: "1px solid #F0F0F0" }}>
-
+      style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.07)", border: "1px solid #F0F0F0" }}
+    >
       {/* Badge */}
       {product.badge && (
         <div className="absolute top-3 left-3 z-10 px-2.5 py-1 text-xs font-bold text-white rounded-full"
@@ -28,8 +37,10 @@ export default function ProductCard({ product }: { product: Product }) {
       )}
 
       {/* Wishlist */}
-      <button onClick={() => setLiked(!liked)}
-        className="absolute top-3 right-3 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-white shadow-sm transition-transform active:scale-90">
+      <button
+        onClick={() => setLiked(!liked)}
+        className="absolute top-3 right-3 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-white shadow-sm transition-transform active:scale-90 cursor-pointer"
+      >
         <svg width="16" height="16" viewBox="0 0 24 24"
           fill={liked ? "var(--primary)" : "none"}
           stroke={liked ? "var(--primary)" : "#999"}
@@ -40,11 +51,23 @@ export default function ProductCard({ product }: { product: Product }) {
 
       {/* Image */}
       <Link href={`/laptops/${product.slug}`}>
-        <div className="aspect-[4/3] bg-gray-50 flex items-center justify-center p-6 group-hover:bg-gray-100 transition-colors">
-          <div className="text-center">
-            <div className="text-7xl mb-2">💻</div>
-            <div className="text-xs font-semibold text-gray-400">{product.chip} · {product.ram} · {product.ssd}</div>
-          </div>
+        <div className="aspect-[4/3] bg-[#F5F5F7] flex items-center justify-center overflow-hidden group-hover:bg-[#EBEBED] transition-colors">
+          {imageUrl && !imgError ? (
+            <Image
+              src={imageUrl}
+              alt={product.name}
+              width={600}
+              height={385}
+              className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
+              onError={() => setImgError(true)}
+              priority={false}
+            />
+          ) : (
+            <div className="text-center p-6">
+              <div className="text-7xl mb-2">💻</div>
+              <div className="text-xs font-semibold text-gray-400">{product.chip} · {product.ram}</div>
+            </div>
+          )}
         </div>
       </Link>
 
@@ -55,8 +78,6 @@ export default function ProductCard({ product }: { product: Product }) {
             {product.name}
           </h3>
         </Link>
-
-        {/* Pricing */}
         <div className="flex items-end justify-between">
           <div>
             <p className="text-xs mb-0.5" style={{ color: "var(--light-text)" }}>desde</p>
@@ -65,9 +86,11 @@ export default function ProductCard({ product }: { product: Product }) {
               <span className="text-sm font-semibold ml-1" style={{ color: "var(--medium-text)" }}>/mes</span>
             </p>
           </div>
-          <Link href={`/laptops/${product.slug}`}
+          <Link
+            href={`/laptops/${product.slug}`}
             className="px-4 py-2 text-sm font-bold text-white rounded-full transition-all hover:opacity-90 active:scale-95"
-            style={{ background: "var(--primary)" }}>
+            style={{ background: "var(--primary)" }}
+          >
             Ver planes
           </Link>
         </div>

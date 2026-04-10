@@ -3,7 +3,15 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import Image from "next/image";
 import type { Product } from "@/lib/products";
+
+interface ImageSet {
+  hero: string;
+  open: string;
+  side: string;
+  gallery: string[];
+}
 
 const PLAN_LABELS: Record<number, string> = {
   8: "8 meses",
@@ -17,12 +25,17 @@ const PLAN_SAVINGS: Record<number, string> = {
   24: "Ahorra 27%",
 };
 
-export default function ProductDetail({ product }: { product: Product }) {
+export default function ProductDetail({ product, images }: { product: Product; images?: ImageSet }) {
   const [selectedMonths, setSelectedMonths] = useState(product.pricing[0].months);
+  const [activeImg, setActiveImg] = useState(0);
+  const [imgError, setImgError] = useState(false);
   const router = useRouter();
 
   const selected = product.pricing.find(p => p.months === selectedMonths)!;
   const total = selected.price * selected.months;
+
+  const galleryImgs = images?.gallery ?? [];
+  const currentImg = galleryImgs[activeImg] ?? images?.open ?? null;
 
   const handleCTA = () => {
     router.push(`/checkout?slug=${product.slug}&months=${selectedMonths}`);
@@ -43,25 +56,54 @@ export default function ProductDetail({ product }: { product: Product }) {
 
       <div className="max-w-7xl mx-auto px-4 py-10">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
-          {/* Left — Image */}
+
+          {/* Left — Image gallery */}
           <div className="sticky top-24">
-            <div className="bg-[#F7F7F7] rounded-2xl p-10 flex items-center justify-center aspect-square relative overflow-hidden">
-              {product.badge && (
-                <div className="absolute top-4 left-4 bg-[#1B4FFF] text-white text-xs font-700 px-3 py-1 rounded-full">
-                  {product.badge}
+            {/* Main image */}
+            <div className="bg-[#F5F5F7] rounded-2xl overflow-hidden flex items-center justify-center"
+              style={{ aspectRatio: "4/3" }}>
+              {currentImg && !imgError ? (
+                <Image
+                  src={currentImg}
+                  alt={product.name}
+                  width={800}
+                  height={600}
+                  className="w-full h-full object-cover object-center"
+                  priority
+                  onError={() => setImgError(true)}
+                />
+              ) : (
+                <div className="flex flex-col items-center gap-3 p-10">
+                  <div className="text-9xl opacity-20">💻</div>
+                  <p className="text-sm font-600 text-[#999999]">{product.name}</p>
                 </div>
               )}
-              <img
-                src={product.image}
-                alt={product.name}
-                className="w-full max-w-sm object-contain drop-shadow-xl"
-                onError={(e) => {
-                  const t = e.target as HTMLImageElement;
-                  t.style.display = "none";
-                  t.parentElement!.innerHTML += `<div style="font-size:120px;opacity:0.15;user-select:none;text-align:center;position:absolute;">💻</div>`;
-                }}
-              />
             </div>
+
+            {/* Thumbnail strip */}
+            {galleryImgs.length > 1 && !imgError && (
+              <div className="flex gap-2 mt-3">
+                {galleryImgs.map((url, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setActiveImg(i)}
+                    className={`flex-1 rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${
+                      activeImg === i ? "border-[#1B4FFF]" : "border-transparent hover:border-[#BBCAFF]"
+                    }`}
+                    style={{ aspectRatio: "4/3" }}
+                  >
+                    <Image
+                      src={url}
+                      alt={`Vista ${i + 1}`}
+                      width={200}
+                      height={150}
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* Trust badges */}
             <div className="grid grid-cols-3 gap-3 mt-4">
               {[
@@ -79,11 +121,10 @@ export default function ProductDetail({ product }: { product: Product }) {
 
           {/* Right — Info + Plan selector */}
           <div>
-            {/* Header */}
             <div className="mb-6">
               <p className="text-sm font-600 text-[#1B4FFF] uppercase tracking-wider mb-2">MacBook</p>
               <h1 className="text-3xl font-800 text-[#18191F] mb-2">{product.name}</h1>
-              <div className="flex items-center gap-3 text-sm text-[#666666]">
+              <div className="flex items-center gap-3 text-sm text-[#666666] flex-wrap">
                 <span>{product.chip}</span>
                 <span>·</span>
                 <span>{product.ram}</span>
@@ -135,7 +176,7 @@ export default function ProductDetail({ product }: { product: Product }) {
               </div>
             </div>
 
-            {/* Summary box */}
+            {/* Summary */}
             <div className="bg-[#F7F7F7] rounded-2xl p-5 mb-6">
               <div className="flex justify-between items-center mb-2">
                 <span className="text-sm text-[#666666]">Renta mensual</span>
@@ -144,6 +185,10 @@ export default function ProductDetail({ product }: { product: Product }) {
               <div className="flex justify-between items-center mb-2">
                 <span className="text-sm text-[#666666]">Duración</span>
                 <span className="font-700 text-[#18191F]">{selected.months} meses</span>
+              </div>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm text-[#666666]">Total del plan</span>
+                <span className="font-700 text-[#18191F]">${total}</span>
               </div>
               <div className="border-t border-[#E5E5E5] pt-2 mt-2 flex justify-between items-center">
                 <span className="text-sm font-600 text-[#333333]">Primer cobro hoy</span>
@@ -160,7 +205,6 @@ export default function ProductDetail({ product }: { product: Product }) {
             >
               Rentar por ${selected.price}/mes
             </motion.button>
-
             <p className="text-center text-xs text-[#999999] mt-3">
               Sin deuda, sin matrícula. Cancela con 30 días de aviso.
             </p>
@@ -182,20 +226,12 @@ export default function ProductDetail({ product }: { product: Product }) {
             <div className="mt-6">
               <h2 className="text-base font-700 text-[#18191F] mb-3">Incluye</h2>
               <ul className="space-y-2">
-                {product.includes.map(item => (
+                {[...product.includes, "Entrega en tu empresa (Lima)", "Soporte técnico incluido"].map(item => (
                   <li key={item} className="flex items-center gap-2 text-sm text-[#333333]">
                     <span className="text-[#2D7D46] font-700">✓</span>
                     {item}
                   </li>
                 ))}
-                <li className="flex items-center gap-2 text-sm text-[#333333]">
-                  <span className="text-[#2D7D46] font-700">✓</span>
-                  Entrega en tu empresa (Lima)
-                </li>
-                <li className="flex items-center gap-2 text-sm text-[#333333]">
-                  <span className="text-[#2D7D46] font-700">✓</span>
-                  Soporte técnico incluido
-                </li>
               </ul>
             </div>
           </div>
