@@ -83,7 +83,7 @@ export default function ComoFunciona() {
       </section>
 
       {/* FAQ */}
-      <section className="py-16 max-w-3xl mx-auto px-4 sm:px-6">
+      <section id="faq" className="py-16 max-w-3xl mx-auto px-4 sm:px-6">
         <h2 className="text-2xl font-black mb-8" style={{ color: "var(--dark-text)" }}>Preguntas frecuentes</h2>
         <div className="space-y-4">
           {faqs.map(faq => (
