@@ -152,6 +152,22 @@ export default function Hero() {
                   <path d="M5 12h14M12 5l7 7-7 7" />
                 </svg>
               </Link>
+
+              {/* Dots — inline under CTA, never overlap badges */}
+              <div className="flex items-center gap-2 mt-6">
+                {slides.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setActive(i)}
+                    className="transition-all rounded-full cursor-pointer"
+                    style={{
+                      width: i === active ? 22 : 7,
+                      height: 7,
+                      background: i === active ? slide.accentColor : "rgba(128,128,128,0.4)",
+                    }}
+                  />
+                ))}
+              </div>
             </motion.div>
           </AnimatePresence>
         </div>
@@ -172,23 +188,7 @@ export default function Hero() {
         )}
       </div>
 
-      {/* Slide dots */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 z-20">
-        {slides.map((_, i) => (
-          <button
-            key={i}
-            onClick={() => setActive(i)}
-            className="transition-all rounded-full cursor-pointer"
-            style={{
-              width: i === active ? 22 : 7,
-              height: 7,
-              background: i === active ? slide.accentColor : "rgba(255,255,255,0.35)",
-            }}
-          />
-        ))}
-      </div>
-
-      {/* Trust badges — SVG icons, no emoji */}
+      {/* Trust badges */}
       <div className="border-t relative z-10" style={{ borderColor: "rgba(255,255,255,0.12)" }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex items-center gap-6 md:gap-10 overflow-x-auto no-scrollbar">
           {BADGES.map(b => (
