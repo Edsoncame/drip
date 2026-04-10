@@ -2,8 +2,9 @@
 import Link from "next/link";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import { useState, useEffect } from "react";
-import { APPLE_HERO_IMAGES } from "@/lib/appleImages";
+import { useState, useEffect, useRef } from "react";
+
+const CDN = "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is";
 
 const slides = [
   {
@@ -12,10 +13,12 @@ const slides = [
     subtitle: "Desde $115/mes · Sin comprar · Sin CAPEX · Entrega a tu empresa",
     cta: "Ver MacBook Pro",
     href: "/laptops/macbook-pro-14-m5",
-    bg: "#18191F",
+    bg: "#0a0a0a",
     textColor: "#FFFFFF",
     accentColor: "#1B4FFF",
-    image: APPLE_HERO_IMAGES.proHero,
+    type: "video" as const,
+    video: "https://www.apple.com/105/media/us/macbook-pro/2025/785e1bc4-d1bd-4cf4-b1b3-94b9411c9e74/anim/hero/large.mp4",
+    poster: "https://www.apple.com/v/macbook-pro/ax/images/overview/welcome/hero_endframe__fwev9ebh42mq_large.jpg",
     imageAlt: "MacBook Pro M5",
   },
   {
@@ -27,8 +30,9 @@ const slides = [
     bg: "#F5F5F7",
     textColor: "#18191F",
     accentColor: "#1B4FFF",
-    image: APPLE_HERO_IMAGES.airHero,
-    imageAlt: "MacBook Air M4",
+    type: "image" as const,
+    image: `${CDN}/macbook-air-size-unselect-202601-gallery-1?wid=1200&hei=770&fmt=png-alpha&qlt=95`,
+    imageAlt: "MacBook Air 13 y 15 pulgadas M4",
   },
   {
     tag: "Para empresas",
@@ -39,7 +43,8 @@ const slides = [
     bg: "#1B4FFF",
     textColor: "#FFFFFF",
     accentColor: "#FFFFFF",
-    image: APPLE_HERO_IMAGES.airHero,
+    type: "image" as const,
+    image: `${CDN}/macbook-air-size-unselect-202601-gallery-1?wid=1200&hei=770&fmt=png-alpha&qlt=95`,
     imageAlt: "MacBook Air para empresas",
   },
 ];
@@ -53,58 +58,90 @@ const BADGES = [
 
 export default function Hero() {
   const [active, setActive] = useState(0);
-  const [imgErrors, setImgErrors] = useState<Record<number, boolean>>({});
+  const [imgError, setImgError] = useState<Record<number, boolean>>({});
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
-    const t = setInterval(() => setActive(a => (a + 1) % slides.length), 5500);
+    const t = setInterval(() => setActive(a => (a + 1) % slides.length), 6000);
     return () => clearInterval(t);
   }, []);
+
+  // Restart video when Pro slide becomes active
+  useEffect(() => {
+    if (slides[active].type === "video" && videoRef.current) {
+      videoRef.current.currentTime = 0;
+      videoRef.current.play().catch(() => {});
+    }
+  }, [active]);
 
   const slide = slides[active];
 
   return (
     <section
       className="relative overflow-hidden"
-      style={{ background: slide.bg, minHeight: 400, transition: "background 0.7s ease" }}
+      style={{ background: slide.bg, minHeight: 420, transition: "background 0.6s ease" }}
     >
-      {/* Right-side product image — transparent PNG floats on slide bg */}
+      {/* ── VIDEO SLIDE (MacBook Pro) ─────────────────────────── */}
+      {slides.map((s, i) =>
+        s.type === "video" ? (
+          <video
+            key="pro-video"
+            ref={i === active ? videoRef : undefined}
+            autoPlay
+            muted
+            loop
+            playsInline
+            poster={s.poster}
+            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700"
+            style={{ zIndex: 0, opacity: active === i ? 1 : 0, pointerEvents: "none" }}
+          >
+            <source src={s.video} type="video/mp4" />
+          </video>
+        ) : null
+      )}
+
+      {/* Dark overlay on video slide so text is readable */}
+      {slide.type === "video" && (
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: "linear-gradient(to right, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.3) 55%, transparent 100%)", zIndex: 1 }}
+        />
+      )}
+
+      {/* ── IMAGE SLIDE (Air / Empresas) — right column ──────── */}
       <AnimatePresence mode="wait">
-        <motion.div
-          key={`img-${active}`}
-          initial={{ opacity: 0, x: 30 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: 15 }}
-          transition={{ duration: 0.5, ease: "easeOut" }}
-          className="absolute right-0 top-0 bottom-0 hidden md:flex items-center justify-end"
-          style={{ width: "46%" }}
-        >
-          {!imgErrors[active] && (
-            <>
-              <Image
-                src={slide.image}
-                alt={slide.imageAlt}
-                width={900}
-                height={630}
-                className="w-full h-full object-contain object-center"
-                style={{ padding: "16px 24px 16px 0" }}
-                priority={active === 0}
-                unoptimized
-                onError={() => setImgErrors(prev => ({ ...prev, [active]: true }))}
-              />
-              {/* Subtle left-edge fade — only 25% to avoid covering the Mac */}
-              <div
-                className="absolute inset-0 pointer-events-none"
-                style={{
-                  background: `linear-gradient(to right, ${slide.bg} 0%, ${slide.bg}99 10%, transparent 28%)`,
-                }}
-              />
-            </>
-          )}
-        </motion.div>
+        {slide.type === "image" && !imgError[active] && (
+          <motion.div
+            key={`img-${active}`}
+            initial={{ opacity: 0, x: 30 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 15 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+            className="absolute right-0 top-0 bottom-0 hidden md:flex items-center justify-end"
+            style={{ width: "48%", zIndex: 1 }}
+          >
+            <Image
+              src={(slide as { image: string }).image}
+              alt={slide.imageAlt}
+              width={1200}
+              height={770}
+              className="w-full h-full object-contain object-right-center"
+              style={{ padding: "20px 28px 20px 0" }}
+              unoptimized
+              priority={active > 0}
+              onError={() => setImgError(prev => ({ ...prev, [active]: true }))}
+            />
+            {/* Left-edge blend */}
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{ background: `linear-gradient(to right, ${slide.bg} 0%, ${slide.bg}bb 12%, transparent 32%)` }}
+            />
+          </motion.div>
+        )}
       </AnimatePresence>
 
-      {/* Text content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10 md:py-14 relative z-10">
+      {/* ── TEXT CONTENT ─────────────────────────────────────── */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10 md:py-14 relative" style={{ zIndex: 2 }}>
         <div className="max-w-[480px]">
           <AnimatePresence mode="wait">
             <motion.div
@@ -119,7 +156,7 @@ export default function Hero() {
                 style={{
                   background: "rgba(255,255,255,0.15)",
                   color: slide.textColor,
-                  border: "1px solid rgba(255,255,255,0.2)",
+                  border: "1px solid rgba(255,255,255,0.22)",
                 }}
               >
                 {slide.tag}
@@ -153,7 +190,7 @@ export default function Hero() {
                 </svg>
               </Link>
 
-              {/* Dots — inline under CTA, never overlap badges */}
+              {/* Dots — inline, no overlap */}
               <div className="flex items-center gap-2 mt-6">
                 {slides.map((_, i) => (
                   <button
@@ -163,7 +200,12 @@ export default function Hero() {
                     style={{
                       width: i === active ? 22 : 7,
                       height: 7,
-                      background: i === active ? slide.accentColor : "rgba(128,128,128,0.4)",
+                      background:
+                        i === active
+                          ? slide.accentColor
+                          : slide.textColor === "#18191F"
+                          ? "rgba(0,0,0,0.25)"
+                          : "rgba(255,255,255,0.35)",
                     }}
                   />
                 ))}
@@ -175,21 +217,21 @@ export default function Hero() {
 
       {/* Mobile image */}
       <div className="md:hidden px-6 pb-8 flex justify-center">
-        {!imgErrors[active] && (
+        {slide.type === "image" && !imgError[active] && (
           <Image
-            src={slide.image}
+            src={(slide as { image: string }).image}
             alt={slide.imageAlt}
             width={500}
-            height={350}
+            height={320}
             className="w-full max-w-xs object-contain"
             unoptimized
-            onError={() => setImgErrors(prev => ({ ...prev, [active]: true }))}
+            onError={() => setImgError(prev => ({ ...prev, [active]: true }))}
           />
         )}
       </div>
 
       {/* Trust badges */}
-      <div className="border-t relative z-10" style={{ borderColor: "rgba(255,255,255,0.12)" }}>
+      <div className="border-t relative" style={{ borderColor: "rgba(255,255,255,0.12)", zIndex: 2 }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex items-center gap-6 md:gap-10 overflow-x-auto no-scrollbar">
           {BADGES.map(b => (
             <div
