@@ -1,11 +1,15 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = "FLUX <hola@flux.pe>";
+
+function getResend() {
+  if (!process.env.RESEND_API_KEY) throw new Error("RESEND_API_KEY is not set");
+  return new Resend(process.env.RESEND_API_KEY);
+}
 
 // Generic low-level sender used by webhook handlers
 export async function sendEmail({ to, subject, html }: { to: string; subject: string; html: string }) {
-  await resend.emails.send({ from: FROM, to, subject, html });
+  await getResend().emails.send({ from: FROM, to, subject, html });
 }
 
 export async function sendConfirmationEmail({
@@ -17,7 +21,7 @@ export async function sendConfirmationEmail({
   const firstName = name.split(" ")[0];
   const endStr = endsAt.toLocaleDateString("es-PE", { year: "numeric", month: "long", day: "numeric" });
 
-  await resend.emails.send({
+  await getResend().emails.send({
     from: FROM,
     to,
     subject: `¡Tu renta está confirmada, ${firstName}! 🎉`,
@@ -47,7 +51,7 @@ export async function sendPasswordResetEmail({
 }) {
   const firstName = name.split(" ")[0];
 
-  await resend.emails.send({
+  await getResend().emails.send({
     from: FROM,
     to,
     subject: "Recupera tu contraseña de FLUX",
@@ -76,7 +80,7 @@ export async function sendWelcomeEmail({
       </div>`
     : "";
 
-  await resend.emails.send({
+  await getResend().emails.send({
     from: FROM,
     to,
     subject: `¡Bienvenido a FLUX, ${firstName}!`,
@@ -98,7 +102,7 @@ export async function sendB2BLeadEmail({
   nombre: string; empresa: string; email: string;
   telefono: string; cantidad: string; modelo: string; mensaje: string;
 }) {
-  await resend.emails.send({
+  await getResend().emails.send({
     from: FROM,
     to: "ventas@flux.pe",
     replyTo: email,
