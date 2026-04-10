@@ -1,9 +1,11 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 
-const SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET ?? "flux-dev-secret"
-);
+const jwtSecret = process.env.JWT_SECRET;
+if (!jwtSecret && process.env.NODE_ENV === "production") {
+  throw new Error("JWT_SECRET env var is required in production");
+}
+const SECRET = new TextEncoder().encode(jwtSecret ?? "flux-dev-secret-only-for-local");
 
 const COOKIE_NAME = "flux_session";
 const MAX_AGE = 60 * 60 * 24 * 30; // 30 days in seconds

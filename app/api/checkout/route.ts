@@ -10,6 +10,8 @@ const client = new MercadoPagoConfig({
   options: { timeout: 5000 },
 });
 
+const tag = "[checkout]";
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -26,9 +28,26 @@ export async function POST(req: NextRequest) {
       };
     };
 
+    // ── Input validation ────────────────────────────────────────────────────────
+    if (!slug || typeof months !== "number") {
+      return NextResponse.json({ error: "Datos incompletos" }, { status: 400 });
+    }
+    if (!customer?.name?.trim() || !customer?.email?.trim() || !customer?.phone?.trim() || !customer?.company?.trim()) {
+      return NextResponse.json({ error: "Nombre, email, teléfono y empresa son requeridos" }, { status: 400 });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customer.email)) {
+      return NextResponse.json({ error: "Email inválido" }, { status: 400 });
+    }
+    if (!cardToken) {
+      return NextResponse.json({ error: "Token de tarjeta requerido" }, { status: 400 });
+    }
+
     const product = getProduct(slug);
     if (!product) {
       return NextResponse.json({ error: "Producto no encontrado" }, { status: 404 });
+    }
+    if (product.stock === 0) {
+      return NextResponse.json({ error: "Producto agotado" }, { status: 400 });
     }
 
     const plan = product.pricing.find((p) => p.months === months);
@@ -102,13 +121,15 @@ export async function POST(req: NextRequest) {
       endsAt,
     }).catch(() => {});
 
+    console.log(`${tag} subscription created mp_id=${preApproval.id} product=${slug} months=${months} user=${session?.userId ?? "guest"}`);
+
     return NextResponse.json({
       subscriptionId: preApproval.id,
       status: preApproval.status,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Error al procesar el pago";
-    console.error("MP error:", err);
+    console.error(`${tag} error`, err);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
