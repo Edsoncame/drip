@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { signToken, sessionCookieOptions } from "@/lib/auth";
+import { generateUniqueReferralCode } from "@/lib/referrals";
 
 const tag = "[auth/google/callback]";
 
@@ -97,11 +98,12 @@ export async function GET(req: NextRequest) {
       console.log(`${tag} existing user signed in via Google id=${user.id}`);
     } else {
       // New user — create account (no password_hash, Google-only)
+      const myReferralCode = await generateUniqueReferralCode();
       const created = await query<{ id: string; name: string; email: string }>(
-        `INSERT INTO users (name, email, password_hash, google_id, avatar_url)
-         VALUES ($1, $2, NULL, $3, $4)
+        `INSERT INTO users (name, email, password_hash, google_id, avatar_url, referral_code)
+         VALUES ($1, $2, NULL, $3, $4, $5)
          RETURNING id, name, email`,
-        [googleUser.name, email, googleUser.sub, googleUser.picture ?? null]
+        [googleUser.name, email, googleUser.sub, googleUser.picture ?? null, myReferralCode]
       );
       user = created.rows[0];
       console.log(`${tag} new user created via Google id=${user.id}`);

@@ -10,6 +10,7 @@ function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect") ?? "/";
+  const refParam = searchParams.get("ref") ?? "";
 
   const [form, setForm] = useState({
     name: "",
@@ -18,6 +19,7 @@ function RegisterForm() {
     company: "",
     phone: "",
     ruc: "",
+    referralCode: refParam,
   });
   const [errors, setErrors] = useState<Partial<typeof form & { general: string }>>({});
   const [loading, setLoading] = useState(false);
@@ -182,6 +184,18 @@ function RegisterForm() {
                 onChange={set("ruc")}
                 placeholder="20123456789"
                 className={inputClass(false)}
+              />
+            </Field>
+
+            {/* Referral code optional */}
+            <Field label="Código de referido" optional>
+              <input
+                type="text"
+                value={form.referralCode}
+                onChange={set("referralCode")}
+                placeholder="Ej. FLUX-ABC1234"
+                className={inputClass(false)}
+                autoCapitalize="characters"
               />
             </Field>
 

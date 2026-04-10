@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { query } from "@/lib/db";
 import { signToken, sessionCookieOptions } from "@/lib/auth";
+import { generateUniqueReferralCode, applyReferralCode } from "@/lib/referrals";
 
 export async function POST(req: NextRequest) {
   try {
-    const { name, email, password, company, ruc, phone } = await req.json();
+    const { name, email, password, company, ruc, phone, referralCode } = await req.json();
 
     // Validate
     if (!name?.trim() || !email?.trim() || !password) {
@@ -26,14 +27,24 @@ export async function POST(req: NextRequest) {
 
     // Hash & insert
     const passwordHash = await bcrypt.hash(password, 12);
+    const myReferralCode = await generateUniqueReferralCode();
+
     const result = await query<{ id: string; name: string; email: string }>(
-      `INSERT INTO users (name, email, password_hash, company, ruc, phone)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO users (name, email, password_hash, company, ruc, phone, referral_code)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id, name, email`,
-      [name.trim(), email.toLowerCase(), passwordHash, company?.trim() || null, ruc?.trim() || null, phone?.trim() || null]
+      [name.trim(), email.toLowerCase(), passwordHash, company?.trim() || null, ruc?.trim() || null, phone?.trim() || null, myReferralCode]
     );
 
     const user = result.rows[0];
+
+    // Apply incoming referral code if provided
+    if (referralCode?.trim()) {
+      await applyReferralCode(referralCode.trim(), user.id).catch(() => {
+        // Non-fatal — don't block registration
+      });
+    }
+
     const token = await signToken({ userId: user.id, email: user.email, name: user.name });
 
     const res = NextResponse.json({ user: { id: user.id, name: user.name, email: user.email } }, { status: 201 });

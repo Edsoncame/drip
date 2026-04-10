@@ -35,8 +35,8 @@ export default async function CuentaPage() {
         {/* Quick links */}
         {[
           { href: "/cuenta/rentas", icon: "💻", label: "Mis rentas", desc: "Ver equipos activos" },
+          { href: "/cuenta/referidos", icon: "🎁", label: "Referidos", desc: "Invita y gana beneficios" },
           { href: "/laptops", icon: "🛍️", label: "Rentar otro equipo", desc: "Ver catálogo" },
-          { href: "/como-funciona", icon: "❓", label: "¿Cómo funciona?", desc: "Guía completa" },
         ].map(item => (
           <Link key={item.href} href={item.href}
             className="bg-white border border-[#E5E5E5] rounded-2xl p-5 hover:border-[#1B4FFF] hover:shadow-sm transition-all group">
