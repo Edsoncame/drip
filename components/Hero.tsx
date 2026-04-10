@@ -40,12 +40,13 @@ const slides = [
     subtitle: "Contratos flexibles, MDM incluido, opción de compra para colaboradores.",
     cta: "Conocer planes empresa",
     href: "/empresas",
-    bg: "#0d1117",
+    bg: "#0a0a0a",
     textColor: "#FFFFFF",
     accentColor: "#1B4FFF",
-    type: "image" as const,
-    image: `${CDN}/mac-macbook-pro-size-select-202601-14inch?wid=960&hei=720&fmt=png-alpha&qlt=95`,
-    imageAlt: "MacBook Pro para empresas",
+    // Full-bleed image: covers 100% of section, gradient left for text
+    type: "fullimage" as const,
+    image: `${CDN}/mac-macbook-pro-size-unselect-202601-gallery-1?wid=1600&hei=1024&fmt=jpeg&qlt=88`,
+    imageAlt: "MacBook Pro 14 y 16 pulgadas para empresas",
   },
 ];
 
@@ -100,13 +101,38 @@ export default function Hero() {
         ) : null
       )}
 
-      {/* Dark overlay on video slide so text is readable */}
-      {slide.type === "video" && (
+      {/* Dark overlay on video/fullimage slides so text is readable */}
+      {(slide.type === "video" || slide.type === "fullimage") && (
         <div
           className="absolute inset-0 pointer-events-none"
-          style={{ background: "linear-gradient(to right, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.3) 55%, transparent 100%)", zIndex: 1 }}
+          style={{ background: "linear-gradient(to right, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.45) 50%, rgba(0,0,0,0.1) 100%)", zIndex: 1 }}
         />
       )}
+
+      {/* ── FULLIMAGE SLIDE (Para empresas) — covers full section ── */}
+      <AnimatePresence mode="wait">
+        {slide.type === "fullimage" && !imgError[active] && (
+          <motion.div
+            key={`fullimg-${active}`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.6 }}
+            className="absolute inset-0"
+            style={{ zIndex: 0 }}
+          >
+            <Image
+              src={(slide as { image: string }).image}
+              alt={slide.imageAlt}
+              fill
+              className="object-cover object-center"
+              unoptimized
+              priority={false}
+              onError={() => setImgError(prev => ({ ...prev, [active]: true }))}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── IMAGE SLIDE (Air / Empresas) — right column ──────── */}
       <AnimatePresence mode="wait">
