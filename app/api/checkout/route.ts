@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { MercadoPagoConfig, PreApprovalPlan, PreApproval } from "mercadopago";
 import { getProduct } from "@/lib/products";
+import { query } from "@/lib/db";
+import { getSession } from "@/lib/auth";
+import { sendConfirmationEmail } from "@/lib/email";
 
 const client = new MercadoPagoConfig({
   accessToken: process.env.MP_ACCESS_TOKEN!,
@@ -62,6 +65,42 @@ export async function POST(req: NextRequest) {
         status: "authorized",
       },
     });
+
+    // 3 — Save subscription to DB
+    const session = await getSession();
+    const endsAt = new Date();
+    endsAt.setMonth(endsAt.getMonth() + months);
+
+    await query(
+      `INSERT INTO subscriptions
+        (user_id, product_slug, product_name, months, monthly_price, status, started_at, ends_at, mp_subscription_id, customer_name, customer_email, customer_phone, customer_company, customer_ruc)
+       VALUES ($1,$2,$3,$4,$5,'active',NOW(),$6,$7,$8,$9,$10,$11,$12)
+       ON CONFLICT DO NOTHING`,
+      [
+        session?.userId ?? null,
+        product.slug,
+        product.name,
+        months,
+        plan.price,
+        endsAt,
+        preApproval.id ?? null,
+        customer.name,
+        customer.email,
+        customer.phone,
+        customer.company,
+        customer.ruc || null,
+      ]
+    );
+
+    // 4 — Send confirmation email (non-blocking)
+    sendConfirmationEmail({
+      to: customer.email,
+      name: customer.name,
+      productName: product.name,
+      months,
+      price: plan.price,
+      endsAt,
+    }).catch(() => {});
 
     return NextResponse.json({
       subscriptionId: preApproval.id,

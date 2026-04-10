@@ -9,6 +9,7 @@ export interface Product {
   image: string;
   badge?: string;
   isNew?: boolean;
+  stock: number; // 0 = agotado, 1-3 = últimas unidades, 4+ = disponible
   pricing: {
     months: number;
     price: number;
@@ -28,6 +29,7 @@ export const products: Product[] = [
     color: "Gris Espacial",
     image: "/images/macbook-air-13.png",
     isNew: true,
+    stock: 5,
     pricing: [
       { months: 8,  price: 110 },
       { months: 16, price: 90  },
@@ -54,6 +56,7 @@ export const products: Product[] = [
     ssd: "512 GB SSD",
     color: "Plata",
     image: "/images/macbook-pro-14-m4.png",
+    stock: 3,
     pricing: [
       { months: 8,  price: 155 },
       { months: 16, price: 120 },
@@ -82,6 +85,7 @@ export const products: Product[] = [
     image: "/images/macbook-pro-14-m5.png",
     badge: "Nuevo 2025",
     isNew: true,
+    stock: 2,
     pricing: [
       { months: 8,  price: 165 },
       { months: 16, price: 130 },

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { query } from "@/lib/db";
 import Link from "next/link";
+import CancelSubscriptionButton from "@/components/CancelSubscriptionButton";
 
 interface Subscription {
   id: string;
@@ -113,7 +114,7 @@ export default async function RentasPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 mt-4">
+                <div className="flex items-center gap-3 mt-4 flex-wrap">
                   <Link href={`/laptops/${sub.product_slug}`}
                     className="text-sm font-600 text-[#1B4FFF] hover:underline">
                     Ver equipo
@@ -123,6 +124,12 @@ export default async function RentasPage() {
                     className="text-sm font-600 text-[#666666] hover:text-[#1B4FFF] transition-colors">
                     Contactar soporte
                   </a>
+                  {sub.status === "active" && (
+                    <>
+                      <span className="text-[#E5E5E5]">·</span>
+                      <CancelSubscriptionButton subscriptionId={sub.id} />
+                    </>
+                  )}
                 </div>
               </div>
             );

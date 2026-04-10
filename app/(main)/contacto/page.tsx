@@ -1,4 +1,14 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Contacto",
+  description: "¿Tienes preguntas sobre rentar tu MacBook? Escríbenos por WhatsApp o email. Respondemos en menos de 2 horas en horario hábil.",
+  openGraph: {
+    title: "Contacto | FLUX",
+    description: "Habla con nosotros por WhatsApp o email. Respondemos rápido.",
+  },
+};
 
 export default function ContactoPage() {
   return (

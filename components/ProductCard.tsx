@@ -74,10 +74,22 @@ export default function ProductCard({ product, imageUrl }: ProductCardProps) {
       {/* Info */}
       <div className="p-4">
         <Link href={`/laptops/${product.slug}`}>
-          <h3 className="font-bold text-sm leading-snug mb-3" style={{ color: "var(--dark-text)" }}>
+          <h3 className="font-bold text-sm leading-snug mb-2" style={{ color: "var(--dark-text)" }}>
             {product.name}
           </h3>
         </Link>
+        {/* Stock indicator */}
+        {product.stock === 0 ? (
+          <p className="text-xs font-600 text-red-500 mb-2">Agotado</p>
+        ) : product.stock <= 3 ? (
+          <p className="text-xs font-600 mb-2" style={{ color: "#E8820C" }}>
+            ⚡ Últimas {product.stock} unidades
+          </p>
+        ) : (
+          <p className="text-xs font-600 mb-2" style={{ color: "#1DA352" }}>
+            ✓ Disponible
+          </p>
+        )}
         <div className="flex items-end justify-between">
           <div>
             <p className="text-xs mb-0.5" style={{ color: "var(--light-text)" }}>desde</p>
@@ -88,10 +100,10 @@ export default function ProductCard({ product, imageUrl }: ProductCardProps) {
           </div>
           <Link
             href={`/laptops/${product.slug}`}
-            className="px-4 py-2 text-sm font-bold text-white rounded-full transition-all hover:opacity-90 active:scale-95"
+            className={`px-4 py-2 text-sm font-bold text-white rounded-full transition-all hover:opacity-90 active:scale-95 ${product.stock === 0 ? "opacity-50 pointer-events-none" : ""}`}
             style={{ background: "var(--primary)" }}
           >
-            Ver planes
+            {product.stock === 0 ? "Agotado" : "Ver planes"}
           </Link>
         </div>
       </div>

@@ -41,16 +41,26 @@ function Steps({ current }: { current: number }) {
   );
 }
 
+const APPLECARE_PRICE = 15;
+
 // ─── Step 1 — Plan summary ─────────────────────────────────────────────────────
-function Step1({ product, months, onNext }: { product: Product; months: number; onNext: () => void }) {
+function Step1({
+  product, months, appleCare, onAppleCare, quantity, onQuantity, onNext,
+}: {
+  product: Product; months: number; appleCare: boolean;
+  onAppleCare: (v: boolean) => void; quantity: number;
+  onQuantity: (v: number) => void; onNext: () => void;
+}) {
   const router = useRouter();
   const plan = product.pricing.find((p) => p.months === months)!;
+  const unitPrice = plan.price + (appleCare ? APPLECARE_PRICE : 0);
+  const total = unitPrice * quantity;
 
   return (
     <div>
       <h2 className="text-2xl font-800 text-[#18191F] mb-6">Tu plan seleccionado</h2>
 
-      <div className="bg-[#F7F7F7] rounded-2xl p-6 mb-6">
+      <div className="bg-[#F7F7F7] rounded-2xl p-6 mb-5">
         <div className="flex items-center gap-4 mb-5 pb-5 border-b border-[#E5E5E5]">
           <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center text-3xl shadow-sm">
             💻
@@ -63,25 +73,76 @@ function Step1({ product, months, onNext }: { product: Product; months: number; 
           </div>
         </div>
 
+        {/* Quantity selector */}
+        <div className="flex items-center justify-between mb-4 pb-4 border-b border-[#E5E5E5]">
+          <span className="text-sm font-600 text-[#333333]">Cantidad de equipos</span>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => onQuantity(Math.max(1, quantity - 1))}
+              className="w-8 h-8 rounded-full border border-[#E5E5E5] flex items-center justify-center text-lg font-700 text-[#333333] hover:border-[#1B4FFF] hover:text-[#1B4FFF] transition-colors cursor-pointer disabled:opacity-40"
+              disabled={quantity <= 1}>−</button>
+            <span className="w-8 text-center font-700 text-[#18191F]">{quantity}</span>
+            <button type="button" onClick={() => onQuantity(Math.min(20, quantity + 1))}
+              className="w-8 h-8 rounded-full border border-[#E5E5E5] flex items-center justify-center text-lg font-700 text-[#333333] hover:border-[#1B4FFF] hover:text-[#1B4FFF] transition-colors cursor-pointer">+</button>
+          </div>
+        </div>
+
         <div className="space-y-3">
           <div className="flex justify-between text-sm">
             <span className="text-[#666666]">Plan elegido</span>
             <span className="font-700 text-[#18191F]">{months} meses</span>
           </div>
           <div className="flex justify-between text-sm">
-            <span className="text-[#666666]">Renta mensual</span>
+            <span className="text-[#666666]">Renta por equipo</span>
             <span className="font-700 text-[#18191F]">${plan.price}/mes</span>
           </div>
+          {appleCare && (
+            <div className="flex justify-between text-sm">
+              <span className="text-[#666666]">AppleCare+ (×{quantity})</span>
+              <span className="font-700 text-[#18191F]">+${APPLECARE_PRICE * quantity}/mes</span>
+            </div>
+          )}
+          {quantity > 1 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-[#666666]">Subtotal mensual</span>
+              <span className="font-700 text-[#18191F]">${unitPrice * quantity}/mes</span>
+            </div>
+          )}
           <div className="flex justify-between text-sm">
             <span className="text-[#666666]">Total del plan</span>
-            <span className="font-700 text-[#18191F]">${plan.price * months}</span>
+            <span className="font-700 text-[#18191F]">${total * months}</span>
           </div>
           <div className="border-t border-[#E5E5E5] pt-3 flex justify-between">
             <span className="font-700 text-[#333333]">Cobro hoy (1er mes)</span>
-            <span className="text-xl font-800 text-[#1B4FFF]">${plan.price}</span>
+            <span className="text-xl font-800 text-[#1B4FFF]">${total}</span>
           </div>
         </div>
       </div>
+
+      {/* AppleCare+ toggle */}
+      <motion.button
+        type="button"
+        onClick={() => onAppleCare(!appleCare)}
+        whileTap={{ scale: 0.98 }}
+        className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 mb-5 transition-all cursor-pointer text-left ${
+          appleCare ? "border-[#1B4FFF] bg-[#EEF2FF]" : "border-[#E5E5E5] bg-white hover:border-[#BBCAFF]"
+        }`}
+      >
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0 ${appleCare ? "bg-[#1B4FFF]/10" : "bg-[#F5F5F7]"}`}>
+          🛡️
+        </div>
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <p className="font-700 text-[#18191F] text-sm">Agregar AppleCare+</p>
+            <span className="text-xs font-700 px-2 py-0.5 rounded-full bg-orange-100 text-orange-600">Recomendado</span>
+          </div>
+          <p className="text-xs text-[#666666] mt-0.5">Cobertura completa por daños accidentales · +${APPLECARE_PRICE}/mes</p>
+        </div>
+        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+          appleCare ? "border-[#1B4FFF] bg-[#1B4FFF]" : "border-[#CCCCCC]"
+        }`}>
+          {appleCare && <svg width="10" height="10" viewBox="0 0 12 12" fill="white"><path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" fill="none"/></svg>}
+        </div>
+      </motion.button>
 
       <div className="bg-[#E5F3DF] rounded-2xl p-5 mb-6">
         <p className="font-700 text-[#2D7D46] mb-3">Incluido en tu renta</p>
@@ -225,11 +286,15 @@ function Step2({
 function PaymentForm({
   product,
   months,
+  appleCare,
+  quantity,
   customer,
   onBack,
 }: {
   product: Product;
   months: number;
+  appleCare: boolean;
+  quantity: number;
   customer: CustomerData;
   onBack: () => void;
 }) {
@@ -238,6 +303,7 @@ function PaymentForm({
   const [loading, setLoading] = useState(false);
 
   const plan = product.pricing.find((p) => p.months === months)!;
+  const totalMonthly = (plan.price + (appleCare ? APPLECARE_PRICE : 0)) * quantity;
 
   const handleSubmit = async (formData: ICardPaymentFormData<ICardPaymentBrickPayer>, _additionalData?: IAdditionalData) => {
     setLoading(true);
@@ -250,6 +316,8 @@ function PaymentForm({
         body: JSON.stringify({
           slug: product.slug,
           months,
+          appleCare,
+          quantity,
           cardToken: formData.token,
           customer,
         }),
@@ -276,28 +344,35 @@ function PaymentForm({
     <div>
       <h2 className="text-2xl font-800 text-[#18191F] mb-2">Pago seguro</h2>
       <p className="text-sm text-[#666666] mb-6">
-        Se cobrará <strong className="text-[#18191F]">${plan.price}</strong> hoy por el primer mes.
+        Se cobrará <strong className="text-[#18191F]">${totalMonthly}</strong> hoy por el primer mes.
         Los siguientes meses se cobran automáticamente.
       </p>
 
       {/* Order summary mini */}
-      <div className="bg-[#EEF2FF] rounded-xl p-4 mb-6 flex justify-between items-center">
-        <div className="text-sm">
-          <p className="font-700 text-[#18191F]">{product.shortName}</p>
-          <p className="text-[#666666]">
-            {months} meses · ${plan.price}/mes
-          </p>
+      <div className="bg-[#EEF2FF] rounded-xl p-4 mb-6">
+        <div className="flex justify-between items-center">
+          <div className="text-sm">
+            <p className="font-700 text-[#18191F]">{product.shortName}{quantity > 1 ? ` ×${quantity}` : ""}</p>
+            <p className="text-[#666666]">{months} meses · ${plan.price}/mes</p>
+          </div>
+          <p className="text-lg font-800 text-[#1B4FFF]">${plan.price * quantity}</p>
         </div>
-        <div className="text-right">
-          <p className="text-xs text-[#666666]">Cobro hoy</p>
-          <p className="text-xl font-800 text-[#1B4FFF]">${plan.price}</p>
+        {appleCare && (
+          <div className="flex justify-between items-center mt-2 pt-2 border-t border-[#DDEAFF]">
+            <p className="text-sm text-[#666666]">🛡️ AppleCare+</p>
+            <p className="text-sm font-700 text-[#18191F]">+${APPLECARE_PRICE}</p>
+          </div>
+        )}
+        <div className="flex justify-between items-center mt-2 pt-2 border-t border-[#DDEAFF]">
+          <p className="text-sm font-700 text-[#333333]">Cobro hoy</p>
+          <p className="text-xl font-800 text-[#1B4FFF]">${totalMonthly}</p>
         </div>
       </div>
 
       {/* MP Card Brick */}
       <div className="mb-4">
         <CardPayment
-          initialization={{ amount: plan.price, payer: { email: customer.email } }}
+          initialization={{ amount: totalMonthly, payer: { email: customer.email } }}
           customization={{
             paymentMethods: {
               minInstallments: 1,
@@ -356,6 +431,8 @@ function CheckoutContent() {
 
   const [step, setStep] = useState(1);
   const [mpReady, setMpReady] = useState(false);
+  const [appleCare, setAppleCare] = useState(false);
+  const [quantity, setQuantity] = useState(1);
   const [customer, setCustomer] = useState<CustomerData>({
     name: "",
     email: "",
@@ -405,7 +482,7 @@ function CheckoutContent() {
           transition={{ duration: 0.25 }}
           className="bg-white rounded-3xl p-8 shadow-sm"
         >
-          {step === 1 && <Step1 product={product} months={months} onNext={() => setStep(2)} />}
+          {step === 1 && <Step1 product={product} months={months} appleCare={appleCare} onAppleCare={setAppleCare} quantity={quantity} onQuantity={setQuantity} onNext={() => setStep(2)} />}
 
           {step === 2 && (
             <Step2
@@ -420,6 +497,8 @@ function CheckoutContent() {
             <PaymentForm
               product={product}
               months={months}
+              appleCare={appleCare}
+              quantity={quantity}
               customer={customer}
               onBack={() => setStep(2)}
             />
@@ -427,7 +506,7 @@ function CheckoutContent() {
         </motion.div>
 
         <p className="text-center text-xs text-[#999999] mt-6">
-          © 2025 FLUX — Tika Services S.A.C.
+          © 2026 FLUX — Tika Services S.A.C.
         </p>
       </div>
     </div>

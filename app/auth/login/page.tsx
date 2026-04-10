@@ -96,9 +96,9 @@ function LoginForm() {
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="text-sm font-600 text-[#333333]">Contraseña</label>
-                <a href="#" className="text-xs text-[#1B4FFF] hover:underline">
+                <Link href="/auth/recuperar" className="text-xs text-[#1B4FFF] hover:underline">
                   ¿Olvidaste tu contraseña?
-                </a>
+                </Link>
               </div>
               <div className="relative">
                 <input
@@ -172,7 +172,7 @@ function LoginForm() {
         </motion.div>
 
         <p className="text-center text-xs text-[#999999] mt-6">
-          © 2025 FLUX — Tika Services S.A.C.
+          © 2026 FLUX — Tika Services S.A.C.
         </p>
       </div>
     </div>

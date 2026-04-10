@@ -124,7 +124,7 @@ export default function ProductDetail({ product, images }: { product: Product; i
             <div className="mb-6">
               <p className="text-sm font-600 text-[#1B4FFF] uppercase tracking-wider mb-2">MacBook</p>
               <h1 className="text-3xl font-800 text-[#18191F] mb-2">{product.name}</h1>
-              <div className="flex items-center gap-3 text-sm text-[#666666] flex-wrap">
+              <div className="flex items-center gap-3 text-sm text-[#666666] flex-wrap mb-3">
                 <span>{product.chip}</span>
                 <span>·</span>
                 <span>{product.ram}</span>
@@ -133,6 +133,22 @@ export default function ProductDetail({ product, images }: { product: Product; i
                 <span>·</span>
                 <span>{product.color}</span>
               </div>
+              {product.stock === 0 ? (
+                <span className="inline-flex items-center gap-1.5 text-sm font-600 text-red-600 bg-red-50 px-3 py-1 rounded-full">
+                  <span className="w-2 h-2 rounded-full bg-red-500 inline-block" />
+                  Agotado
+                </span>
+              ) : product.stock <= 3 ? (
+                <span className="inline-flex items-center gap-1.5 text-sm font-600 bg-orange-50 px-3 py-1 rounded-full" style={{ color: "#E8820C" }}>
+                  <span className="w-2 h-2 rounded-full bg-orange-400 inline-block" />
+                  Últimas {product.stock} unidades
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-sm font-600 text-green-700 bg-green-50 px-3 py-1 rounded-full">
+                  <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
+                  Disponible
+                </span>
+              )}
             </div>
 
             {/* Plan selector */}
@@ -199,11 +215,12 @@ export default function ProductDetail({ product, images }: { product: Product; i
             {/* CTA */}
             <motion.button
               onClick={handleCTA}
-              whileTap={{ scaleX: 1.06, scaleY: 0.91 }}
+              disabled={product.stock === 0}
+              whileTap={product.stock > 0 ? { scaleX: 1.06, scaleY: 0.91 } : {}}
               transition={{ type: "spring", stiffness: 700, damping: 30 }}
-              className="w-full py-4 rounded-full bg-[#1B4FFF] text-white font-700 text-lg hover:bg-[#1340CC] transition-colors cursor-pointer"
+              className="w-full py-4 rounded-full bg-[#1B4FFF] text-white font-700 text-lg hover:bg-[#1340CC] transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
-              Rentar por ${selected.price}/mes
+              {product.stock === 0 ? "Producto agotado" : `Rentar por $${selected.price}/mes`}
             </motion.button>
             <p className="text-center text-xs text-[#999999] mt-3">
               Sin deuda, sin matrícula. Cancela con 30 días de aviso.

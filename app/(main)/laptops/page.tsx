@@ -8,6 +8,17 @@ import { products } from "@/lib/products";
 
 const FILTERS = ["Todos", "MacBook Air", "MacBook Pro", "Chip M4", "Chip M5", "16 GB", "Novedades"];
 
+function searchProducts(q: string) {
+  const lower = q.toLowerCase();
+  return products.filter(p =>
+    p.name.toLowerCase().includes(lower) ||
+    p.chip.toLowerCase().includes(lower) ||
+    p.ram.toLowerCase().includes(lower) ||
+    p.ssd.toLowerCase().includes(lower) ||
+    p.shortName.toLowerCase().includes(lower)
+  );
+}
+
 function filterProducts(active: string) {
   if (active === "Todos") return products;
   if (active === "MacBook Air") return products.filter(p => p.name.includes("Air"));
@@ -22,7 +33,9 @@ function filterProducts(active: string) {
 function LaptopsContent() {
   const searchParams = useSearchParams();
   const urlFilter = searchParams.get("filter");
+  const urlQuery = searchParams.get("q") ?? "";
   const [imageSets, setImageSets] = useState<Record<string, { open: string }>>({});
+  const [searchInput, setSearchInput] = useState(urlQuery);
 
   const getInitialFilter = () => {
     if (urlFilter === "air") return "MacBook Air";
@@ -35,12 +48,9 @@ function LaptopsContent() {
   };
 
   const [active, setActive] = useState(getInitialFilter);
-  const filtered = filterProducts(active);
 
-  useEffect(() => {
-    setActive(getInitialFilter());
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [urlFilter]);
+  useEffect(() => { setActive(getInitialFilter()); }, [urlFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setSearchInput(urlQuery); }, [urlQuery]);
 
   useEffect(() => {
     fetch("/api/apple-images")
@@ -48,6 +58,10 @@ function LaptopsContent() {
       .then(data => { if (data) setImageSets(data); })
       .catch(() => {});
   }, []);
+
+  const filtered = urlQuery
+    ? searchProducts(urlQuery)
+    : filterProducts(active);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
@@ -57,21 +71,54 @@ function LaptopsContent() {
         <p style={{ color: "var(--medium-text)" }}>Los mejores modelos Apple. Sin comprarlos. Solo paga por mes.</p>
       </div>
 
-      {/* Filter pills */}
-      <div className="flex gap-2 mb-8 overflow-x-auto no-scrollbar pb-1">
-        {FILTERS.map(f => (
-          <button key={f}
-            onClick={() => setActive(f)}
-            className="flex-shrink-0 px-4 py-2 text-sm font-semibold rounded-full transition-all border-2 cursor-pointer"
-            style={{
-              background: active === f ? "var(--primary)" : "transparent",
-              color: active === f ? "#fff" : "var(--medium-text)",
-              borderColor: active === f ? "var(--primary)" : "var(--border)",
-            }}>
-            {f}
-          </button>
-        ))}
-      </div>
+      {/* Mobile search */}
+      <form
+        className="mb-5 md:hidden"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const q = searchInput.trim();
+          window.location.href = q ? `/laptops?q=${encodeURIComponent(q)}` : "/laptops";
+        }}
+      >
+        <div className="flex items-center gap-2 bg-gray-100 rounded-full px-4 py-3">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-400">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          </svg>
+          <input
+            type="text"
+            value={searchInput}
+            onChange={e => setSearchInput(e.target.value)}
+            placeholder="Busca tu Mac..."
+            className="flex-1 bg-transparent text-sm text-gray-700 placeholder-gray-400 outline-none"
+          />
+        </div>
+      </form>
+
+      {/* Search result header */}
+      {urlQuery ? (
+        <div className="flex items-center gap-3 mb-6">
+          <p className="text-sm text-[#666666]">
+            {filtered.length} resultado{filtered.length !== 1 ? "s" : ""} para <strong>&quot;{urlQuery}&quot;</strong>
+          </p>
+          <a href="/laptops" className="text-xs text-[#1B4FFF] font-600 hover:underline">Limpiar</a>
+        </div>
+      ) : (
+        /* Filter pills */
+        <div className="flex gap-2 mb-8 overflow-x-auto no-scrollbar pb-1">
+          {FILTERS.map(f => (
+            <button key={f}
+              onClick={() => setActive(f)}
+              className="flex-shrink-0 px-4 py-2 text-sm font-semibold rounded-full transition-all border-2 cursor-pointer"
+              style={{
+                background: active === f ? "var(--primary)" : "transparent",
+                color: active === f ? "#fff" : "var(--medium-text)",
+                borderColor: active === f ? "var(--primary)" : "var(--border)",
+              }}>
+              {f}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Grid */}
       {filtered.length > 0 ? (
@@ -82,10 +129,10 @@ function LaptopsContent() {
         </div>
       ) : (
         <div className="text-center py-16">
-          <p className="text-[#999999] text-lg">No hay resultados para ese filtro.</p>
-          <button onClick={() => setActive("Todos")} className="mt-4 text-[#1B4FFF] font-600 hover:underline cursor-pointer">
+          <p className="text-[#999999] text-lg mb-2">No encontramos resultados.</p>
+          <a href="/laptops" className="text-[#1B4FFF] font-600 hover:underline cursor-pointer">
             Ver todos los equipos
-          </button>
+          </a>
         </div>
       )}
 

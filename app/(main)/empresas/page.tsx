@@ -1,10 +1,102 @@
 "use client";
 import Link from "next/link";
+import { useState } from "react";
 import { products } from "@/lib/products";
 import { motion } from "framer-motion";
 
 const fadeUp = { hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0 } };
 const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.06 } } };
+
+function B2BForm() {
+  const [form, setForm] = useState({ name: "", email: "", company: "", phone: "", quantity: "1-5", message: "" });
+  const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/b2b-lead", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      if (!res.ok) { const d = await res.json(); setError(d.error ?? "Error al enviar."); setLoading(false); return; }
+      setSent(true);
+    } catch {
+      setError("Error de conexión. Intenta de nuevo.");
+      setLoading(false);
+    }
+  };
+
+  if (sent) return (
+    <div className="text-center py-10">
+      <div className="text-5xl mb-4">🎉</div>
+      <h3 className="text-2xl font-800 text-white mb-2">¡Recibimos tu solicitud!</h3>
+      <p className="text-white/70">Te contactamos en menos de 24 horas hábiles.</p>
+    </div>
+  );
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-600 text-white/80 mb-1">Nombre completo</label>
+          <input type="text" required value={form.name} onChange={e => set("name", e.target.value)}
+            placeholder="Juan García"
+            className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/40 text-sm outline-none focus:border-white/60 transition-all" />
+        </div>
+        <div>
+          <label className="block text-sm font-600 text-white/80 mb-1">Correo corporativo</label>
+          <input type="email" required value={form.email} onChange={e => set("email", e.target.value)}
+            placeholder="juan@empresa.com"
+            className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/40 text-sm outline-none focus:border-white/60 transition-all" />
+        </div>
+        <div>
+          <label className="block text-sm font-600 text-white/80 mb-1">Empresa</label>
+          <input type="text" required value={form.company} onChange={e => set("company", e.target.value)}
+            placeholder="Nombre de tu empresa"
+            className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/40 text-sm outline-none focus:border-white/60 transition-all" />
+        </div>
+        <div>
+          <label className="block text-sm font-600 text-white/80 mb-1">WhatsApp / Teléfono</label>
+          <input type="tel" value={form.phone} onChange={e => set("phone", e.target.value)}
+            placeholder="+51 999 999 999"
+            className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/40 text-sm outline-none focus:border-white/60 transition-all" />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-600 text-white/80 mb-1">¿Cuántos equipos necesitas?</label>
+        <select value={form.quantity} onChange={e => set("quantity", e.target.value)}
+          className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white text-sm outline-none focus:border-white/60 transition-all">
+          {["1-5", "6-10", "11-20", "21-50", "50+"].map(q => (
+            <option key={q} value={q} style={{ background: "#1B4FFF", color: "#fff" }}>{q} equipos</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className="block text-sm font-600 text-white/80 mb-1">Cuéntanos más (opcional)</label>
+        <textarea value={form.message} onChange={e => set("message", e.target.value)}
+          rows={3} placeholder="¿Qué modelos te interesan? ¿Tienes un plazo específico?"
+          className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/40 text-sm outline-none focus:border-white/60 transition-all resize-none" />
+      </div>
+      {error && <p className="text-sm text-red-300 bg-red-900/30 rounded-xl px-4 py-3">{error}</p>}
+      <motion.button type="submit" disabled={loading}
+        whileTap={{ scaleX: 1.04, scaleY: 0.93 }}
+        transition={{ type: "spring", stiffness: 700, damping: 30 }}
+        className="w-full py-4 bg-white font-700 rounded-full text-sm hover:bg-gray-100 transition-colors disabled:opacity-60 cursor-pointer flex items-center justify-center gap-2"
+        style={{ color: "var(--primary)" }}>
+        {loading ? (
+          <><svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="30 70" /></svg>Enviando…</>
+        ) : "Quiero una propuesta →"}
+      </motion.button>
+    </form>
+  );
+}
 
 export default function Empresas() {
   return (
@@ -32,9 +124,9 @@ export default function Empresas() {
               style={{ background: "var(--primary)", color: "#fff" }}>
               Ver MacBooks disponibles
             </Link>
-            <a href="mailto:hola@flux.pe" className="px-8 py-4 font-bold rounded-full text-sm text-white transition-all hover:bg-white/10"
+            <a href="#cotizar" className="px-8 py-4 font-bold rounded-full text-sm text-white transition-all hover:bg-white/10"
               style={{ border: "2px solid rgba(255,255,255,0.3)" }}>
-              Escríbenos, sin compromiso
+              Pedir cotización gratis
             </a>
           </div>
         </motion.div>
@@ -114,16 +206,14 @@ export default function Empresas() {
         </div>
       </section>
 
-      {/* Contact CTA */}
-      <section className="py-16" style={{ background: "var(--primary)" }}>
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 text-center">
-          <h2 className="text-3xl font-black text-white mb-3">¿Cuántas Macs necesita tu equipo?</h2>
-          <p className="text-white/80 mb-8">Escríbenos y en menos de 24 horas tienes una propuesta lista. Sin vueltas.</p>
-          <a href="mailto:hola@flux.pe"
-            className="inline-flex items-center gap-2 px-8 py-4 bg-white font-bold rounded-full hover:bg-gray-100 transition-all text-sm"
-            style={{ color: "var(--primary)" }}>
-            Escríbenos a hola@flux.pe
-          </a>
+      {/* Contact form */}
+      <section id="cotizar" className="py-16" style={{ background: "var(--primary)" }}>
+        <div className="max-w-2xl mx-auto px-4 sm:px-6">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-black text-white mb-3">¿Cuántas Macs necesita tu equipo?</h2>
+            <p className="text-white/80">Llena el formulario y en menos de 24 horas tienes una propuesta lista. Sin vueltas.</p>
+          </div>
+          <B2BForm />
         </div>
       </section>
     </div>

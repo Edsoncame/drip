@@ -60,14 +60,26 @@ export default function Navbar() {
             </Link>
 
             {/* Search */}
-            <div className="hidden md:flex flex-1 max-w-md">
-              <Link href="/laptops" className="w-full flex items-center gap-2 bg-gray-100 hover:bg-gray-200 transition-colors rounded-full px-4 py-2.5 text-sm text-gray-400 cursor-pointer">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0">
+            <form
+              className="hidden md:flex flex-1 max-w-md"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const q = (e.currentTarget.elements.namedItem("q") as HTMLInputElement).value.trim();
+                router.push(q ? `/laptops?q=${encodeURIComponent(q)}` : "/laptops");
+              }}
+            >
+              <div className="w-full flex items-center gap-2 bg-gray-100 hover:bg-gray-200 transition-colors rounded-full px-4 py-2 focus-within:bg-white focus-within:ring-2 focus-within:ring-[#1B4FFF]/20 focus-within:border focus-within:border-[#1B4FFF]/30">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0 text-gray-400">
                   <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
                 </svg>
-                <span>Busca tu Mac...</span>
-              </Link>
-            </div>
+                <input
+                  name="q"
+                  type="text"
+                  placeholder="Busca tu Mac..."
+                  className="flex-1 bg-transparent text-sm text-gray-700 placeholder-gray-400 outline-none"
+                />
+              </div>
+            </form>
 
             {/* Desktop nav links */}
             <div className="hidden md:flex items-center gap-1">
