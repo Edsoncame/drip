@@ -1,11 +1,14 @@
+"use client";
+import { useState, useEffect } from "react";
 import Hero from "@/components/Hero";
 import ProductCard from "@/components/ProductCard";
 import HowItWorks from "@/components/HowItWorks";
 import { products } from "@/lib/products";
-import { getAppleImageSets } from "@/lib/appleImages";
 import Link from "next/link";
+import { motion } from "framer-motion";
 
-export const revalidate = 86400; // refresh images daily
+const fadeUp = { hidden: { opacity: 0, y: 28 }, show: { opacity: 1, y: 0 } };
+const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.1 } } };
 
 const testimonials = [
   { name: "Andrea C.", role: "Head of Ops · Fintech Lima", text: "Equipamos a 12 personas con MacBook Pro en una semana. Sin comprar nada. FLUX lo hizo fácil.", stars: 5 },
@@ -13,8 +16,22 @@ const testimonials = [
   { name: "Lucía R.", role: "CFO · Startup SaaS", text: "Lo mejor: cero CAPEX. Todo va a OPEX y eso cambia totalmente el flujo de caja.", stars: 5 },
 ];
 
-export default async function Home() {
-  const imageSets = await getAppleImageSets();
+const benefits = [
+  { icon: "🏦", title: "Sin CAPEX", desc: "Todo va a OPEX. Tu balance queda limpio." },
+  { icon: "🔒", title: "MDM incluido", desc: "Control total de los equipos de tu empresa." },
+  { icon: "💰", title: "Opción de compra", desc: "Al terminar el plazo, tu colaborador puede comprarla." },
+  { icon: "🔄", title: "Activo rotante", desc: "El equipo rota. Siempre aprovechamos el activo." },
+];
+
+export default function Home() {
+  const [imageSets, setImageSets] = useState<Record<string, { open: string }>>({});
+
+  useEffect(() => {
+    fetch("/api/apple-images")
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setImageSets(data); })
+      .catch(() => {});
+  }, []);
 
   return (
     <>
@@ -48,27 +65,40 @@ export default async function Home() {
       {/* Benefits */}
       <section className="py-12" style={{ background: "var(--primary-light)" }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              { icon: "🏦", title: "Sin CAPEX", desc: "Todo va a OPEX. Tu balance queda limpio." },
-              { icon: "🔒", title: "MDM incluido", desc: "Control total de los equipos de tu empresa." },
-              { icon: "💰", title: "Opción de compra", desc: "Al terminar el plazo, tu colaborador puede comprarla." },
-              { icon: "🔄", title: "Activo rotante", desc: "El equipo rota. Siempre aprovechamos el activo." },
-            ].map(b => (
-              <div key={b.title} className="bg-white rounded-2xl p-5" style={{ boxShadow: "0 2px 8px rgba(27,79,255,0.08)" }}>
+          <motion.div
+            variants={stagger}
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, margin: "-80px" }}
+            className="grid grid-cols-2 md:grid-cols-4 gap-4"
+          >
+            {benefits.map(b => (
+              <motion.div
+                key={b.title}
+                variants={fadeUp}
+                transition={{ duration: 0.5, ease: "easeOut" }}
+                className="bg-white rounded-2xl p-5"
+                style={{ boxShadow: "0 2px 8px rgba(27,79,255,0.08)" }}
+              >
                 <div className="text-3xl mb-3">{b.icon}</div>
                 <h3 className="font-bold text-sm mb-1" style={{ color: "var(--dark-text)" }}>{b.title}</h3>
                 <p className="text-xs leading-relaxed" style={{ color: "var(--medium-text)" }}>{b.desc}</p>
-              </div>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         </div>
       </section>
 
       <HowItWorks />
 
       {/* Pricing table */}
-      <section className="py-14 md:py-20">
+      <motion.section
+        initial={{ opacity: 0, y: 32 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-80px" }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+        className="py-14 md:py-20"
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-10">
             <h2 className="text-3xl font-black mb-2" style={{ color: "var(--dark-text)" }}>Precios transparentes</h2>
@@ -86,7 +116,14 @@ export default async function Home() {
               </thead>
               <tbody>
                 {products.map((p, i) => (
-                  <tr key={p.slug} style={{ borderBottom: i < products.length - 1 ? "1px solid var(--border)" : "none" }}>
+                  <motion.tr
+                    key={p.slug}
+                    initial={{ opacity: 0, x: -16 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.4, delay: i * 0.1, ease: "easeOut" }}
+                    style={{ borderBottom: i < products.length - 1 ? "1px solid var(--border)" : "none" }}
+                  >
                     <td className="py-4 text-sm font-semibold">
                       <Link href={`/laptops/${p.slug}`} className="hover:underline font-bold" style={{ color: "var(--primary)" }}>{p.shortName}</Link>
                       <div className="text-xs mt-0.5" style={{ color: "var(--light-text)" }}>{p.chip} · {p.ram} · {p.ssd}</div>
@@ -97,7 +134,7 @@ export default async function Home() {
                         <span className="text-xs ml-0.5" style={{ color: "var(--light-text)" }}>/mes</span>
                       </td>
                     ))}
-                  </tr>
+                  </motion.tr>
                 ))}
               </tbody>
             </table>
@@ -110,15 +147,27 @@ export default async function Home() {
             </Link>
           </div>
         </div>
-      </section>
+      </motion.section>
 
       {/* Testimonials */}
       <section className="py-14 md:py-20" style={{ background: "var(--light-bg)" }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <h2 className="text-3xl font-black mb-8 text-center" style={{ color: "var(--dark-text)" }}>Empresas que ya hacen flux</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <motion.div
+            variants={stagger}
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, margin: "-80px" }}
+            className="grid grid-cols-1 md:grid-cols-3 gap-5"
+          >
             {testimonials.map(t => (
-              <div key={t.name} className="bg-white rounded-2xl p-6" style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}>
+              <motion.div
+                key={t.name}
+                variants={fadeUp}
+                transition={{ duration: 0.5, ease: "easeOut" }}
+                className="bg-white rounded-2xl p-6"
+                style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}
+              >
                 <div className="flex mb-3">
                   {Array.from({ length: t.stars }).map((_, i) => (
                     <svg key={i} width="16" height="16" viewBox="0 0 24 24" fill="#FFC700"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
@@ -127,14 +176,21 @@ export default async function Home() {
                 <p className="text-sm leading-relaxed mb-4" style={{ color: "var(--dark-text)" }}>&ldquo;{t.text}&rdquo;</p>
                 <p className="text-sm font-bold" style={{ color: "var(--dark-text)" }}>{t.name}</p>
                 <p className="text-xs" style={{ color: "var(--light-text)" }}>{t.role}</p>
-              </div>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         </div>
       </section>
 
       {/* CTA */}
-      <section className="py-16" style={{ background: "var(--primary)" }}>
+      <motion.section
+        initial={{ opacity: 0, y: 32 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-60px" }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+        className="py-16"
+        style={{ background: "var(--primary)" }}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 text-center">
           <h2 className="text-3xl md:text-4xl font-black text-white mb-3">¿Listo para hacer flux?</h2>
           <p className="text-white/80 mb-8 text-lg">Armamos el plan para tu empresa en 24h.</p>
@@ -147,7 +203,7 @@ export default async function Home() {
             </Link>
           </div>
         </div>
-      </section>
+      </motion.section>
     </>
   );
 }

@@ -2,10 +2,11 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import ProductCard from "@/components/ProductCard";
 import { products } from "@/lib/products";
 
-const FILTERS = ["Todos", "MacBook Air", "MacBook Pro", "Chip M4", "Chip M5"];
+const FILTERS = ["Todos", "MacBook Air", "MacBook Pro", "Chip M4", "Chip M5", "16 GB", "Novedades"];
 
 function filterProducts(active: string) {
   if (active === "Todos") return products;
@@ -13,6 +14,8 @@ function filterProducts(active: string) {
   if (active === "MacBook Pro") return products.filter(p => p.name.includes("Pro"));
   if (active === "Chip M4") return products.filter(p => p.chip === "Apple M4");
   if (active === "Chip M5") return products.filter(p => p.chip === "Apple M5");
+  if (active === "16 GB") return products.filter(p => p.ram?.includes("16"));
+  if (active === "Novedades") return products.filter(p => p.isNew || p.badge);
   return products;
 }
 
@@ -24,6 +27,10 @@ function LaptopsContent() {
   const getInitialFilter = () => {
     if (urlFilter === "air") return "MacBook Air";
     if (urlFilter === "pro") return "MacBook Pro";
+    if (urlFilter === "m4") return "Chip M4";
+    if (urlFilter === "m5") return "Chip M5";
+    if (urlFilter === "16gb") return "16 GB";
+    if (urlFilter === "new") return "Novedades";
     return "Todos";
   };
 
@@ -88,11 +95,11 @@ function LaptopsContent() {
         <p className="text-sm mb-4" style={{ color: "var(--medium-text)" }}>
           Para flotas corporativas tenemos precios especiales y contratos marco. Contáctanos y armamos el plan en 24h.
         </p>
-        <a href="/empresas"
+        <Link href="/empresas"
           className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-white rounded-full"
           style={{ background: "var(--primary)" }}>
           Ver planes empresas
-        </a>
+        </Link>
       </div>
     </div>
   );

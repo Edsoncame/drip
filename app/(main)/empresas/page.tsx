@@ -1,12 +1,22 @@
+"use client";
 import Link from "next/link";
 import { products } from "@/lib/products";
+import { motion } from "framer-motion";
+
+const fadeUp = { hidden: { opacity: 0, y: 28 }, show: { opacity: 1, y: 0 } };
+const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.1 } } };
 
 export default function Empresas() {
   return (
     <div>
       {/* Hero */}
       <section className="py-16 md:py-24" style={{ background: "var(--dark)" }}>
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 text-center">
+        <motion.div
+          initial={{ opacity: 0, y: 32 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+          className="max-w-5xl mx-auto px-4 sm:px-6 text-center"
+        >
           <span className="inline-block px-3 py-1 text-xs font-bold rounded-full mb-6"
             style={{ background: "rgba(27,79,255,0.3)", color: "#7EA8FF", border: "1px solid rgba(27,79,255,0.4)" }}>
             FLUX para Empresas
@@ -27,13 +37,19 @@ export default function Empresas() {
               Hablar con ventas
             </a>
           </div>
-        </div>
+        </motion.div>
       </section>
 
       {/* Value props */}
       <section className="py-14">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <motion.div
+            variants={stagger}
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, margin: "-80px" }}
+            className="grid grid-cols-1 md:grid-cols-3 gap-6"
+          >
             {[
               { icon: "🏦", title: "Cero CAPEX", desc: "La inversión en hardware sale de OPEX. Liberas capital para lo que importa." },
               { icon: "🔒", title: "MDM & control", desc: "Enrolamiento MDM, control remoto, gestión de accesos. Tu equipo IT lo maneja todo." },
@@ -42,13 +58,19 @@ export default function Empresas() {
               { icon: "🔄", title: "Rotación inteligente", desc: "Equipos que salen del contrato se re-asignan o se venden al residual. Sin desperdiciar activos." },
               { icon: "📊", title: "Reporte por equipo", desc: "Dashboard con el estado de cada dispositivo, vencimientos y opciones de compra." },
             ].map(v => (
-              <div key={v.title} className="p-6 rounded-2xl border" style={{ borderColor: "var(--border)" }}>
+              <motion.div
+                key={v.title}
+                variants={fadeUp}
+                transition={{ duration: 0.5, ease: "easeOut" }}
+                className="p-6 rounded-2xl border"
+                style={{ borderColor: "var(--border)" }}
+              >
                 <div className="text-3xl mb-4">{v.icon}</div>
                 <h3 className="font-black mb-2" style={{ color: "var(--dark-text)" }}>{v.title}</h3>
                 <p className="text-sm leading-relaxed" style={{ color: "var(--medium-text)" }}>{v.desc}</p>
-              </div>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         </div>
       </section>
 

@@ -1,4 +1,8 @@
+"use client";
 import Link from "next/link";
+import { motion } from "framer-motion";
+
+const fadeUp = { hidden: { opacity: 0, y: 24 }, show: { opacity: 1, y: 0 } };
 
 const steps = [
   { n: "01", icon: "🖥️", title: "Elige tu Mac y tu plazo", desc: "Selecciona el modelo (Air o Pro), la configuración y cuántos meses quieres: 8, 16 o 24. Mientras más largo el plazo, menor el precio mensual." },
@@ -25,7 +29,7 @@ export default function ComoFunciona() {
       <section className="py-16 md:py-20" style={{ background: "var(--primary)" }}>
         <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center">
           <h1 className="text-4xl md:text-5xl font-black text-white mb-4" style={{ letterSpacing: "-0.02em" }}>
-            Tech mieten ist so einfach wie nie
+            Así de fácil. En 6 pasos.
           </h1>
           <p className="text-xl text-white/80 mb-0">
             Accede a Mac. Paga mensual. Sin comprar.
@@ -37,7 +41,15 @@ export default function ComoFunciona() {
       <section className="py-16 max-w-4xl mx-auto px-4 sm:px-6">
         <div className="space-y-6">
           {steps.map((step, i) => (
-            <div key={step.n} className="flex gap-6 items-start">
+            <motion.div
+              key={step.n}
+              variants={fadeUp}
+              initial="hidden"
+              whileInView="show"
+              viewport={{ once: true, margin: "-60px" }}
+              transition={{ duration: 0.5, delay: i * 0.08, ease: "easeOut" }}
+              className="flex gap-6 items-start"
+            >
               <div className="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-sm font-black text-white"
                 style={{ background: "var(--primary)" }}>
                 {step.n}
@@ -49,7 +61,7 @@ export default function ComoFunciona() {
                 </div>
                 <p className="text-sm leading-relaxed" style={{ color: "var(--medium-text)" }}>{step.desc}</p>
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
       </section>
@@ -86,11 +98,20 @@ export default function ComoFunciona() {
       <section id="faq" className="py-16 max-w-3xl mx-auto px-4 sm:px-6">
         <h2 className="text-2xl font-black mb-8" style={{ color: "var(--dark-text)" }}>Preguntas frecuentes</h2>
         <div className="space-y-4">
-          {faqs.map(faq => (
-            <div key={faq.q} className="rounded-2xl p-6 border" style={{ borderColor: "var(--border)" }}>
+          {faqs.map((faq, i) => (
+            <motion.div
+              key={faq.q}
+              variants={fadeUp}
+              initial="hidden"
+              whileInView="show"
+              viewport={{ once: true, margin: "-40px" }}
+              transition={{ duration: 0.45, delay: i * 0.07, ease: "easeOut" }}
+              className="rounded-2xl p-6 border"
+              style={{ borderColor: "var(--border)" }}
+            >
               <h3 className="font-bold mb-2" style={{ color: "var(--dark-text)" }}>{faq.q}</h3>
               <p className="text-sm leading-relaxed" style={{ color: "var(--medium-text)" }}>{faq.a}</p>
-            </div>
+            </motion.div>
           ))}
         </div>
       </section>

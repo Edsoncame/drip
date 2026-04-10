@@ -29,7 +29,7 @@ export default function Footer() {
           <div className="col-span-2 md:col-span-1">
             <Link href="/" className="flex items-center gap-2 mb-4">
               <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "var(--primary)" }}>
-                <span className="text-white font-black text-sm">D</span>
+                <span className="text-white font-black text-sm">F</span>
               </div>
               <span className="text-white font-black text-xl tracking-tight">flux</span>
             </Link>

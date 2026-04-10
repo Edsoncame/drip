@@ -54,19 +54,19 @@ export default function Navbar() {
             {/* Logo */}
             <Link href="/" className="flex items-center gap-2 flex-shrink-0">
               <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "var(--primary)" }}>
-                <span className="text-white font-black text-sm">D</span>
+                <span className="text-white font-black text-sm">F</span>
               </div>
               <span className="font-black text-xl tracking-tight" style={{ color: "var(--dark-text)" }}>flux</span>
             </Link>
 
             {/* Search */}
             <div className="hidden md:flex flex-1 max-w-md">
-              <div className="w-full flex items-center gap-2 bg-gray-100 rounded-full px-4 py-2.5 text-sm text-gray-400">
+              <Link href="/laptops" className="w-full flex items-center gap-2 bg-gray-100 hover:bg-gray-200 transition-colors rounded-full px-4 py-2.5 text-sm text-gray-400 cursor-pointer">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0">
                   <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
                 </svg>
                 <span>Busca tu Mac...</span>
-              </div>
+              </Link>
             </div>
 
             {/* Desktop nav links */}
@@ -149,13 +149,13 @@ export default function Navbar() {
               )}
 
               {/* Cart */}
-              <button className="relative p-2 rounded-full hover:bg-gray-100 transition-colors cursor-pointer">
+              <Link href="/laptops" className="relative p-2 rounded-full hover:bg-gray-100 transition-colors cursor-pointer">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
                   <line x1="3" y1="6" x2="21" y2="6"/>
                   <path d="M16 10a4 4 0 0 1-8 0"/>
                 </svg>
-              </button>
+              </Link>
 
               {/* Mobile menu */}
               <button className="md:hidden p-2 rounded-full hover:bg-gray-100 cursor-pointer" onClick={() => setMenuOpen(!menuOpen)}>
@@ -171,12 +171,20 @@ export default function Navbar() {
         <div className="border-t border-gray-100 hidden md:block">
           <div className="max-w-7xl mx-auto px-4 sm:px-6">
             <div className="flex items-center gap-1 py-1 overflow-x-auto no-scrollbar">
-              {["Todas", "MacBook Air", "MacBook Pro", "Chip M4", "Chip M5", "16 GB", "Novedades"].map(cat => (
-                <button key={cat}
+              {[
+                { label: "Todas", href: "/laptops" },
+                { label: "MacBook Air", href: "/laptops?filter=air" },
+                { label: "MacBook Pro", href: "/laptops?filter=pro" },
+                { label: "Chip M4", href: "/laptops?filter=m4" },
+                { label: "Chip M5", href: "/laptops?filter=m5" },
+                { label: "16 GB", href: "/laptops?filter=16gb" },
+                { label: "Novedades", href: "/laptops?filter=new" },
+              ].map(cat => (
+                <Link key={cat.href} href={cat.href}
                   className="flex-shrink-0 px-3 py-1.5 text-sm font-semibold rounded-full whitespace-nowrap transition-colors hover:bg-gray-100 cursor-pointer"
                   style={{ color: "var(--medium-text)" }}>
-                  {cat}
-                </button>
+                  {cat.label}
+                </Link>
               ))}
             </div>
           </div>
