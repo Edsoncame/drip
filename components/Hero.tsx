@@ -45,38 +45,10 @@ const slides = [
 ];
 
 const BADGES = [
-  {
-    icon: (
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="20 6 9 17 4 12"/>
-      </svg>
-    ),
-    text: "Sin depósito de garantía",
-  },
-  {
-    icon: (
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M5 12h14M12 5l7 7-7 7"/>
-      </svg>
-    ),
-    text: "Entrega en Lima en 24-48h",
-  },
-  {
-    icon: (
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/>
-      </svg>
-    ),
-    text: "Desde 8 meses de plazo",
-  },
-  {
-    icon: (
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/>
-      </svg>
-    ),
-    text: "Primer mes al iniciar",
-  },
+  "Sin depósito de garantía",
+  "Entrega en Lima en 24-48h",
+  "Desde 8 meses de plazo",
+  "Primer mes al iniciar",
 ];
 
 export default function Hero() {
@@ -221,12 +193,12 @@ export default function Hero() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex items-center gap-6 md:gap-10 overflow-x-auto no-scrollbar">
           {BADGES.map(b => (
             <div
-              key={b.text}
-              className="flex items-center gap-2 flex-shrink-0 text-xs font-semibold whitespace-nowrap"
+              key={b}
+              className="flex items-center gap-1.5 flex-shrink-0 text-xs font-semibold whitespace-nowrap"
               style={{ color: slide.textColor, opacity: 0.85 }}
             >
-              <span className="opacity-70">{b.icon}</span>
-              <span>{b.text}</span>
+              <span style={{ opacity: 0.6, fontSize: 11 }}>✓</span>
+              <span>{b}</span>
             </div>
           ))}
         </div>
