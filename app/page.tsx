@@ -1,65 +1,142 @@
-import Image from "next/image";
+import Hero from "@/components/Hero";
+import ProductCard from "@/components/ProductCard";
+import HowItWorks from "@/components/HowItWorks";
+import { products } from "@/lib/products";
+import Link from "next/link";
+
+const testimonials = [
+  { name: "Andrea C.", role: "Head of Ops · Fintech Lima", text: "Equipamos a 12 personas con MacBook Pro en una semana. Sin comprar nada. DRIP lo hizo fácil.", stars: 5 },
+  { name: "Marco V.", role: "CEO · Agencia Digital", text: "El modelo es perfecto. Pagas mes a mes, y cuando tu equipo crece solo agregas más Macs.", stars: 5 },
+  { name: "Lucía R.", role: "CFO · Startup SaaS", text: "Lo mejor: cero CAPEX. Todo va a OPEX y eso cambia totalmente el flujo de caja.", stars: 5 },
+];
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <>
+      <Hero />
+
+      {/* Products */}
+      <section className="py-14 md:py-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="flex items-end justify-between mb-8">
+            <div>
+              <h2 className="text-3xl font-black" style={{ color: "var(--dark-text)" }}>MacBooks disponibles</h2>
+              <p className="text-sm mt-1" style={{ color: "var(--medium-text)" }}>Todos los modelos. Siempre con chip Apple Silicon.</p>
+            </div>
+            <Link href="/laptops" className="text-sm font-bold hidden md:flex items-center gap-1 hover:underline" style={{ color: "var(--primary)" }}>
+              Ver todos
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {products.map(p => <ProductCard key={p.slug} product={p} />)}
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </section>
+
+      {/* Benefits */}
+      <section className="py-12" style={{ background: "var(--primary-light)" }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { icon: "🏦", title: "Sin CAPEX", desc: "Todo va a OPEX. Tu balance queda limpio." },
+              { icon: "🔒", title: "MDM incluido", desc: "Control total de los equipos de tu empresa." },
+              { icon: "💰", title: "Opción de compra", desc: "Al terminar el plazo, tu colaborador puede comprarla." },
+              { icon: "🔄", title: "Activo rotante", desc: "El equipo rota. Siempre aprovechamos el activo." },
+            ].map(b => (
+              <div key={b.title} className="bg-white rounded-2xl p-5" style={{ boxShadow: "0 2px 8px rgba(27,79,255,0.08)" }}>
+                <div className="text-3xl mb-3">{b.icon}</div>
+                <h3 className="font-bold text-sm mb-1" style={{ color: "var(--dark-text)" }}>{b.title}</h3>
+                <p className="text-xs leading-relaxed" style={{ color: "var(--medium-text)" }}>{b.desc}</p>
+              </div>
+            ))}
+          </div>
         </div>
-      </main>
-    </div>
+      </section>
+
+      <HowItWorks />
+
+      {/* Pricing table */}
+      <section className="py-14 md:py-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="text-center mb-10">
+            <h2 className="text-3xl font-black mb-2" style={{ color: "var(--dark-text)" }}>Precios transparentes</h2>
+            <p style={{ color: "var(--medium-text)" }}>El mismo precio para todos. Sin sorpresas.</p>
+          </div>
+          <div className="max-w-3xl mx-auto overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr style={{ borderBottom: "2px solid var(--border)" }}>
+                  <th className="text-left pb-3 text-sm font-bold" style={{ color: "var(--dark-text)" }}>Modelo</th>
+                  <th className="pb-3 text-sm font-bold text-center" style={{ color: "var(--dark-text)" }}>8 meses</th>
+                  <th className="pb-3 text-sm font-bold text-center" style={{ color: "var(--dark-text)" }}>16 meses</th>
+                  <th className="pb-3 text-sm font-bold text-center" style={{ color: "var(--dark-text)" }}>24 meses</th>
+                </tr>
+              </thead>
+              <tbody>
+                {products.map((p, i) => (
+                  <tr key={p.slug} style={{ borderBottom: i < products.length - 1 ? "1px solid var(--border)" : "none" }}>
+                    <td className="py-4 text-sm font-semibold">
+                      <Link href={`/laptops/${p.slug}`} className="hover:underline font-bold" style={{ color: "var(--primary)" }}>{p.shortName}</Link>
+                      <div className="text-xs mt-0.5" style={{ color: "var(--light-text)" }}>{p.chip} · {p.ram} · {p.ssd}</div>
+                    </td>
+                    {p.pricing.map(pr => (
+                      <td key={pr.months} className="py-4 text-center">
+                        <span className="text-xl font-black" style={{ color: "var(--dark-text)" }}>${pr.price}</span>
+                        <span className="text-xs ml-0.5" style={{ color: "var(--light-text)" }}>/mes</span>
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="text-center mt-8">
+            <p className="text-xs mb-4" style={{ color: "var(--light-text)" }}>Precios en USD · IGV no incluido · Sujeto a evaluación</p>
+            <Link href="/laptops" className="inline-flex items-center gap-2 px-6 py-3.5 font-bold text-white rounded-full hover:opacity-90 transition-all"
+              style={{ background: "var(--primary)" }}>
+              Comenzar ahora
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonials */}
+      <section className="py-14 md:py-20" style={{ background: "var(--light-bg)" }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <h2 className="text-3xl font-black mb-8 text-center" style={{ color: "var(--dark-text)" }}>Empresas que ya hacen drip</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {testimonials.map(t => (
+              <div key={t.name} className="bg-white rounded-2xl p-6" style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}>
+                <div className="flex mb-3">
+                  {Array.from({ length: t.stars }).map((_, i) => (
+                    <svg key={i} width="16" height="16" viewBox="0 0 24 24" fill="#FFC700"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
+                  ))}
+                </div>
+                <p className="text-sm leading-relaxed mb-4" style={{ color: "var(--dark-text)" }}>&ldquo;{t.text}&rdquo;</p>
+                <p className="text-sm font-bold" style={{ color: "var(--dark-text)" }}>{t.name}</p>
+                <p className="text-xs" style={{ color: "var(--light-text)" }}>{t.role}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="py-16" style={{ background: "var(--primary)" }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 text-center">
+          <h2 className="text-3xl md:text-4xl font-black text-white mb-3">¿Listo para hacer drip?</h2>
+          <p className="text-white/80 mb-8 text-lg">Armamos el plan para tu empresa en 24h.</p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Link href="/laptops" className="px-8 py-4 bg-white font-bold rounded-full hover:bg-gray-100 transition-all text-sm" style={{ color: "var(--primary)" }}>
+              Ver MacBooks disponibles
+            </Link>
+            <Link href="/empresas" className="px-8 py-4 font-bold rounded-full text-white text-sm transition-all hover:bg-white/10" style={{ border: "2px solid rgba(255,255,255,0.4)" }}>
+              Hablar con ventas
+            </Link>
+          </div>
+        </div>
+      </section>
+    </>
   );
 }
