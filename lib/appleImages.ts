@@ -45,37 +45,50 @@ async function fetchCurrentIds(): Promise<typeof FALLBACK_IDS> {
   }
 }
 
+// Gallery-style image IDs (two Macs together, front-facing — same as apple.com/mac/)
+const GALLERY_IDS = {
+  air:  "macbook-air-size-unselect-202601-gallery-1",
+  pro:  "mac-macbook-pro-size-unselect-202601-gallery-1",
+};
+
+function galleryImg(id: string, size = 800): string {
+  return `${CDN}/${id}?wid=${size}&hei=${Math.round(size * 0.64)}&fmt=jpeg&qlt=90`;
+}
+
 /** Returns image sets for all MacBook models (called from ISR route) */
 export async function getAppleImageSets() {
   const ids = await fetchCurrentIds();
 
   return {
     "macbook-air-13-m4": {
+      // Card image: two MacBook Airs front-facing (apple.com/mac/ style)
+      open:    galleryImg(GALLERY_IDS.air, 900),
       hero:    storeImg(ids.air13, "", 2560),
-      open:    storeImg(ids.air13, "_AV1", 2560),
       side:    storeImg(ids.air13, "_AV2", 2560),
       gallery: [
+        galleryImg(GALLERY_IDS.air, 1200),
         storeImg(ids.air13, "", 1200),
         storeImg(ids.air13, "_AV1", 1200),
         storeImg(ids.air13, "_AV2", 1200),
       ],
     },
     "macbook-pro-14-m4": {
+      open:    galleryImg(GALLERY_IDS.pro, 900),
       hero:    storeImg(ids.pro14, "", 2560),
-      open:    storeImg(ids.pro14, "_AV1", 2560),
       side:    storeImg(ids.pro14, "_AV2", 2560),
       gallery: [
+        galleryImg(GALLERY_IDS.pro, 1200),
         storeImg(ids.pro14, "", 1200),
         storeImg(ids.pro14, "_AV1", 1200),
         storeImg(ids.pro14, "_AV2", 1200),
       ],
     },
     "macbook-pro-14-m5": {
-      // M5 uses same chassis as M4 Pro but Apple releases separate marketing images
+      open:    galleryImg(GALLERY_IDS.pro, 900),
       hero:    storeImg(ids.pro14, "", 2560),
-      open:    storeImg(ids.pro14, "_AV1", 2560),
       side:    storeImg(ids.pro14, "_AV2", 2560),
       gallery: [
+        galleryImg(GALLERY_IDS.pro, 1200),
         storeImg(ids.pro14, "", 1200),
         storeImg(ids.pro14, "_AV1", 1200),
         storeImg(ids.pro14, "_AV2", 1200),
