@@ -17,8 +17,6 @@ const slides = [
     accentColor: "#1B4FFF",
     image: APPLE_HERO_IMAGES.proHero,
     imageAlt: "MacBook Pro M5",
-    // JPG dark bg → fill right column + left-edge fade
-    imageMode: "cover" as const,
   },
   {
     tag: "MacBook Air M4 — Lo más buscado",
@@ -30,9 +28,7 @@ const slides = [
     textColor: "#18191F",
     accentColor: "#1B4FFF",
     image: APPLE_HERO_IMAGES.airHero,
-    imageAlt: "MacBook Air M4 en azul cielo",
-    // PNG transparent → float naturally on light bg
-    imageMode: "contain" as const,
+    imageAlt: "MacBook Air M4",
   },
   {
     tag: "Para empresas",
@@ -45,8 +41,41 @@ const slides = [
     accentColor: "#FFFFFF",
     image: APPLE_HERO_IMAGES.airHero,
     imageAlt: "MacBook Air para empresas",
-    // PNG transparent → float naturally on blue bg
-    imageMode: "contain" as const,
+  },
+];
+
+const BADGES = [
+  {
+    icon: (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+    ),
+    text: "Sin depósito de garantía",
+  },
+  {
+    icon: (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M5 12h14M12 5l7 7-7 7"/>
+      </svg>
+    ),
+    text: "Entrega en Lima en 24-48h",
+  },
+  {
+    icon: (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/>
+      </svg>
+    ),
+    text: "Desde 8 meses de plazo",
+  },
+  {
+    icon: (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/>
+      </svg>
+    ),
+    text: "Primer mes al iniciar",
   },
 ];
 
@@ -64,49 +93,37 @@ export default function Hero() {
   return (
     <section
       className="relative overflow-hidden"
-      style={{ background: slide.bg, minHeight: 300, transition: "background 0.7s ease" }}
+      style={{ background: slide.bg, minHeight: 400, transition: "background 0.7s ease" }}
     >
-      {/* Right-side image — full height, no box */}
+      {/* Right-side product image — transparent PNG floats on slide bg */}
       <AnimatePresence mode="wait">
         <motion.div
           key={`img-${active}`}
-          initial={{ opacity: 0, x: 40 }}
+          initial={{ opacity: 0, x: 30 }}
           animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: 20 }}
-          transition={{ duration: 0.55, ease: "easeOut" }}
-          className="absolute right-0 top-0 bottom-0 hidden md:block"
-          style={{ width: "42%" }}
+          exit={{ opacity: 0, x: 15 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+          className="absolute right-0 top-0 bottom-0 hidden md:flex items-center justify-end"
+          style={{ width: "46%" }}
         >
           {!imgErrors[active] && (
             <>
-              {slide.imageMode === "cover" ? (
-                <Image
-                  src={slide.image}
-                  alt={slide.imageAlt}
-                  fill
-                  className="object-cover object-center"
-                  priority={active === 0}
-                  unoptimized
-                  onError={() => setImgErrors(prev => ({ ...prev, [active]: true }))}
-                />
-              ) : (
-                /* PNG transparent — natural aspect ratio, anchored bottom-right */
-                <Image
-                  src={slide.image}
-                  alt={slide.imageAlt}
-                  width={900}
-                  height={600}
-                  className="absolute bottom-0 right-0 h-full w-auto object-contain object-right-bottom"
-                  priority={active === 0}
-                  unoptimized
-                  onError={() => setImgErrors(prev => ({ ...prev, [active]: true }))}
-                />
-              )}
-              {/* Seamless left-edge fade into section background */}
+              <Image
+                src={slide.image}
+                alt={slide.imageAlt}
+                width={900}
+                height={630}
+                className="w-full h-full object-contain object-center"
+                style={{ padding: "16px 24px 16px 0" }}
+                priority={active === 0}
+                unoptimized
+                onError={() => setImgErrors(prev => ({ ...prev, [active]: true }))}
+              />
+              {/* Subtle left-edge fade — only 25% to avoid covering the Mac */}
               <div
                 className="absolute inset-0 pointer-events-none"
                 style={{
-                  background: `linear-gradient(to right, ${slide.bg} 0%, ${slide.bg}cc 15%, ${slide.bg}55 35%, transparent 60%)`,
+                  background: `linear-gradient(to right, ${slide.bg} 0%, ${slide.bg}99 10%, transparent 28%)`,
                 }}
               />
             </>
@@ -114,19 +131,19 @@ export default function Hero() {
         </motion.div>
       </AnimatePresence>
 
-      {/* Left — text content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-7 md:py-10 relative z-10">
-        <div className="max-w-lg">
+      {/* Text content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10 md:py-14 relative z-10">
+        <div className="max-w-[480px]">
           <AnimatePresence mode="wait">
             <motion.div
               key={`text-${active}`}
-              initial={{ opacity: 0, y: 16 }}
+              initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.45, ease: "easeOut" }}
+              transition={{ duration: 0.4, ease: "easeOut" }}
             >
               <span
-                className="inline-block px-3 py-1 text-xs font-bold rounded-full mb-5"
+                className="inline-block px-3 py-1 text-xs font-bold rounded-full mb-4"
                 style={{
                   background: "rgba(255,255,255,0.15)",
                   color: slide.textColor,
@@ -152,19 +169,14 @@ export default function Hero() {
 
               <Link
                 href={slide.href}
-                className="inline-flex items-center gap-2 px-7 py-4 text-base font-bold rounded-full transition-all hover:opacity-90 active:scale-95"
+                className="inline-flex items-center gap-2 px-6 py-3.5 text-sm font-bold rounded-full transition-all hover:opacity-90 active:scale-95"
                 style={{
                   background: slide.accentColor,
-                  color:
-                    slide.bg === "#1B4FFF"
-                      ? "#18191F"
-                      : slide.bg === "#F5F5F7"
-                      ? "#FFFFFF"
-                      : "#FFFFFF",
+                  color: slide.bg === "#1B4FFF" ? "#18191F" : "#FFFFFF",
                 }}
               >
                 {slide.cta}
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M5 12h14M12 5l7 7-7 7" />
                 </svg>
               </Link>
@@ -173,52 +185,47 @@ export default function Hero() {
         </div>
       </div>
 
-      {/* Mobile image — shown below text on small screens */}
-      <div className="md:hidden px-4 pb-8 flex justify-center">
+      {/* Mobile image */}
+      <div className="md:hidden px-6 pb-8 flex justify-center">
         {!imgErrors[active] && (
           <Image
             src={slide.image}
             alt={slide.imageAlt}
             width={500}
-            height={340}
-            className="w-full max-w-sm object-contain"
+            height={350}
+            className="w-full max-w-xs object-contain"
             unoptimized
             onError={() => setImgErrors(prev => ({ ...prev, [active]: true }))}
           />
         )}
       </div>
 
-      {/* Dots */}
-      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex items-center gap-2 z-20">
+      {/* Slide dots */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 z-20">
         {slides.map((_, i) => (
           <button
             key={i}
             onClick={() => setActive(i)}
             className="transition-all rounded-full cursor-pointer"
             style={{
-              width: i === active ? 24 : 8,
-              height: 8,
+              width: i === active ? 22 : 7,
+              height: 7,
               background: i === active ? slide.accentColor : "rgba(255,255,255,0.35)",
             }}
           />
         ))}
       </div>
 
-      {/* Trust badges */}
-      <div className="border-t relative z-10" style={{ borderColor: "rgba(255,255,255,0.1)" }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-6 md:gap-10 overflow-x-auto no-scrollbar">
-          {[
-            { icon: "✓", text: "Sin depósito de garantía" },
-            { icon: "📦", text: "Entrega en Lima en 24-48h" },
-            { icon: "🔄", text: "Desde 8 meses de plazo" },
-            { icon: "💳", text: "Primer mes al iniciar" },
-          ].map(b => (
+      {/* Trust badges — SVG icons, no emoji */}
+      <div className="border-t relative z-10" style={{ borderColor: "rgba(255,255,255,0.12)" }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex items-center gap-6 md:gap-10 overflow-x-auto no-scrollbar">
+          {BADGES.map(b => (
             <div
               key={b.text}
-              className="flex items-center gap-2 flex-shrink-0 text-sm font-semibold whitespace-nowrap"
+              className="flex items-center gap-2 flex-shrink-0 text-xs font-semibold whitespace-nowrap"
               style={{ color: slide.textColor, opacity: 0.85 }}
             >
-              <span>{b.icon}</span>
+              <span className="opacity-70">{b.icon}</span>
               <span>{b.text}</span>
             </div>
           ))}

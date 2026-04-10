@@ -84,10 +84,12 @@ export async function getAppleImageSets() {
   } as Record<string, { hero: string; open: string; side: string; gallery: string[] }>;
 }
 
-/** Apple marketing / hero images (from apple.com/v/) */
+/**
+ * Hero images — transparent PNG product shots from Apple Store CDN.
+ * fmt=png-alpha returns the Mac on a transparent background,
+ * so it floats cleanly over any slide background color.
+ */
 export const APPLE_HERO_IMAGES = {
-  airHero:   `${APPLE_CDN}/macbook-air/z/images/overview/hero/hero_endframe__c67cz35iy9me_large.png`,
-  proHero:   `${APPLE_CDN}/macbook-pro/ax/images/overview/welcome/hero_endframe__fwev9ebh42mq_large.jpg`,
-  airBattery:`${APPLE_CDN}/macbook-air/z/images/overview/hero/hero_startframe__c0rhv2ultfau_large.png`,
-  proAi:     `${APPLE_CDN}/macbook-pro/ax/images/overview/welcome/hero_startframe__ek0dqbh61vau_large.jpg`,
+  airHero: `${CDN}/macbook-air-size-select-202601-13inch?wid=1000&hei=700&fmt=png-alpha&qlt=95`,
+  proHero: `${CDN}/mac-macbook-pro-size-select-202601-14inch?wid=1000&hei=700&fmt=png-alpha&qlt=95`,
 };
