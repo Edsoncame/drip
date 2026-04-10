@@ -4,6 +4,7 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { useState } from "react";
 import type { Product } from "@/lib/products";
+import { useCompare } from "@/components/CompareBar";
 
 interface ProductCardProps {
   product: Product;
@@ -14,6 +15,8 @@ export default function ProductCard({ product, imageUrl }: ProductCardProps) {
   const [liked, setLiked] = useState(false);
   const [imgError, setImgError] = useState(false);
   const minPrice = Math.min(...product.pricing.map(p => p.price));
+  const { toggle, has } = useCompare();
+  const inCompare = has(product.slug);
 
   return (
     <motion.div
@@ -98,13 +101,28 @@ export default function ProductCard({ product, imageUrl }: ProductCardProps) {
               <span className="text-sm font-semibold ml-1" style={{ color: "var(--medium-text)" }}>/mes</span>
             </p>
           </div>
-          <Link
-            href={`/laptops/${product.slug}`}
-            className={`px-4 py-2 text-sm font-bold text-white rounded-full transition-all hover:opacity-90 active:scale-95 ${product.stock === 0 ? "opacity-50 pointer-events-none" : ""}`}
-            style={{ background: "var(--primary)" }}
-          >
-            {product.stock === 0 ? "Agotado" : "Ver planes"}
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => toggle(product)}
+              title={inCompare ? "Quitar de comparación" : "Agregar a comparación"}
+              className={`p-2 rounded-full border transition-all cursor-pointer ${
+                inCompare
+                  ? "border-[#1B4FFF] bg-[#EEF2FF] text-[#1B4FFF]"
+                  : "border-[#E5E5E5] text-[#999999] hover:border-[#1B4FFF] hover:text-[#1B4FFF]"
+              }`}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>
+              </svg>
+            </button>
+            <Link
+              href={`/laptops/${product.slug}`}
+              className={`px-4 py-2 text-sm font-bold text-white rounded-full transition-all hover:opacity-90 active:scale-95 ${product.stock === 0 ? "opacity-50 pointer-events-none" : ""}`}
+              style={{ background: "var(--primary)" }}
+            >
+              {product.stock === 0 ? "Agotado" : "Ver planes"}
+            </Link>
+          </div>
         </div>
       </div>
     </motion.div>

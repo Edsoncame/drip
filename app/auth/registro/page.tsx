@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { Suspense } from "react";
+import GoogleAuthButton from "@/components/GoogleAuthButton";
 
 function RegisterForm() {
   const router = useRouter();
@@ -203,14 +203,23 @@ function RegisterForm() {
 
           <p className="text-xs text-[#999999] text-center mt-4 leading-relaxed">
             Al registrarte aceptas nuestros{" "}
-            <a href="#" className="text-[#1B4FFF] hover:underline">Términos de servicio</a>{" "}
+            <Link href="/terminos" className="text-[#1B4FFF] hover:underline">Términos de servicio</Link>{" "}
             y{" "}
-            <a href="#" className="text-[#1B4FFF] hover:underline">Política de privacidad</a>.
+            <Link href="/privacidad" className="text-[#1B4FFF] hover:underline">Política de privacidad</Link>.
           </p>
+
+          {/* Divider */}
+          <div className="flex items-center gap-3 my-5">
+            <div className="flex-1 h-px bg-[#E5E5E5]" />
+            <span className="text-xs text-[#999999]">o regístrate con</span>
+            <div className="flex-1 h-px bg-[#E5E5E5]" />
+          </div>
+
+          <GoogleAuthButton redirect={redirect} label="Registrarse con Google" />
         </motion.div>
 
         <p className="text-center text-xs text-[#999999] mt-6">
-          © 2025 FLUX — Tika Services S.A.C.
+          © 2026 FLUX — Tika Services S.A.C.
         </p>
       </div>
     </div>
