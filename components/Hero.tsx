@@ -40,12 +40,12 @@ const slides = [
     subtitle: "Contratos flexibles, MDM incluido, opción de compra para colaboradores.",
     cta: "Conocer planes empresa",
     href: "/empresas",
-    bg: "#0a0a0a",
-    textColor: "#FFFFFF",
+    bg: "#F5F5F7",
+    textColor: "#18191F",
     accentColor: "#1B4FFF",
     type: "image" as const,
-    image: `${CDN}/mac-macbook-pro-size-select-202601-14inch?wid=700&hei=490&fmt=png-alpha&qlt=80`,
-    imageAlt: "MacBook Pro 14 pulgadas para empresas",
+    image: `${CDN}/mac-macbook-pro-size-unselect-202601-gallery-1?wid=700&hei=448&fmt=png-alpha&qlt=80`,
+    imageAlt: "MacBook Pro para empresas",
   },
 ];
 
