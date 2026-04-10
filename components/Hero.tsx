@@ -118,6 +118,7 @@ export default function Hero() {
                   height={450}
                   className="w-full max-w-lg object-contain drop-shadow-2xl"
                   priority={active === 0}
+                  unoptimized
                   onError={() => setImgErrors(prev => ({ ...prev, [active]: true }))}
                 />
               ) : (

@@ -86,8 +86,8 @@ export async function getAppleImageSets() {
 
 /** Apple marketing / hero images (from apple.com/v/) */
 export const APPLE_HERO_IMAGES = {
-  airHero:   `${APPLE_CDN}/macbook-air/z/images/overview/hero/hero_static__c9sislzzicq6_large.png`,
-  proHero:   `${APPLE_CDN}/macbook-pro/ax/images/overview/welcome/hero_endframe__fwev9ebh42mq_medium.jpg`,
-  airBattery:`${APPLE_CDN}/macbook-air/z/images/overview/highlights/battery__geuvrre3336u_large.jpg`,
-  proAi:     `${APPLE_CDN}/macbook-pro/ax/images/overview/highlights/highlights_ai__c1tao33ompea_large.jpg`,
+  airHero:   `${APPLE_CDN}/macbook-air/z/images/overview/hero/hero_endframe__c67cz35iy9me_large.png`,
+  proHero:   `${APPLE_CDN}/macbook-pro/ax/images/overview/welcome/hero_endframe__fwev9ebh42mq_large.jpg`,
+  airBattery:`${APPLE_CDN}/macbook-air/z/images/overview/hero/hero_startframe__c0rhv2ultfau_large.png`,
+  proAi:     `${APPLE_CDN}/macbook-pro/ax/images/overview/welcome/hero_startframe__ek0dqbh61vau_large.jpg`,
 };
