@@ -7,8 +7,8 @@ import { products } from "@/lib/products";
 import Link from "next/link";
 import { motion } from "framer-motion";
 
-const fadeUp = { hidden: { opacity: 0, y: 28 }, show: { opacity: 1, y: 0 } };
-const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.1 } } };
+const fadeUp = { hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0 } };
+const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.06 } } };
 
 const testimonials = [
   { name: "Andrea C.", role: "Head of Ops · Fintech Lima", text: "Equipamos a 12 personas con MacBook Pro en una semana. Sin comprar nada. FLUX lo hizo fácil.", stars: 5 },
@@ -76,7 +76,7 @@ export default function Home() {
               <motion.div
                 key={b.title}
                 variants={fadeUp}
-                transition={{ duration: 0.5, ease: "easeOut" }}
+                transition={{ duration: 0.3, ease: "easeOut" }}
                 className="bg-white rounded-2xl p-5"
                 style={{ boxShadow: "0 2px 8px rgba(27,79,255,0.08)" }}
               >
@@ -96,7 +96,7 @@ export default function Home() {
         initial={{ opacity: 0, y: 32 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: "-80px" }}
-        transition={{ duration: 0.6, ease: "easeOut" }}
+        transition={{ duration: 0.35, ease: "easeOut" }}
         className="py-14 md:py-20"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
@@ -118,10 +118,10 @@ export default function Home() {
                 {products.map((p, i) => (
                   <motion.tr
                     key={p.slug}
-                    initial={{ opacity: 0, x: -16 }}
+                    initial={{ opacity: 0, x: -10 }}
                     whileInView={{ opacity: 1, x: 0 }}
                     viewport={{ once: true }}
-                    transition={{ duration: 0.4, delay: i * 0.1, ease: "easeOut" }}
+                    transition={{ duration: 0.28, delay: i * 0.06, ease: "easeOut" }}
                     style={{ borderBottom: i < products.length - 1 ? "1px solid var(--border)" : "none" }}
                   >
                     <td className="py-4 text-sm font-semibold">
@@ -164,7 +164,7 @@ export default function Home() {
               <motion.div
                 key={t.name}
                 variants={fadeUp}
-                transition={{ duration: 0.5, ease: "easeOut" }}
+                transition={{ duration: 0.3, ease: "easeOut" }}
                 className="bg-white rounded-2xl p-6"
                 style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}
               >
@@ -187,7 +187,7 @@ export default function Home() {
         initial={{ opacity: 0, y: 32 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: "-60px" }}
-        transition={{ duration: 0.6, ease: "easeOut" }}
+        transition={{ duration: 0.35, ease: "easeOut" }}
         className="py-16"
         style={{ background: "var(--primary)" }}
       >

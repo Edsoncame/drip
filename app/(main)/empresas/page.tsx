@@ -3,8 +3,8 @@ import Link from "next/link";
 import { products } from "@/lib/products";
 import { motion } from "framer-motion";
 
-const fadeUp = { hidden: { opacity: 0, y: 28 }, show: { opacity: 1, y: 0 } };
-const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.1 } } };
+const fadeUp = { hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0 } };
+const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.06 } } };
 
 export default function Empresas() {
   return (
@@ -14,7 +14,7 @@ export default function Empresas() {
         <motion.div
           initial={{ opacity: 0, y: 32 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
+          transition={{ duration: 0.35, ease: "easeOut" }}
           className="max-w-5xl mx-auto px-4 sm:px-6 text-center"
         >
           <span className="inline-block px-3 py-1 text-xs font-bold rounded-full mb-6"
@@ -61,7 +61,7 @@ export default function Empresas() {
               <motion.div
                 key={v.title}
                 variants={fadeUp}
-                transition={{ duration: 0.5, ease: "easeOut" }}
+                transition={{ duration: 0.3, ease: "easeOut" }}
                 className="p-6 rounded-2xl border"
                 style={{ borderColor: "var(--border)" }}
               >

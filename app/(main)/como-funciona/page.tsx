@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 
-const fadeUp = { hidden: { opacity: 0, y: 24 }, show: { opacity: 1, y: 0 } };
+const fadeUp = { hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0 } };
 
 const steps = [
   { n: "01", icon: "🖥️", title: "Elige tu Mac y tu plazo", desc: "Selecciona el modelo (Air o Pro), la configuración y cuántos meses quieres: 8, 16 o 24. Mientras más largo el plazo, menor el precio mensual." },
@@ -47,7 +47,7 @@ export default function ComoFunciona() {
               initial="hidden"
               whileInView="show"
               viewport={{ once: true, margin: "-60px" }}
-              transition={{ duration: 0.5, delay: i * 0.08, ease: "easeOut" }}
+              transition={{ duration: 0.3, delay: i * 0.05, ease: "easeOut" }}
               className="flex gap-6 items-start"
             >
               <div className="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-sm font-black text-white"
@@ -105,7 +105,7 @@ export default function ComoFunciona() {
               initial="hidden"
               whileInView="show"
               viewport={{ once: true, margin: "-40px" }}
-              transition={{ duration: 0.45, delay: i * 0.07, ease: "easeOut" }}
+              transition={{ duration: 0.28, delay: i * 0.05, ease: "easeOut" }}
               className="rounded-2xl p-6 border"
               style={{ borderColor: "var(--border)" }}
             >
