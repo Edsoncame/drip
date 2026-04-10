@@ -3,6 +3,11 @@ import { Resend } from "resend";
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = "FLUX <hola@flux.pe>";
 
+// Generic low-level sender used by webhook handlers
+export async function sendEmail({ to, subject, html }: { to: string; subject: string; html: string }) {
+  await resend.emails.send({ from: FROM, to, subject, html });
+}
+
 export async function sendConfirmationEmail({
   to, name, productName, months, price, endsAt,
 }: {
