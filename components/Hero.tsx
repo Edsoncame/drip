@@ -64,7 +64,7 @@ export default function Hero() {
   return (
     <section
       className="relative overflow-hidden"
-      style={{ background: slide.bg, minHeight: 360, transition: "background 0.7s ease" }}
+      style={{ background: slide.bg, minHeight: 300, transition: "background 0.7s ease" }}
     >
       {/* Right-side image — full height, no box */}
       <AnimatePresence mode="wait">
@@ -105,7 +105,7 @@ export default function Hero() {
       </AnimatePresence>
 
       {/* Left — text content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10 md:py-14 relative z-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-7 md:py-10 relative z-10">
         <div className="max-w-lg">
           <AnimatePresence mode="wait">
             <motion.div
@@ -127,14 +127,14 @@ export default function Hero() {
               </span>
 
               <h1
-                className="text-4xl md:text-5xl lg:text-6xl font-black leading-tight mb-4 whitespace-pre-line"
+                className="text-3xl md:text-4xl lg:text-5xl font-black leading-tight mb-3 whitespace-pre-line"
                 style={{ color: slide.textColor, letterSpacing: "-0.02em" }}
               >
                 {slide.title}
               </h1>
 
               <p
-                className="text-base md:text-lg font-medium mb-8 leading-relaxed"
+                className="text-sm md:text-base font-medium mb-6 leading-relaxed"
                 style={{ color: slide.textColor, opacity: 0.8 }}
               >
                 {slide.subtitle}
