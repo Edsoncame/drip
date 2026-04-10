@@ -15,8 +15,8 @@ export default function ContactoPage() {
           {
             icon: "📧",
             title: "Correo general",
-            value: "hola@drip.pe",
-            href: "mailto:hola@drip.pe",
+            value: "hola@flux.pe",
+            href: "mailto:hola@flux.pe",
             desc: "Respuesta en menos de 24h hábiles",
           },
           {
@@ -29,15 +29,15 @@ export default function ContactoPage() {
           {
             icon: "🏢",
             title: "Ventas corporativas",
-            value: "ventas@drip.pe",
-            href: "mailto:ventas@drip.pe",
+            value: "ventas@flux.pe",
+            href: "mailto:ventas@flux.pe",
             desc: "Para flotas de 5+ equipos",
           },
           {
             icon: "🔒",
             title: "Privacidad y datos",
-            value: "privacidad@drip.pe",
-            href: "mailto:privacidad@drip.pe",
+            value: "privacidad@flux.pe",
+            href: "mailto:privacidad@flux.pe",
             desc: "Ejercicio de derechos ARCO",
           },
         ].map(item => (

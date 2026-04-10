@@ -2,10 +2,10 @@ import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 
 const SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET ?? "drip-dev-secret"
+  process.env.JWT_SECRET ?? "flux-dev-secret"
 );
 
-const COOKIE_NAME = "drip_session";
+const COOKIE_NAME = "flux_session";
 const MAX_AGE = 60 * 60 * 24 * 30; // 30 days in seconds
 
 export interface SessionPayload {

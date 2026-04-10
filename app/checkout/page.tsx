@@ -393,7 +393,7 @@ function CheckoutContent() {
       <div className="max-w-lg mx-auto px-4">
         {/* Logo */}
         <a href="/" className="block text-center mb-8">
-          <span className="text-3xl font-900 text-[#18191F] tracking-tight">drip</span>
+          <span className="text-3xl font-900 text-[#18191F] tracking-tight">flux</span>
         </a>
 
         <Steps current={step} />
@@ -427,7 +427,7 @@ function CheckoutContent() {
         </motion.div>
 
         <p className="text-center text-xs text-[#999999] mt-6">
-          © 2025 DRIP — Tika Services S.A.C.
+          © 2025 FLUX — Tika Services S.A.C.
         </p>
       </div>
     </div>

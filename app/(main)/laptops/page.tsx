@@ -46,7 +46,7 @@ function LaptopsContent() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-4xl font-black mb-2" style={{ color: "var(--dark-text)" }}>MacBooks en drip</h1>
+        <h1 className="text-4xl font-black mb-2" style={{ color: "var(--dark-text)" }}>MacBooks en flux</h1>
         <p style={{ color: "var(--medium-text)" }}>Los mejores modelos Apple. Sin comprarlos. Solo paga por mes.</p>
       </div>
 

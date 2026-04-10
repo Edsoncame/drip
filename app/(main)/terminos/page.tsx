@@ -13,7 +13,7 @@ export default function TerminosPage() {
         {[
           {
             title: "1. Objeto del servicio",
-            content: "DRIP, operado por Tika Services S.A.C. (RUC: 20608888888), ofrece el alquiler mensual de equipos MacBook a empresas y profesionales en Lima, Perú. El usuario accede al uso del equipo durante el plazo contratado a cambio de una renta mensual.",
+            content: "FLUX, operado por Tika Services S.A.C. (RUC: 20608888888), ofrece el alquiler mensual de equipos MacBook a empresas y profesionales en Lima, Perú. El usuario accede al uso del equipo durante el plazo contratado a cambio de una renta mensual.",
           },
           {
             title: "2. Condiciones de la renta",
@@ -25,7 +25,7 @@ export default function TerminosPage() {
           },
           {
             title: "4. Responsabilidad por daños",
-            content: "El usuario es responsable de los daños causados por mal uso, pérdida o robo del equipo. DRIP ofrece un seguro básico contra daños accidentales. Daños intencionales o negligencia grave no están cubiertos.",
+            content: "El usuario es responsable de los daños causados por mal uso, pérdida o robo del equipo. FLUX ofrece un seguro básico contra daños accidentales. Daños intencionales o negligencia grave no están cubiertos.",
           },
           {
             title: "5. Opción de compra",
@@ -33,15 +33,15 @@ export default function TerminosPage() {
           },
           {
             title: "6. Entrega y devolución",
-            content: "La entrega se realiza en el domicilio o empresa del cliente en Lima Metropolitana en un plazo de 2 a 5 días hábiles. La devolución del equipo al finalizar el contrato se coordina directamente con DRIP.",
+            content: "La entrega se realiza en el domicilio o empresa del cliente en Lima Metropolitana en un plazo de 2 a 5 días hábiles. La devolución del equipo al finalizar el contrato se coordina directamente con FLUX.",
           },
           {
             title: "7. Modificaciones",
-            content: "DRIP se reserva el derecho de modificar estos términos con un aviso previo de 30 días. El uso continuo del servicio implica la aceptación de los nuevos términos.",
+            content: "FLUX se reserva el derecho de modificar estos términos con un aviso previo de 30 días. El uso continuo del servicio implica la aceptación de los nuevos términos.",
           },
           {
             title: "8. Contacto",
-            content: "Para consultas sobre estos términos escríbenos a hola@drip.pe o llámanos al +51 999 000 000.",
+            content: "Para consultas sobre estos términos escríbenos a hola@flux.pe o llámanos al +51 999 000 000.",
           },
         ].map(section => (
           <div key={section.title}>

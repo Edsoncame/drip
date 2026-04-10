@@ -9,7 +9,7 @@ export default function Empresas() {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 text-center">
           <span className="inline-block px-3 py-1 text-xs font-bold rounded-full mb-6"
             style={{ background: "rgba(27,79,255,0.3)", color: "#7EA8FF", border: "1px solid rgba(27,79,255,0.4)" }}>
-            DRIP para Empresas
+            FLUX para Empresas
           </span>
           <h1 className="text-4xl md:text-5xl font-black text-white mb-5" style={{ letterSpacing: "-0.02em", lineHeight: 1.1 }}>
             Equipa a tu equipo con Mac.<br />Sin invertir un sol.
@@ -22,7 +22,7 @@ export default function Empresas() {
               style={{ background: "var(--primary)", color: "#fff" }}>
               Ver MacBooks disponibles
             </Link>
-            <a href="mailto:hola@drip.pe" className="px-8 py-4 font-bold rounded-full text-sm text-white transition-all hover:bg-white/10"
+            <a href="mailto:hola@flux.pe" className="px-8 py-4 font-bold rounded-full text-sm text-white transition-all hover:bg-white/10"
               style={{ border: "2px solid rgba(255,255,255,0.3)" }}>
               Hablar con ventas
             </a>
@@ -97,10 +97,10 @@ export default function Empresas() {
         <div className="max-w-2xl mx-auto px-4 sm:px-6 text-center">
           <h2 className="text-3xl font-black text-white mb-3">¿Cuántos equipos necesitas?</h2>
           <p className="text-white/80 mb-8">Cuéntanos y armamos el plan en 24h. Sin compromiso.</p>
-          <a href="mailto:hola@drip.pe"
+          <a href="mailto:hola@flux.pe"
             className="inline-flex items-center gap-2 px-8 py-4 bg-white font-bold rounded-full hover:bg-gray-100 transition-all text-sm"
             style={{ color: "var(--primary)" }}>
-            Escribirnos → hola@drip.pe
+            Escribirnos → hola@flux.pe
           </a>
         </div>
       </section>

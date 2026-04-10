@@ -10,7 +10,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "DRIP — Tu Mac. Mensual.",
+  title: "FLUX — Tu Mac. Mensual.",
   description: "Accede a MacBook Air y MacBook Pro sin comprarlas. Planes desde 8 meses. Entrega a tu empresa en Lima.",
 };
 

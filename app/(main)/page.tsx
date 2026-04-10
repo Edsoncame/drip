@@ -8,7 +8,7 @@ import Link from "next/link";
 export const revalidate = 86400; // refresh images daily
 
 const testimonials = [
-  { name: "Andrea C.", role: "Head of Ops · Fintech Lima", text: "Equipamos a 12 personas con MacBook Pro en una semana. Sin comprar nada. DRIP lo hizo fácil.", stars: 5 },
+  { name: "Andrea C.", role: "Head of Ops · Fintech Lima", text: "Equipamos a 12 personas con MacBook Pro en una semana. Sin comprar nada. FLUX lo hizo fácil.", stars: 5 },
   { name: "Marco V.", role: "CEO · Agencia Digital", text: "El modelo es perfecto. Pagas mes a mes, y cuando tu equipo crece solo agregas más Macs.", stars: 5 },
   { name: "Lucía R.", role: "CFO · Startup SaaS", text: "Lo mejor: cero CAPEX. Todo va a OPEX y eso cambia totalmente el flujo de caja.", stars: 5 },
 ];
@@ -115,7 +115,7 @@ export default async function Home() {
       {/* Testimonials */}
       <section className="py-14 md:py-20" style={{ background: "var(--light-bg)" }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <h2 className="text-3xl font-black mb-8 text-center" style={{ color: "var(--dark-text)" }}>Empresas que ya hacen drip</h2>
+          <h2 className="text-3xl font-black mb-8 text-center" style={{ color: "var(--dark-text)" }}>Empresas que ya hacen flux</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {testimonials.map(t => (
               <div key={t.name} className="bg-white rounded-2xl p-6" style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}>
@@ -136,7 +136,7 @@ export default async function Home() {
       {/* CTA */}
       <section className="py-16" style={{ background: "var(--primary)" }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 text-center">
-          <h2 className="text-3xl md:text-4xl font-black text-white mb-3">¿Listo para hacer drip?</h2>
+          <h2 className="text-3xl md:text-4xl font-black text-white mb-3">¿Listo para hacer flux?</h2>
           <p className="text-white/80 mb-8 text-lg">Armamos el plan para tu empresa en 24h.</p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link href="/laptops" className="px-8 py-4 bg-white font-bold rounded-full hover:bg-gray-100 transition-all text-sm" style={{ color: "var(--primary)" }}>

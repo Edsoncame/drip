@@ -119,7 +119,7 @@ export default async function RentasPage() {
                     Ver equipo
                   </Link>
                   <span className="text-[#E5E5E5]">·</span>
-                  <a href="mailto:hola@drip.pe?subject=Consulta sobre mi renta"
+                  <a href="mailto:hola@flux.pe?subject=Consulta sobre mi renta"
                     className="text-sm font-600 text-[#666666] hover:text-[#1B4FFF] transition-colors">
                     Contactar soporte
                   </a>

@@ -49,7 +49,7 @@ function LoginForm() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <Link href="/" className="block text-center mb-8">
-          <span className="text-3xl font-900 text-[#18191F] tracking-tight">drip</span>
+          <span className="text-3xl font-900 text-[#18191F] tracking-tight">flux</span>
         </Link>
 
         <motion.div
@@ -172,7 +172,7 @@ function LoginForm() {
         </motion.div>
 
         <p className="text-center text-xs text-[#999999] mt-6">
-          © 2025 DRIP — Tika Services S.A.C.
+          © 2025 FLUX — Tika Services S.A.C.
         </p>
       </div>
     </div>

@@ -43,7 +43,7 @@ export default function Navbar() {
     <>
       {/* Top promo bar */}
       <div style={{ background: "var(--primary)" }} className="text-white text-sm font-semibold text-center py-2.5 px-4">
-        🖥️ Nuevo en DRIP: MacBook Pro M5 ya disponible — desde $115/mes
+        🖥️ Nuevo en FLUX: MacBook Pro M5 ya disponible — desde $115/mes
       </div>
 
       {/* Main navbar */}
@@ -56,7 +56,7 @@ export default function Navbar() {
               <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "var(--primary)" }}>
                 <span className="text-white font-black text-sm">D</span>
               </div>
-              <span className="font-black text-xl tracking-tight" style={{ color: "var(--dark-text)" }}>drip</span>
+              <span className="font-black text-xl tracking-tight" style={{ color: "var(--dark-text)" }}>flux</span>
             </Link>
 
             {/* Search */}

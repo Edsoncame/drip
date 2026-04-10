@@ -10,7 +10,7 @@ const steps = [
 ];
 
 const faqs = [
-  { q: "¿Necesito un depósito de garantía?", a: "No. DRIP no exige depósito. El primer mes de renta actúa como pago de activación del pedido." },
+  { q: "¿Necesito un depósito de garantía?", a: "No. FLUX no exige depósito. El primer mes de renta actúa como pago de activación del pedido." },
   { q: "¿Puedo cancelar antes del plazo mínimo?", a: "Puedes cancelar desde el mes siguiente al plazo mínimo contratado (8, 16 o 24 meses). Solo devuelves el equipo." },
   { q: "¿Qué pasa si el equipo se daña?", a: "El arrendatario es responsable por daños fuera del desgaste normal. Recomendamos contratar AppleCare+ que ofrecemos como add-on." },
   { q: "¿Puedo comprar la Mac al final?", a: "Sí. Al terminar el plazo puedes comprarla al valor residual pactado desde el inicio: 77.5% a 8m, 55% a 16m, 32.5% a 24m." },

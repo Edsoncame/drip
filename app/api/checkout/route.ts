@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     // 1 — Create a subscription plan (one per checkout)
     const preApprovalPlan = await new PreApprovalPlan(client).create({
       body: {
-        reason: `DRIP — ${product.name} · ${months} meses`,
+        reason: `FLUX — ${product.name} · ${months} meses`,
         auto_recurring: {
           frequency: 1,
           frequency_type: "months",

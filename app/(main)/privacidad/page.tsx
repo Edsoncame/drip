@@ -33,7 +33,7 @@ export default function PrivacidadPage() {
           },
           {
             title: "6. Tus derechos (ARCO)",
-            content: "Tienes derecho a Acceder, Rectificar, Cancelar y Oponerte al tratamiento de tus datos. Ejerce tus derechos escribiendo a privacidad@drip.pe con tu nombre y DNI. Responderemos en un plazo máximo de 20 días hábiles.",
+            content: "Tienes derecho a Acceder, Rectificar, Cancelar y Oponerte al tratamiento de tus datos. Ejerce tus derechos escribiendo a privacidad@flux.pe con tu nombre y DNI. Responderemos en un plazo máximo de 20 días hábiles.",
           },
           {
             title: "7. Seguridad",

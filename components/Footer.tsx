@@ -31,7 +31,7 @@ export default function Footer() {
               <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "var(--primary)" }}>
                 <span className="text-white font-black text-sm">D</span>
               </div>
-              <span className="text-white font-black text-xl tracking-tight">drip</span>
+              <span className="text-white font-black text-xl tracking-tight">flux</span>
             </Link>
             <p className="text-sm leading-relaxed mb-4">
               Accede a las mejores Macs sin comprarlas. Planes mensuales para empresas en Lima.
@@ -99,7 +99,7 @@ export default function Footer() {
         </div>
 
         <div className="border-t border-white/10 pt-6 flex flex-col md:flex-row items-center justify-between gap-2 text-xs">
-          <span>© 2026 DRIP — Tika Services S.A.C. · Lima, Perú · RUC 20608888888</span>
+          <span>© 2026 FLUX — Tika Services S.A.C. · Lima, Perú · RUC 20608888888</span>
           <span>Hecho con 💙 para equipos que merecen Mac</span>
         </div>
       </div>
