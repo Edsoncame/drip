@@ -75,7 +75,7 @@ export default function Hero() {
           exit={{ opacity: 0, x: 20 }}
           transition={{ duration: 0.55, ease: "easeOut" }}
           className="absolute right-0 top-0 bottom-0 hidden md:block"
-          style={{ width: "52%" }}
+          style={{ width: "42%" }}
         >
           {!imgErrors[active] && (
             <>
