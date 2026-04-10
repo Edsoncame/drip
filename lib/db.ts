@@ -5,35 +5,47 @@ declare global {
   var _pgPool: Pool | undefined;
 }
 
-function createPool() {
-  const isLocal = process.env.DATABASE_URL?.includes("localhost") ||
-                  process.env.DATABASE_URL?.includes("127.0.0.1") ||
-                  process.env.DATABASE_URL?.includes("railway.internal");
-  // DATABASE_SSL=false → disable SSL (for Railway proxies that don't support it)
-  // DATABASE_SSL=true  → force SSL with rejectUnauthorized:false
-  // default            → SSL for non-local connections
-  const sslEnv = process.env.DATABASE_SSL;
-  const useSSL = sslEnv === "false" ? false
-               : isLocal ? false
-               : { rejectUnauthorized: false };
+let _resolvedPool: Pool | undefined;
 
-  return new Pool({
+async function resolvePool(): Promise<Pool> {
+  if (_resolvedPool) return _resolvedPool;
+  if (globalThis._pgPool) {
+    _resolvedPool = globalThis._pgPool;
+    return _resolvedPool;
+  }
+
+  // Try without SSL first — Railway's PostgreSQL proxy often rejects SSL
+  const noSslPool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: useSSL,
-    max: 10,
+    ssl: false,
+    max: 5,
   });
+
+  try {
+    await noSslPool.query("SELECT 1");
+    _resolvedPool = noSslPool;
+    if (process.env.NODE_ENV !== "production") globalThis._pgPool = noSslPool;
+    return noSslPool;
+  } catch (e1) {
+    await noSslPool.end().catch(() => {});
+
+    // Fallback: try with SSL (rejectUnauthorized:false for self-signed certs)
+    const sslPool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+      max: 5,
+    });
+    await sslPool.query("SELECT 1"); // throws if also fails
+    _resolvedPool = sslPool;
+    if (process.env.NODE_ENV !== "production") globalThis._pgPool = sslPool;
+    return sslPool;
+  }
 }
-
-// Re-use pool across hot reloads in dev
-const pool = globalThis._pgPool ?? createPool();
-if (process.env.NODE_ENV !== "production") globalThis._pgPool = pool;
-
-export default pool;
 
 export async function query<T extends QueryResultRow = QueryResultRow>(
   text: string,
   params?: unknown[]
 ) {
-  const result = await pool.query<T>(text, params);
-  return result;
+  const pool = await resolvePool();
+  return pool.query<T>(text, params);
 }
