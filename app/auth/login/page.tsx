@@ -60,7 +60,8 @@ function LoginForm() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <Link href="/" className="block text-center mb-8">
-          <span className="text-3xl font-900 text-[#18191F] tracking-tight">flux</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/images/logoflux.svg" alt="Flux" className="h-10 mx-auto" />
         </Link>
 
         <motion.div

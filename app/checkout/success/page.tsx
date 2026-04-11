@@ -31,7 +31,8 @@ function SuccessContent() {
       <div className="max-w-lg w-full">
         {/* Logo */}
         <a href="/" className="block text-center mb-8">
-          <span className="text-3xl font-900 text-[#18191F] tracking-tight">flux</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/images/logoflux.svg" alt="Flux" className="h-10 mx-auto" />
         </a>
 
         <motion.div

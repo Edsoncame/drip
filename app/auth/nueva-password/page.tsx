@@ -86,7 +86,8 @@ export default function NuevaPasswordPage() {
     <div className="min-h-screen bg-[#F7F7F7] flex items-center justify-center py-10 px-4">
       <div className="w-full max-w-md">
         <Link href="/" className="block text-center mb-8">
-          <span className="text-3xl font-900 text-[#18191F] tracking-tight">flux</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/images/logoflux.svg" alt="Flux" className="h-10 mx-auto" />
         </Link>
         <Suspense fallback={<div className="bg-white rounded-3xl p-8 shadow-sm" />}>
           <NuevaPasswordForm />

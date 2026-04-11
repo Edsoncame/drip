@@ -28,9 +28,8 @@ export default function Footer() {
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
             <Link href="/" className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "var(--primary)" }}>
-                <span className="text-white font-black text-sm">F</span>
-              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/images/isotipoflux.svg" alt="Flux" className="h-8 w-auto" />
               <span className="text-white font-black text-xl tracking-tight">flux</span>
             </Link>
             <p className="text-sm leading-relaxed mb-4">

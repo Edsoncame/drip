@@ -94,9 +94,8 @@ export default async function AdminPage() {
       {/* Top bar */}
       <div className="bg-white border-b border-[#E5E5E5] px-6 py-4 flex items-center justify-between sticky top-0 z-10">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-[#1B4FFF] flex items-center justify-center">
-            <span className="text-white font-black text-sm">F</span>
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/images/isotipoflux.svg" alt="Flux" className="h-7 w-auto" />
           <div className="flex items-center gap-2">
             <span className="font-800 text-[#18191F]">flux</span>
             <span className="text-xs font-600 px-2 py-0.5 bg-[#1B4FFF] text-white rounded-full">Admin</span>
