@@ -104,7 +104,34 @@ export default function Home() {
             <h2 className="text-3xl font-black mb-2" style={{ color: "var(--dark-text)" }}>Precios transparentes</h2>
             <p style={{ color: "var(--medium-text)" }}>El mismo precio para todos. Sin sorpresas.</p>
           </div>
-          <div className="max-w-3xl mx-auto overflow-x-auto">
+          {/* Mobile: card layout */}
+          <div className="md:hidden max-w-md mx-auto space-y-4">
+            {products.map((p, i) => (
+              <motion.div
+                key={p.slug}
+                initial={{ opacity: 0, y: 10 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.28, delay: i * 0.06 }}
+                className="bg-white rounded-2xl p-5 border border-[#E5E5E5]"
+              >
+                <Link href={`/laptops/${p.slug}`} className="font-bold text-base hover:underline" style={{ color: "var(--primary)" }}>{p.shortName}</Link>
+                <p className="text-xs mt-0.5 mb-3" style={{ color: "var(--light-text)" }}>{p.chip} · {p.ram} · {p.ssd}</p>
+                <div className="grid grid-cols-3 gap-3">
+                  {p.pricing.map(pr => (
+                    <div key={pr.months} className="text-center bg-[#F7F7F7] rounded-xl py-2.5 px-1">
+                      <p className="text-[10px] font-600 mb-1" style={{ color: "var(--light-text)" }}>{pr.months} meses</p>
+                      <p className="text-lg font-black" style={{ color: "var(--dark-text)" }}>${pr.price}</p>
+                      <p className="text-[10px]" style={{ color: "var(--light-text)" }}>/mes</p>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Desktop: table layout */}
+          <div className="hidden md:block max-w-3xl mx-auto overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr style={{ borderBottom: "2px solid var(--border)" }}>

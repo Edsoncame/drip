@@ -58,7 +58,7 @@ export default function ProductDetail({ product, images }: { product: Product; i
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
 
           {/* Left — Image gallery */}
-          <div className="sticky top-24">
+          <div className="lg:sticky lg:top-24">
             {/* Main image */}
             <div className="bg-[#F5F5F7] rounded-2xl overflow-hidden flex items-center justify-center"
               style={{ aspectRatio: "4/3" }}>

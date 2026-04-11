@@ -214,7 +214,20 @@ export default function Navbar() {
       <AnimatePresence>
         {menuOpen && (
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-            className="fixed inset-x-0 top-0 z-40 bg-white pt-20 pb-6 px-4 shadow-xl md:hidden">
+            className="fixed inset-0 z-[60] bg-white pt-6 pb-6 px-4 overflow-y-auto md:hidden">
+            {/* Close + Logo */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/images/isotipoflux.svg" alt="Flux" className="h-7 w-auto" />
+                <span className="font-black text-xl tracking-tight" style={{ color: "var(--dark-text)" }}>flux</span>
+              </div>
+              <button onClick={() => setMenuOpen(false)} className="p-2 rounded-full hover:bg-gray-100 cursor-pointer" aria-label="Cerrar menú">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6 6 18M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
             <div className="flex flex-col gap-2">
               {nav.map(item => (
                 <Link key={item.href} href={item.href} onClick={() => setMenuOpen(false)}
