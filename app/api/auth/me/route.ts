@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { query } from "@/lib/db";
 
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "").split(",").map(e => e.trim().toLowerCase());
+
 export async function GET() {
   const session = await getSession();
   if (!session) {
@@ -20,5 +22,6 @@ export async function GET() {
     return NextResponse.json({ user: null }, { status: 401 });
   }
 
-  return NextResponse.json({ user });
+  const isAdmin = ADMIN_EMAILS.includes(user.email.toLowerCase());
+  return NextResponse.json({ user: { ...user, isAdmin } });
 }

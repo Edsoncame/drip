@@ -16,6 +16,7 @@ interface User {
   id: string;
   name: string;
   email: string;
+  isAdmin?: boolean;
 }
 
 export default function Navbar() {
@@ -135,6 +136,13 @@ export default function Navbar() {
                           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
                           Mis rentas
                         </Link>
+                        {user.isAdmin && (
+                          <Link href="/admin" onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-[#1B4FFF] hover:bg-[#EEF2FF] transition-colors font-600">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                            Panel admin
+                          </Link>
+                        )}
                         <div className="border-t border-[#F0F0F0] mt-1 pt-1">
                           <button onClick={handleLogout}
                             className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors cursor-pointer">
@@ -225,6 +233,9 @@ export default function Navbar() {
                     </div>
                     <Link href="/cuenta" onClick={() => setMenuOpen(false)} className="px-4 py-3 font-600 rounded-xl hover:bg-gray-50 text-[#333333]">Mi cuenta</Link>
                     <Link href="/cuenta/rentas" onClick={() => setMenuOpen(false)} className="px-4 py-3 font-600 rounded-xl hover:bg-gray-50 text-[#333333]">Mis rentas</Link>
+                    {user.isAdmin && (
+                      <Link href="/admin" onClick={() => setMenuOpen(false)} className="px-4 py-3 font-600 rounded-xl hover:bg-[#EEF2FF] text-[#1B4FFF]">Panel admin</Link>
+                    )}
                     <button onClick={() => { handleLogout(); setMenuOpen(false); }} className="text-left px-4 py-3 font-600 rounded-xl hover:bg-red-50 text-red-500 cursor-pointer">Cerrar sesión</button>
                   </>
                 ) : (
