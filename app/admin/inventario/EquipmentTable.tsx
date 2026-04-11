@@ -377,7 +377,6 @@ function EquipmentModal({ data, onChange, onSave, onClose, saving }: ModalProps)
     const residualPct = PLAN_RESIDUAL_PCT[String(m)] ?? 55;
     return {
       m,
-      residualPct,
       ...calcPlan(precio, tasa, plazo, opex, residualPct, m, tarifa || undefined, calcMargin / 100),
     };
   });
