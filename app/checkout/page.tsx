@@ -41,7 +41,7 @@ function Steps({ current }: { current: number }) {
   );
 }
 
-const APPLECARE_PRICE = 15;
+const APPLECARE_PRICE = 12;
 
 // ─── Step 1 — Plan summary ─────────────────────────────────────────────────────
 function Step1({

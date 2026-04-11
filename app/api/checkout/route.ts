@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
     }
 
     const qty = Math.max(1, Math.min(20, Math.floor(quantity)));
-    const APPLECARE_PRICE = 15;
+    const APPLECARE_PRICE = 12;
     const totalMonthly = (plan.price + (appleCare ? APPLECARE_PRICE : 0)) * qty;
 
     // 1 — Create a subscription plan (one per checkout)
