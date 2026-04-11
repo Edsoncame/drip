@@ -198,14 +198,16 @@ function Step2({
   data: CustomerData;
   onChange: (d: CustomerData) => void;
 }) {
-  const [errors, setErrors] = useState<Partial<CustomerData>>({});
+  const [errors, setErrors] = useState<Partial<CustomerData> & { terms?: string }>({});
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const validate = () => {
-    const e: Partial<CustomerData> = {};
+    const e: Partial<CustomerData> & { terms?: string } = {};
     if (!data.name.trim()) e.name = "Requerido";
     if (!data.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) e.email = "Email inválido";
     if (!data.phone.trim()) e.phone = "Requerido";
     if (!data.company.trim()) e.company = "Requerido";
+    if (!acceptedTerms) e.terms = "Debes aceptar los términos para continuar";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -264,6 +266,44 @@ function Step2({
       <p className="text-xs text-[#999999] mt-4">
         Tus datos solo se usan para coordinar la entrega y facturación. No los compartimos con terceros.
       </p>
+
+      {/* Terms acceptance */}
+      <div className="mt-5">
+        <label className={`flex items-start gap-3 cursor-pointer select-none ${errors.terms ? "text-red-500" : "text-[#333333]"}`}>
+          <div className="relative flex-shrink-0 mt-0.5">
+            <input
+              type="checkbox"
+              checked={acceptedTerms}
+              onChange={(e) => {
+                setAcceptedTerms(e.target.checked);
+                if (e.target.checked) setErrors(prev => ({ ...prev, terms: undefined }));
+              }}
+              className="sr-only"
+            />
+            <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
+              acceptedTerms ? "bg-[#1B4FFF] border-[#1B4FFF]" : errors.terms ? "border-red-400" : "border-[#CCCCCC]"
+            }`}>
+              {acceptedTerms && (
+                <svg width="11" height="9" viewBox="0 0 11 9" fill="none">
+                  <path d="M1 4l3 3 6-6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              )}
+            </div>
+          </div>
+          <span className="text-sm leading-relaxed">
+            He leído y acepto los{" "}
+            <a href="/terminos" target="_blank" rel="noreferrer" className="text-[#1B4FFF] hover:underline font-600">
+              Términos y Condiciones
+            </a>
+            {" "}y la{" "}
+            <a href="/privacidad" target="_blank" rel="noreferrer" className="text-[#1B4FFF] hover:underline font-600">
+              Política de Privacidad
+            </a>
+            {" "}de FLUX — Tika Services S.A.C.
+          </span>
+        </label>
+        {errors.terms && <p className="text-red-500 text-xs mt-2">{errors.terms}</p>}
+      </div>
 
       <button
         type="submit"

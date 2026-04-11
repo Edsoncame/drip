@@ -35,6 +35,7 @@ function LaptopsContent() {
   const urlFilter = searchParams.get("filter");
   const urlQuery = searchParams.get("q") ?? "";
   const [imageSets, setImageSets] = useState<Record<string, { open: string }>>({});
+  const [stockMap, setStockMap] = useState<Record<string, number>>({});
   const [searchInput, setSearchInput] = useState(urlQuery);
 
   const getInitialFilter = () => {
@@ -56,6 +57,11 @@ function LaptopsContent() {
     fetch("/api/apple-images")
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (data) setImageSets(data); })
+      .catch(() => {});
+
+    fetch("/api/stock")
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setStockMap(data); })
       .catch(() => {});
   }, []);
 
@@ -124,7 +130,11 @@ function LaptopsContent() {
       {filtered.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {filtered.map(p => (
-            <ProductCard key={p.slug} product={p} imageUrl={imageSets[p.slug]?.open} />
+            <ProductCard
+              key={p.slug}
+              product={p.slug in stockMap ? { ...p, stock: stockMap[p.slug] } : p}
+              imageUrl={imageSets[p.slug]?.open}
+            />
           ))}
         </div>
       ) : (
