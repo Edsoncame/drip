@@ -48,6 +48,7 @@ export interface Equipment {
   usuario_dispositivo: string | null;
   clave_dispositivo: string | null;
   clave_vault: string | null;
+  clave_vault_url: string | null;
   observaciones: string | null;
 }
 
@@ -294,12 +295,20 @@ export default function EquipmentTable({ equipment }: { equipment: Equipment[] }
                           </div>
                         )}
                         {eq.observaciones && <p className="text-xs text-[#666] mt-2 bg-white rounded-xl px-3 py-2 border border-[#E5E5E5]">📝 {eq.observaciones}</p>}
-                        {eq.factura_url && (
-                          <a href={eq.factura_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-[#1B4FFF] hover:underline mt-2">
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                            Ver factura
-                          </a>
-                        )}
+                        <div className="flex flex-wrap gap-3 mt-2">
+                          {eq.clave_vault_url && (
+                            <a href={eq.clave_vault_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-[#1B4FFF] hover:underline">
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                              Ver clave vault
+                            </a>
+                          )}
+                          {eq.factura_url && (
+                            <a href={eq.factura_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-[#666] hover:underline">
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                              Ver factura
+                            </a>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   )}
@@ -542,6 +551,7 @@ function EquipmentModal({ data, onChange, onSave, onClose, saving }: ModalProps)
               <Field label="Proveedor" value={f("proveedor")} onChange={set("proveedor")} placeholder="CASESWORLD" />
               <Field label="Fecha compra" type="date" value={f("fecha_compra")?.split("T")[0]} onChange={set("fecha_compra")} />
               <Field label="URL Factura" value={f("factura_url")} onChange={set("factura_url")} placeholder="https://drive.google.com/…" />
+              <Field label="Foto clave vault" value={f("clave_vault_url")} onChange={set("clave_vault_url")} placeholder="https://drive.google.com/…" />
               <Field label="URL Marketplace" value={f("web_url")} onChange={set("web_url")} placeholder="https://mercadolibre.com/…" />
             </Row>
             <Row>
