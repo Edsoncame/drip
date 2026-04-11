@@ -21,6 +21,10 @@ interface Sub {
   admin_note: string | null;
   mp_subscription_id: string | null;
   apple_care: boolean | null;
+  delivery_method: string | null;
+  delivery_address: string | null;
+  delivery_distrito: string | null;
+  delivery_reference: string | null;
 }
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
@@ -221,8 +225,16 @@ export default function AdminTable({ subs }: { subs: Sub[] }) {
                           <Info label="Teléfono" value={sub.customer_phone} copy />
                           <Info label="RUC"      value={sub.customer_ruc ?? "—"} />
                           <Info label="AppleCare+" value={sub.apple_care ? "✅ Sí — activar antes de entrega" : "No"} />
+                          <Info label="Entrega" value={sub.delivery_method === "pickup" ? "🏢 Recojo en oficina" : "🚚 Envío a domicilio"} />
                           <Info label="MP ID"    value={sub.mp_subscription_id ?? "—"} copy />
                         </div>
+                        {sub.delivery_method === "shipping" && sub.delivery_address && (
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
+                            <Info label="Distrito" value={sub.delivery_distrito ?? "—"} />
+                            <Info label="Dirección" value={sub.delivery_address} copy />
+                            <Info label="Referencia" value={sub.delivery_reference ?? "—"} />
+                          </div>
+                        )}
 
                         {/* Note */}
                         <div className="flex items-start gap-2">

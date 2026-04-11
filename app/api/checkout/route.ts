@@ -15,7 +15,7 @@ const tag = "[checkout]";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { slug, months, cardToken, customer, quantity = 1, appleCare = false } = body as {
+    const { slug, months, cardToken, customer, quantity = 1, appleCare = false, delivery } = body as {
       slug: string;
       months: number;
       cardToken: string;
@@ -27,6 +27,12 @@ export async function POST(req: NextRequest) {
         phone: string;
         company: string;
         ruc: string;
+      };
+      delivery?: {
+        method: "pickup" | "shipping";
+        address: string;
+        distrito: string;
+        reference: string;
       };
     };
 
@@ -98,8 +104,8 @@ export async function POST(req: NextRequest) {
 
     await query(
       `INSERT INTO subscriptions
-        (user_id, product_slug, product_name, months, monthly_price, status, started_at, ends_at, mp_subscription_id, customer_name, customer_email, customer_phone, customer_company, customer_ruc, apple_care)
-       VALUES ($1,$2,$3,$4,$5,'active',NOW(),$6,$7,$8,$9,$10,$11,$12,$13)
+        (user_id, product_slug, product_name, months, monthly_price, status, started_at, ends_at, mp_subscription_id, customer_name, customer_email, customer_phone, customer_company, customer_ruc, apple_care, delivery_method, delivery_address, delivery_distrito, delivery_reference)
+       VALUES ($1,$2,$3,$4,$5,'active',NOW(),$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
        ON CONFLICT DO NOTHING`,
       [
         session?.userId ?? null,
@@ -115,6 +121,10 @@ export async function POST(req: NextRequest) {
         customer.company,
         customer.ruc || null,
         appleCare,
+        delivery?.method ?? "shipping",
+        delivery?.address || null,
+        delivery?.distrito || null,
+        delivery?.reference || null,
       ]
     );
 

@@ -178,7 +178,7 @@ function Step1({
   );
 }
 
-// ─── Step 2 — Customer data ────────────────────────────────────────────────────
+// ─── Step 2 — Customer data + delivery ────────────────────────────────────────
 type CustomerData = {
   name: string;
   email: string;
@@ -187,26 +187,54 @@ type CustomerData = {
   ruc: string;
 };
 
+type DeliveryData = {
+  method: "pickup" | "shipping";
+  address: string;
+  distrito: string;
+  reference: string;
+};
+
+const LIMA_DISTRITOS = [
+  "Ate", "Barranco", "Breña", "Carabayllo", "Chaclacayo", "Chorrillos",
+  "Cieneguilla", "Comas", "El Agustino", "Independencia", "Jesús María",
+  "La Molina", "La Victoria", "Lima Cercado", "Lince", "Los Olivos",
+  "Lurigancho-Chosica", "Lurín", "Magdalena del Mar", "Miraflores",
+  "Pachacámac", "Pueblo Libre", "Puente Piedra", "Punta Hermosa",
+  "Punta Negra", "Rímac", "San Bartolo", "San Borja", "San Isidro",
+  "San Juan de Lurigancho", "San Juan de Miraflores", "San Luis",
+  "San Martín de Porres", "San Miguel", "Santa Anita", "Santa María del Mar",
+  "Santa Rosa", "Santiago de Surco", "Surquillo", "Villa El Salvador",
+  "Villa María del Triunfo",
+];
+
 function Step2({
   onNext,
   onBack,
   data,
   onChange,
+  delivery,
+  onDeliveryChange,
 }: {
   onNext: () => void;
   onBack: () => void;
   data: CustomerData;
   onChange: (d: CustomerData) => void;
+  delivery: DeliveryData;
+  onDeliveryChange: (d: DeliveryData) => void;
 }) {
-  const [errors, setErrors] = useState<Partial<CustomerData> & { terms?: string }>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const validate = () => {
-    const e: Partial<CustomerData> & { terms?: string } = {};
+    const e: Record<string, string> = {};
     if (!data.name.trim()) e.name = "Requerido";
     if (!data.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) e.email = "Email inválido";
     if (!data.phone.trim()) e.phone = "Requerido";
     if (!data.company.trim()) e.company = "Requerido";
+    if (delivery.method === "shipping") {
+      if (!delivery.address.trim()) e.address = "Requerido";
+      if (!delivery.distrito) e.distrito = "Selecciona un distrito";
+    }
     if (!acceptedTerms) e.terms = "Debes aceptar los términos para continuar";
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -263,6 +291,128 @@ function Step2({
         </div>
       </div>
 
+      {/* Delivery method */}
+      <div className="mt-6">
+        <h3 className="text-base font-700 text-[#18191F] mb-3">¿Cómo quieres recibir tu Mac?</h3>
+        <div className="space-y-3">
+          <button
+            type="button"
+            onClick={() => onDeliveryChange({ ...delivery, method: "pickup" })}
+            className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all cursor-pointer text-left ${
+              delivery.method === "pickup" ? "border-[#1B4FFF] bg-[#EEF2FF]" : "border-[#E5E5E5] hover:border-[#BBCAFF]"
+            }`}
+          >
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0 ${
+              delivery.method === "pickup" ? "bg-[#1B4FFF]/10" : "bg-[#F5F5F7]"
+            }`}>🏢</div>
+            <div className="flex-1">
+              <p className="font-700 text-[#18191F] text-sm">Recojo en oficina</p>
+              <p className="text-xs text-[#666666] mt-0.5">Disponible en 24h · Lima, Perú</p>
+            </div>
+            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+              delivery.method === "pickup" ? "border-[#1B4FFF]" : "border-[#CCCCCC]"
+            }`}>
+              {delivery.method === "pickup" && <div className="w-2.5 h-2.5 rounded-full bg-[#1B4FFF]" />}
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onDeliveryChange({ ...delivery, method: "shipping" })}
+            className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all cursor-pointer text-left ${
+              delivery.method === "shipping" ? "border-[#1B4FFF] bg-[#EEF2FF]" : "border-[#E5E5E5] hover:border-[#BBCAFF]"
+            }`}
+          >
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0 ${
+              delivery.method === "shipping" ? "bg-[#1B4FFF]/10" : "bg-[#F5F5F7]"
+            }`}>🚚</div>
+            <div className="flex-1">
+              <p className="font-700 text-[#18191F] text-sm">Envío gratis a domicilio</p>
+              <p className="text-xs text-[#666666] mt-0.5">24-48h hábiles · Solo Lima Metropolitana</p>
+            </div>
+            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+              delivery.method === "shipping" ? "border-[#1B4FFF]" : "border-[#CCCCCC]"
+            }`}>
+              {delivery.method === "shipping" && <div className="w-2.5 h-2.5 rounded-full bg-[#1B4FFF]" />}
+            </div>
+          </button>
+        </div>
+
+        {/* Shipping address fields */}
+        {delivery.method === "shipping" && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            transition={{ duration: 0.2 }}
+            className="mt-4 space-y-3"
+          >
+            <div>
+              <label className="block text-sm font-600 text-[#333333] mb-1">
+                Distrito <span className="text-[#1B4FFF]">*</span>
+              </label>
+              <select
+                value={delivery.distrito}
+                onChange={(e) => onDeliveryChange({ ...delivery, distrito: e.target.value })}
+                className={`w-full px-4 py-3 rounded-xl border text-sm outline-none transition-all bg-white ${
+                  errors.distrito
+                    ? "border-red-400 bg-red-50"
+                    : "border-[#E5E5E5] focus:border-[#1B4FFF] focus:ring-2 focus:ring-[#1B4FFF]/10"
+                }`}
+              >
+                <option value="">Selecciona tu distrito</option>
+                {LIMA_DISTRITOS.map(d => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+              {errors.distrito && <p className="text-red-500 text-xs mt-1">{errors.distrito}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-600 text-[#333333] mb-1">
+                Dirección <span className="text-[#1B4FFF]">*</span>
+              </label>
+              <input
+                type="text"
+                value={delivery.address}
+                onChange={(e) => onDeliveryChange({ ...delivery, address: e.target.value })}
+                placeholder="Av. Javier Prado 1234, Oficina 501"
+                className={`w-full px-4 py-3 rounded-xl border text-sm outline-none transition-all ${
+                  errors.address
+                    ? "border-red-400 bg-red-50"
+                    : "border-[#E5E5E5] focus:border-[#1B4FFF] focus:ring-2 focus:ring-[#1B4FFF]/10"
+                }`}
+              />
+              {errors.address && <p className="text-red-500 text-xs mt-1">{errors.address}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-600 text-[#333333] mb-1">
+                Referencia <span className="text-[#999999] font-400">(opcional)</span>
+              </label>
+              <input
+                type="text"
+                value={delivery.reference}
+                onChange={(e) => onDeliveryChange({ ...delivery, reference: e.target.value })}
+                placeholder="Edificio Torre Azul, piso 5, preguntar por recepción"
+                className="w-full px-4 py-3 rounded-xl border border-[#E5E5E5] text-sm outline-none focus:border-[#1B4FFF] focus:ring-2 focus:ring-[#1B4FFF]/10 transition-all"
+              />
+            </div>
+          </motion.div>
+        )}
+
+        {/* Pickup info */}
+        {delivery.method === "pickup" && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            transition={{ duration: 0.2 }}
+            className="mt-4 bg-[#F7F7F7] rounded-xl p-4"
+          >
+            <p className="text-sm font-600 text-[#333333] mb-1">📍 Dirección de recojo</p>
+            <p className="text-sm text-[#666666]">Te enviaremos la dirección y horario por email una vez confirmado el pago.</p>
+            <p className="text-xs text-[#999999] mt-2">Lunes a viernes · 9am – 6pm</p>
+          </motion.div>
+        )}
+      </div>
+
       <p className="text-xs text-[#999999] mt-4">
         Tus datos solo se usan para coordinar la entrega y facturación. No los compartimos con terceros.
       </p>
@@ -276,7 +426,7 @@ function Step2({
               checked={acceptedTerms}
               onChange={(e) => {
                 setAcceptedTerms(e.target.checked);
-                if (e.target.checked) setErrors(prev => ({ ...prev, terms: undefined }));
+                if (e.target.checked) setErrors(prev => { const next = { ...prev }; delete next.terms; return next; });
               }}
               className="sr-only"
             />
@@ -329,6 +479,7 @@ function PaymentForm({
   appleCare,
   quantity,
   customer,
+  delivery,
   onBack,
 }: {
   product: Product;
@@ -336,6 +487,7 @@ function PaymentForm({
   appleCare: boolean;
   quantity: number;
   customer: CustomerData;
+  delivery: DeliveryData;
   onBack: () => void;
 }) {
   const router = useRouter();
@@ -360,6 +512,7 @@ function PaymentForm({
           quantity,
           cardToken: formData.token,
           customer,
+          delivery,
         }),
       });
 
@@ -480,6 +633,12 @@ function CheckoutContent() {
     company: "",
     ruc: "",
   });
+  const [delivery, setDelivery] = useState<DeliveryData>({
+    method: "shipping",
+    address: "",
+    distrito: "",
+    reference: "",
+  });
 
   useEffect(() => {
     initMercadoPago(process.env.NEXT_PUBLIC_MP_PUBLIC_KEY!, { locale: "es-PE" });
@@ -545,6 +704,8 @@ function CheckoutContent() {
             <Step2
               data={customer}
               onChange={setCustomer}
+              delivery={delivery}
+              onDeliveryChange={setDelivery}
               onBack={() => setStep(1)}
               onNext={() => setStep(3)}
             />
@@ -557,6 +718,7 @@ function CheckoutContent() {
               appleCare={appleCare}
               quantity={quantity}
               customer={customer}
+              delivery={delivery}
               onBack={() => setStep(2)}
             />
           )}
