@@ -1,7 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import {
+  calcPlan, solveMonthlyRate, monthlyToAnnualPct, calcCuota,
+  PLAN_RESIDUAL_PCT, TARGET_MARGIN,
+} from "@/lib/finance";
 
 export interface Equipment {
   id: string;
@@ -52,13 +56,18 @@ const ESTADO_STYLES: Record<string, string> = {
   "Disponible": "bg-blue-100 text-blue-700",
   "Mantenimiento": "bg-yellow-100 text-yellow-700",
   "Vendida": "bg-gray-100 text-gray-500",
-  "Arrendada / Usuario con privilegios administrativos": "bg-green-100 text-green-700",
 };
 
 const EMPTY: Partial<Equipment> = {
   marca: "Apple", estado_actual: "Disponible",
   tipo_cambio: "3.39", teclado: "Español",
 };
+
+// ─── Rentabilidad badge ────────────────────────────────────────────────────
+function RentBadge({ pct }: { pct: number }) {
+  const color = pct >= 20 ? "text-green-700 bg-green-50" : pct >= 0 ? "text-blue-700 bg-blue-50" : "text-red-600 bg-red-50";
+  return <span className={`px-2 py-0.5 rounded-full text-xs font-700 ${color}`}>{pct.toFixed(1)}%</span>;
+}
 
 export default function EquipmentTable({ equipment }: { equipment: Equipment[] }) {
   const router = useRouter();
@@ -76,10 +85,7 @@ export default function EquipmentTable({ equipment }: { equipment: Equipment[] }
 
   const filtered = equipment.filter(e => {
     const q = search.toLowerCase();
-    const matchSearch = !q || [
-      e.codigo_interno, e.modelo_completo, e.numero_serie,
-      e.cliente_actual, e.proveedor, e.color,
-    ].some(v => v?.toLowerCase().includes(q));
+    const matchSearch = !q || [e.codigo_interno, e.modelo_completo, e.numero_serie, e.cliente_actual, e.proveedor, e.color].some(v => v?.toLowerCase().includes(q));
     const matchEstado = filterEstado === "Todos" || e.estado_actual.startsWith(filterEstado);
     return matchSearch && matchEstado;
   });
@@ -92,27 +98,20 @@ export default function EquipmentTable({ equipment }: { equipment: Equipment[] }
     if (!editing) return;
     setSaving(true);
     try {
-      const isNew = !editing.id;
       await fetch("/api/admin/equipment", {
-        method: isNew ? "POST" : "PATCH",
+        method: editing.id ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(editing),
       });
       closeModal();
       startTransition(() => router.refresh());
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   }
 
   async function handleDelete(id: string, codigo: string) {
-    if (!confirm(`¿Eliminar ${codigo}? Esta acción no se puede deshacer.`)) return;
+    if (!confirm(`¿Eliminar ${codigo}?`)) return;
     setDeleting(id);
-    await fetch("/api/admin/equipment", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
-    });
+    await fetch("/api/admin/equipment", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
     setDeleting(null);
     startTransition(() => router.refresh());
   }
@@ -121,17 +120,27 @@ export default function EquipmentTable({ equipment }: { equipment: Equipment[] }
     if (!d) return "—";
     return new Date(d).toLocaleDateString("es-PE", { day: "2-digit", month: "short", year: "2-digit" });
   }
-
-  function fmtUSD(v: string | null) {
-    if (!v) return "—";
+  function fmtUSD(v: string | null | number) {
+    if (v == null || v === "") return "—";
     return `$${Number(v).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
   }
-
-  // Days until maintenance
   function daysUntil(d: string | null) {
     if (!d) return null;
-    const diff = Math.ceil((new Date(d).getTime() - Date.now()) / 86400000);
-    return diff;
+    return Math.ceil((new Date(d).getTime() - Date.now()) / 86400000);
+  }
+
+  // Compute live rentabilidad for table display
+  function liveRent(eq: Equipment): number | null {
+    const precio = Number(eq.precio_compra_usd);
+    const tasa = Number(eq.tasa_pct);
+    const plazo = eq.plazo_credito_meses ?? 6;
+    const opex = Number(eq.opex_usd);
+    const tarifa = Number(eq.tarifa_usd);
+    const meses = eq.tipo_arriendo_meses ?? 16;
+    const residualPct = PLAN_RESIDUAL_PCT[String(meses)] ?? 55;
+    if (!precio || !tarifa) return null;
+    const r = calcPlan(precio, tasa, plazo, opex, residualPct, meses, tarifa);
+    return r.rentabilidad ?? null;
   }
 
   return (
@@ -143,17 +152,10 @@ export default function EquipmentTable({ equipment }: { equipment: Equipment[] }
           <p className="text-xs text-[#999999] mt-0.5">{filtered.length} de {equipment.length} equipos</p>
         </div>
         <div className="flex items-center gap-3">
-          <input
-            type="text"
-            placeholder="Buscar código, modelo, S/N…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="px-3 py-2 text-sm border border-[#E5E5E5] rounded-xl outline-none focus:border-[#1B4FFF] w-56"
-          />
-          <button
-            onClick={openCreate}
-            className="flex items-center gap-1.5 px-4 py-2 bg-[#1B4FFF] text-white text-xs font-700 rounded-full hover:bg-[#1340CC] transition-colors cursor-pointer"
-          >
+          <input type="text" placeholder="Buscar código, modelo, S/N…" value={search} onChange={e => setSearch(e.target.value)}
+            className="px-3 py-2 text-sm border border-[#E5E5E5] rounded-xl outline-none focus:border-[#1B4FFF] w-56" />
+          <button onClick={openCreate}
+            className="flex items-center gap-1.5 px-4 py-2 bg-[#1B4FFF] text-white text-xs font-700 rounded-full hover:bg-[#1340CC] transition-colors cursor-pointer">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
             Nuevo equipo
           </button>
@@ -166,10 +168,8 @@ export default function EquipmentTable({ equipment }: { equipment: Equipment[] }
           const count = e === "Todos" ? equipment.length : equipment.filter(eq => eq.estado_actual.startsWith(e)).length;
           return (
             <button key={e} onClick={() => setFilterEstado(e)}
-              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-600 transition-colors cursor-pointer ${
-                filterEstado === e ? "bg-[#1B4FFF] text-white" : "bg-[#F5F5F7] text-[#666666] hover:bg-[#E8E8EA]"
-              }`}>
-              {e === "Todos" ? "Todos" : e} <span className="ml-1 opacity-70">{count}</span>
+              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-600 transition-colors cursor-pointer ${filterEstado === e ? "bg-[#1B4FFF] text-white" : "bg-[#F5F5F7] text-[#666666] hover:bg-[#E8E8EA]"}`}>
+              {e} <span className="ml-1 opacity-70">{count}</span>
             </button>
           );
         })}
@@ -180,7 +180,7 @@ export default function EquipmentTable({ equipment }: { equipment: Equipment[] }
         <table className="w-full text-sm">
           <thead className="bg-[#F7F7F7]">
             <tr>
-              {["Código / Modelo","Spec","N° Serie","Estado / Cliente","Alquiler","Tarifa","Costo","Financiamiento","Mantenimiento",""].map(h => (
+              {["Código / Modelo","Spec","N° Serie","Estado / Cliente","Alquiler","Tarifa / OPEX","Costo compra","Financiamiento","ROI",""].map(h => (
                 <th key={h} className="text-left px-4 py-3 text-xs font-700 text-[#666666] whitespace-nowrap">{h}</th>
               ))}
             </tr>
@@ -189,15 +189,15 @@ export default function EquipmentTable({ equipment }: { equipment: Equipment[] }
             {filtered.length === 0 ? (
               <tr><td colSpan={10} className="text-center py-12 text-[#999999]">Sin resultados</td></tr>
             ) : filtered.map(eq => {
-              const stStyle = ESTADO_STYLES[eq.estado_actual] ?? "bg-gray-100 text-gray-500";
+              const stStyle = ESTADO_STYLES[eq.estado_actual.split(" / ")[0]] ?? "bg-gray-100 text-gray-500";
               const days = daysUntil(eq.mantenimiento_proximo);
               const maintAlert = days !== null && days <= 30;
               const isExp = expanded === eq.id;
+              const rent = liveRent(eq);
 
               return (
                 <>
-                  <tr key={eq.id}
-                    className={`hover:bg-[#FAFAFA] transition-colors cursor-pointer ${isExp ? "bg-[#F5F8FF]" : ""}`}
+                  <tr key={eq.id} className={`hover:bg-[#FAFAFA] transition-colors cursor-pointer ${isExp ? "bg-[#F5F8FF]" : ""}`}
                     onClick={() => setExpanded(isExp ? null : eq.id)}>
                     <td className="px-4 py-3">
                       <p className="font-700 text-xs text-[#1B4FFF] font-mono">{eq.codigo_interno}</p>
@@ -209,45 +209,35 @@ export default function EquipmentTable({ equipment }: { equipment: Equipment[] }
                     </td>
                     <td className="px-4 py-3 text-xs font-mono text-[#555]">{eq.numero_serie ?? "—"}</td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-700 ${stStyle}`}>
-                        {eq.estado_actual.split(" / ")[0]}
-                      </span>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-700 ${stStyle}`}>{eq.estado_actual.split(" / ")[0]}</span>
                       {eq.cliente_actual && <p className="text-xs text-[#999] mt-1 truncate max-w-[120px]">{eq.cliente_actual}</p>}
                     </td>
                     <td className="px-4 py-3 text-xs text-[#666666]">
-                      <p>{fmtDate(eq.inicio_alquiler)}</p>
-                      <p className="text-[#999]">→ {fmtDate(eq.fin_alquiler)}</p>
+                      <p>{eq.tipo_arriendo_meses ? `${eq.tipo_arriendo_meses}m` : "—"}</p>
+                      <p className="text-[#999]">{fmtDate(eq.inicio_alquiler)} → {fmtDate(eq.fin_alquiler)}</p>
                     </td>
                     <td className="px-4 py-3">
-                      <p className="font-700 text-[#18191F] text-sm">{fmtUSD(eq.tarifa_usd)}<span className="text-xs font-400 text-[#999]">/m</span></p>
+                      <p className="font-700 text-[#18191F]">{fmtUSD(eq.tarifa_usd)}<span className="text-xs font-400 text-[#999]">/m</span></p>
                       <p className="text-xs text-[#999]">OPEX {fmtUSD(eq.opex_usd)}</p>
                     </td>
                     <td className="px-4 py-3">
-                      <p className="text-xs font-600 text-[#18191F]">{fmtUSD(eq.precio_compra_usd)}</p>
+                      <p className="text-xs font-600">{fmtUSD(eq.precio_compra_usd)}</p>
                       <p className="text-xs text-[#999]">S/ {eq.valor_soles ? Number(eq.valor_soles).toLocaleString() : "—"}</p>
                     </td>
                     <td className="px-4 py-3 text-xs text-[#666666]">
-                      <p className="truncate max-w-[120px]">{eq.tipo_financiamiento ?? "—"}</p>
-                      {eq.cuota_credito_soles && <p className="text-[#999]">S/ {Number(eq.cuota_credito_soles).toLocaleString()}/m</p>}
+                      <p className="truncate max-w-[110px]">{eq.tipo_financiamiento ?? "—"}</p>
+                      <p className="text-[#999]">{eq.tasa_pct ? `${eq.tasa_pct}% × ${eq.plazo_credito_meses}m` : "—"}</p>
                     </td>
                     <td className="px-4 py-3">
-                      {eq.mantenimiento_proximo ? (
-                        <span className={`text-xs font-600 ${maintAlert ? "text-orange-600" : "text-[#666]"}`}>
-                          {maintAlert && "⚠ "}{fmtDate(eq.mantenimiento_proximo)}
-                          {days !== null && <span className="block text-[10px] font-400 text-[#999]">{days}d</span>}
-                        </span>
-                      ) : <span className="text-xs text-[#999]">—</span>}
+                      {rent !== null ? <RentBadge pct={rent} /> : <span className="text-xs text-[#999]">—</span>}
+                      {maintAlert && <p className="text-[10px] text-orange-600 mt-1">⚠ mant. {days}d</p>}
                     </td>
                     <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                       <div className="flex gap-1">
-                        <button onClick={() => openEdit(eq)}
-                          className="px-2.5 py-1 rounded-full text-xs font-700 bg-[#F5F5F7] text-[#333] hover:bg-[#E8E8EA] cursor-pointer transition-colors">
-                          Editar
-                        </button>
-                        <button onClick={() => handleDelete(eq.id, eq.codigo_interno)}
-                          disabled={deleting === eq.id}
-                          className="px-2.5 py-1 rounded-full text-xs font-700 bg-red-50 text-red-600 hover:bg-red-100 cursor-pointer transition-colors disabled:opacity-50">
-                          {deleting === eq.id ? "…" : "Borrar"}
+                        <button onClick={() => openEdit(eq)} className="px-2.5 py-1 rounded-full text-xs font-700 bg-[#F5F5F7] text-[#333] hover:bg-[#E8E8EA] cursor-pointer">Editar</button>
+                        <button onClick={() => handleDelete(eq.id, eq.codigo_interno)} disabled={deleting === eq.id}
+                          className="px-2.5 py-1 rounded-full text-xs font-700 bg-red-50 text-red-600 hover:bg-red-100 cursor-pointer disabled:opacity-50">
+                          {deleting === eq.id ? "…" : "✕"}
                         </button>
                       </div>
                     </td>
@@ -259,43 +249,34 @@ export default function EquipmentTable({ equipment }: { equipment: Equipment[] }
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
                           <InfoCell label="Proveedor" value={eq.proveedor ?? "—"} />
                           <InfoCell label="Fecha compra" value={fmtDate(eq.fecha_compra)} />
-                          <InfoCell label="Teclado" value={eq.teclado ?? "—"} />
-                          <InfoCell label="Garantía" value={eq.garantia_anos ? `${eq.garantia_anos} años` : "—"} />
                           <InfoCell label="Ingreso neto/mes" value={fmtUSD(eq.ingreso_neto_mensual_usd)} />
-                          <InfoCell label="Valor residual (52%)" value={fmtUSD(eq.valor_residual_usd)} />
+                          <InfoCell label="Valor residual" value={fmtUSD(eq.valor_residual_usd)} />
                           <InfoCell label="Ingreso total proy." value={fmtUSD(eq.ingreso_total_proyectado_usd)} />
-                          <InfoCell label="Rentabilidad" value={eq.rentabilidad_pct ? `${eq.rentabilidad_pct}%` : "—"} />
+                          <InfoCell label="Rentabilidad guardada" value={eq.rentabilidad_pct ? `${eq.rentabilidad_pct}%` : "—"} />
                           <InfoCell label="Seguro" value={eq.seguro ?? "—"} />
+                          <InfoCell label="Garantía" value={eq.garantia_anos ? `${eq.garantia_anos} años` : "—"} />
                           <InfoCell label="Ubicación" value={eq.ubicacion_fisica ?? "—"} />
                           <InfoCell label="Responsable" value={eq.responsable ?? "—"} />
-                          <InfoCell label="Tipo arriendo" value={eq.tipo_arriendo_meses ? `${eq.tipo_arriendo_meses}m` : "—"} />
+                          <InfoCell label="Cuota crédito" value={eq.cuota_credito_soles ? `S/ ${Number(eq.cuota_credito_soles).toLocaleString()}` : "—"} />
+                          <InfoCell label="Teclado" value={eq.teclado ?? "—"} />
                         </div>
-
-                        {/* Credentials — hidden by default */}
                         <div className="flex items-center gap-2 mt-1">
-                          <button
-                            onClick={() => setShowCreds(showCreds === eq.id ? null : eq.id)}
+                          <button onClick={() => setShowCreds(showCreds === eq.id ? null : eq.id)}
                             className="flex items-center gap-1.5 text-xs text-[#1B4FFF] hover:underline cursor-pointer">
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
                             {showCreds === eq.id ? "Ocultar credenciales" : "Ver credenciales del equipo"}
                           </button>
                         </div>
                         {showCreds === eq.id && (
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-2">
-                            <InfoCell label="Usuario dispositivo" value={eq.usuario_dispositivo ?? "—"} copy />
-                            <InfoCell label="Clave dispositivo" value={eq.clave_dispositivo ?? "—"} copy />
+                          <div className="grid grid-cols-3 gap-3 mt-2">
+                            <InfoCell label="Usuario" value={eq.usuario_dispositivo ?? "—"} copy />
+                            <InfoCell label="Clave" value={eq.clave_dispositivo ?? "—"} copy />
                             <InfoCell label="Clave Vault" value={eq.clave_vault ?? "—"} copy />
                           </div>
                         )}
-
-                        {eq.observaciones && (
-                          <p className="text-xs text-[#666] mt-2 bg-white rounded-xl px-3 py-2 border border-[#E5E5E5]">
-                            📝 {eq.observaciones}
-                          </p>
-                        )}
+                        {eq.observaciones && <p className="text-xs text-[#666] mt-2 bg-white rounded-xl px-3 py-2 border border-[#E5E5E5]">📝 {eq.observaciones}</p>}
                         {eq.factura_url && (
-                          <a href={eq.factura_url} target="_blank" rel="noreferrer"
-                            className="inline-flex items-center gap-1 text-xs text-[#1B4FFF] hover:underline mt-2">
+                          <a href={eq.factura_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-[#1B4FFF] hover:underline mt-2">
                             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                             Ver factura
                           </a>
@@ -310,7 +291,6 @@ export default function EquipmentTable({ equipment }: { equipment: Equipment[] }
         </table>
       </div>
 
-      {/* Modal */}
       {modalOpen && editing && (
         <EquipmentModal
           data={editing}
@@ -324,6 +304,7 @@ export default function EquipmentTable({ equipment }: { equipment: Equipment[] }
   );
 }
 
+// ─── Info cell ────────────────────────────────────────────────────────────────
 function InfoCell({ label, value, copy }: { label: string; value: string; copy?: boolean }) {
   const [copied, setCopied] = useState(false);
   return (
@@ -334,10 +315,8 @@ function InfoCell({ label, value, copy }: { label: string; value: string; copy?:
         {copy && value !== "—" && (
           <button onClick={() => { navigator.clipboard.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
             className="text-[#1B4FFF] flex-shrink-0 cursor-pointer" title="Copiar">
-            {copied
-              ? <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20 6L9 17l-5-5"/></svg>
-              : <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-            }
+            {copied ? <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+              : <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>}
           </button>
         )}
       </div>
@@ -346,7 +325,6 @@ function InfoCell({ label, value, copy }: { label: string; value: string; copy?:
 }
 
 // ─── Modal ────────────────────────────────────────────────────────────────────
-
 type ModalProps = {
   data: Partial<Equipment>;
   onChange: (patch: Partial<Equipment>) => void;
@@ -360,6 +338,71 @@ function EquipmentModal({ data, onChange, onSave, onClose, saving }: ModalProps)
   const set = (key: keyof Equipment) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     onChange({ [key]: e.target.value });
 
+  // ── Financial calculator state ──────────────────────────────────────────
+  const [calcMargin, setCalcMargin] = useState(TARGET_MARGIN * 100); // editable margin %
+  const [derivedTasa, setDerivedTasa] = useState<number | null>(null);
+
+  const precio = Number(data.precio_compra_usd) || 0;
+  const tasa = Number(data.tasa_pct) || 0;
+  const plazo = Number(data.plazo_credito_meses) || 6;
+  const opex = Number(data.opex_usd) || 0;
+  const tarifa = Number(data.tarifa_usd) || 0;
+  const mesesArr = Number(data.tipo_arriendo_meses) || 16;
+  const tc = Number(data.tipo_cambio) || 3.39;
+
+  // Derive tasa from cuota + plazo
+  const cuotaSoles = Number(data.cuota_credito_soles) || 0;
+  const valorSoles = Number(data.valor_soles) || (precio * tc);
+
+  useEffect(() => {
+    if (cuotaSoles > 0 && plazo > 0 && valorSoles > 0) {
+      const r = solveMonthlyRate(valorSoles, cuotaSoles, plazo);
+      const annual = monthlyToAnnualPct(r);
+      setDerivedTasa(annual);
+    } else {
+      setDerivedTasa(null);
+    }
+  }, [cuotaSoles, plazo, valorSoles]);
+
+  // Auto-calculate valor_soles when precio + tc change
+  useEffect(() => {
+    if (precio > 0 && tc > 0 && !data.valor_soles) {
+      onChange({ valor_soles: (precio * tc).toFixed(0) });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [precio, tc]);
+
+  // Plan calculations
+  const planCalcs = [8, 16, 24].map(m => {
+    const residualPct = PLAN_RESIDUAL_PCT[String(m)] ?? 55;
+    return {
+      m,
+      residualPct,
+      ...calcPlan(precio, tasa, plazo, opex, residualPct, m, tarifa || undefined, calcMargin / 100),
+    };
+  });
+
+  // Current plan calc
+  const currentPlanResidue = PLAN_RESIDUAL_PCT[String(mesesArr)] ?? 55;
+  const currentPlan = precio > 0
+    ? calcPlan(precio, tasa, plazo, opex, currentPlanResidue, mesesArr, tarifa || undefined, calcMargin / 100)
+    : null;
+
+  // Apply suggestions to form fields
+  const applyCalc = useCallback(() => {
+    if (!currentPlan || !precio) return;
+    onChange({
+      valor_residual_usd: currentPlan.residualUsd.toFixed(2),
+      ingreso_neto_mensual_usd: tarifa > 0 ? (tarifa - opex).toFixed(2) : undefined,
+      ingreso_total_proyectado_usd: tarifa > 0 ? (tarifa * mesesArr).toFixed(2) : undefined,
+      rentabilidad_pct: currentPlan.rentabilidad != null ? currentPlan.rentabilidad.toFixed(2) : undefined,
+    });
+  }, [currentPlan, precio, tarifa, opex, mesesArr, onChange]);
+
+  const applyTasa = () => {
+    if (derivedTasa !== null) onChange({ tasa_pct: derivedTasa.toFixed(2) });
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 overflow-y-auto py-8 px-4">
       <div className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl">
@@ -370,7 +413,97 @@ function EquipmentModal({ data, onChange, onSave, onClose, saving }: ModalProps)
           </button>
         </div>
 
-        <div className="px-6 py-4 space-y-6 max-h-[75vh] overflow-y-auto">
+        <div className="px-6 py-4 space-y-6 max-h-[78vh] overflow-y-auto">
+
+          {/* ══ CALCULADORA FINANCIERA ══════════════════════════════════════ */}
+          {precio > 0 && (
+            <div className="bg-[#EEF2FF] rounded-2xl p-4 border border-[#C7D2FE]">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-800 text-[#1B4FFF] uppercase tracking-wide">Calculadora financiera</p>
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-[#666]">Margen objetivo</label>
+                  <input
+                    type="number" value={calcMargin} min={0} max={60} step={1}
+                    onChange={e => setCalcMargin(Number(e.target.value))}
+                    className="w-14 text-center text-xs font-700 border border-[#C7D2FE] rounded-lg px-2 py-1 outline-none bg-white"
+                  />
+                  <span className="text-xs text-[#666]">%</span>
+                </div>
+              </div>
+
+              {/* Tasa derivada */}
+              {derivedTasa !== null && (
+                <div className="bg-white rounded-xl px-4 py-2 mb-3 flex items-center justify-between border border-[#E0E7FF]">
+                  <div>
+                    <p className="text-xs text-[#666]">Tasa derivada de cuota + plazo</p>
+                    <p className="text-sm font-800 text-[#1B4FFF]">{derivedTasa.toFixed(2)}% anual ({(derivedTasa/12).toFixed(3)}% mensual)</p>
+                  </div>
+                  <button onClick={applyTasa}
+                    className="px-3 py-1.5 bg-[#1B4FFF] text-white text-xs font-700 rounded-full cursor-pointer hover:bg-[#1340CC]">
+                    Aplicar tasa
+                  </button>
+                </div>
+              )}
+
+              {/* Costo financiamiento */}
+              {tasa > 0 && (
+                <div className="bg-white rounded-xl px-4 py-2 mb-3 border border-[#E0E7FF] text-xs text-[#555] grid grid-cols-3 gap-2">
+                  <div><span className="text-[#999]">Financiamiento</span><br /><span className="font-700">${(precio*(tasa/100)*(plazo/12)).toFixed(2)}</span></div>
+                  <div><span className="text-[#999]">Tasa / Plazo</span><br /><span className="font-700">{tasa}% × {plazo}m</span></div>
+                  <div><span className="text-[#999]">Cuota USD</span><br /><span className="font-700">${calcCuota(precio, tasa/100/12, plazo).toFixed(2)}/m</span></div>
+                </div>
+              )}
+
+              {/* Plan table */}
+              <div className="bg-white rounded-xl overflow-hidden border border-[#E0E7FF]">
+                <table className="w-full text-xs">
+                  <thead className="bg-[#F0F4FF]">
+                    <tr>
+                      <th className="text-left px-3 py-2 font-700 text-[#666]">Plan</th>
+                      <th className="text-right px-3 py-2 font-700 text-[#666]">Residual</th>
+                      <th className="text-right px-3 py-2 font-700 text-[#666]">Break-even</th>
+                      <th className="text-right px-3 py-2 font-700 text-[#1B4FFF]">Precio sug. ({calcMargin}%)</th>
+                      {tarifa > 0 && <th className="text-right px-3 py-2 font-700 text-[#666]">ROI actual</th>}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#EEF2FF]">
+                    {planCalcs.map(p => {
+                      const isCurrent = p.m === mesesArr;
+                      return (
+                        <tr key={p.m} className={isCurrent ? "bg-[#EEF2FF]" : ""}>
+                          <td className="px-3 py-2 font-600 text-[#333]">
+                            {p.m}m <span className="text-[#999]">({p.residualPct}% residual)</span>
+                            {isCurrent && <span className="ml-1 text-[#1B4FFF]">← actual</span>}
+                          </td>
+                          <td className="px-3 py-2 text-right text-[#555]">${p.residualUsd.toFixed(0)}</td>
+                          <td className="px-3 py-2 text-right text-[#555]">${p.breakEven.toFixed(2)}/m</td>
+                          <td className="px-3 py-2 text-right font-800 text-[#1B4FFF]">
+                            <button
+                              onClick={() => onChange({ tarifa_usd: Math.ceil(p.suggested).toString(), tipo_arriendo_meses: p.m })}
+                              className="underline decoration-dotted cursor-pointer hover:text-[#1340CC]"
+                              title="Aplicar este precio"
+                            >
+                              ${Math.ceil(p.suggested)}/m
+                            </button>
+                          </td>
+                          {tarifa > 0 && (
+                            <td className="px-3 py-2 text-right">
+                              {p.rentabilidad != null ? <RentBadge pct={p.rentabilidad} /> : "—"}
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <button onClick={applyCalc}
+                className="mt-3 w-full py-2 text-xs font-700 bg-[#1B4FFF] text-white rounded-xl hover:bg-[#1340CC] cursor-pointer transition-colors">
+                Aplicar cálculos al formulario (residual, rentabilidad, ingreso)
+              </button>
+            </div>
+          )}
 
           {/* Identificación */}
           <Section title="Identificación">
@@ -383,11 +516,13 @@ function EquipmentModal({ data, onChange, onSave, onClose, saving }: ModalProps)
               <Field label="Chip" value={f("chip")} onChange={set("chip")} placeholder="M4" />
               <Field label="RAM" value={f("ram")} onChange={set("ram")} placeholder="16 GB" />
               <Field label="SSD" value={f("ssd")} onChange={set("ssd")} placeholder="512 GB" />
+              <Field label="Color" value={f("color")} onChange={set("color")} placeholder="Negro Espacial" />
             </Row>
             <Row>
-              <Field label="Color" value={f("color")} onChange={set("color")} placeholder="Negro Espacial" />
               <SelectField label="Teclado" value={f("teclado")} onChange={set("teclado")} options={["Español","Inglés"]} />
               <Field label="N° Serie" value={f("numero_serie")} onChange={set("numero_serie")} placeholder="FXXXXXXXXX" mono />
+              <Field label="Garantía (años)" type="number" value={String(data.garantia_anos ?? "")} onChange={set("garantia_anos")} placeholder="3" />
+              <Field label="Seguro" value={f("seguro")} onChange={set("seguro")} placeholder="AppleCare Uno" />
             </Row>
           </Section>
 
@@ -396,20 +531,20 @@ function EquipmentModal({ data, onChange, onSave, onClose, saving }: ModalProps)
             <Row>
               <Field label="Proveedor" value={f("proveedor")} onChange={set("proveedor")} placeholder="CASESWORLD" />
               <Field label="Fecha compra" type="date" value={f("fecha_compra")?.split("T")[0]} onChange={set("fecha_compra")} />
+              <Field label="URL Factura" value={f("factura_url")} onChange={set("factura_url")} placeholder="https://drive.google.com/…" />
+              <Field label="URL Marketplace" value={f("web_url")} onChange={set("web_url")} placeholder="https://mercadolibre.com/…" />
             </Row>
             <Row>
-              <Field label="Precio compra (USD)" type="number" value={f("precio_compra_usd")} onChange={set("precio_compra_usd")} placeholder="1754.87" />
+              <Field label="Precio compra (USD) *" type="number" value={f("precio_compra_usd")} onChange={set("precio_compra_usd")} placeholder="1754.87" />
               <Field label="Tipo cambio (S/)" type="number" value={f("tipo_cambio")} onChange={set("tipo_cambio")} placeholder="3.39" />
-              <Field label="Valor en soles" type="number" value={f("valor_soles")} onChange={set("valor_soles")} placeholder="5949" />
+              <Field label="Valor en soles (S/)" type="number" value={f("valor_soles")} onChange={set("valor_soles")} placeholder="5949" />
             </Row>
             <Row>
-              <Field label="Tipo financiamiento" value={f("tipo_financiamiento")} onChange={set("tipo_financiamiento")} placeholder="Tarjeta crédito Scotia" />
-              <Field label="Tasa %" type="number" value={f("tasa_pct")} onChange={set("tasa_pct")} placeholder="5" />
-              <Field label="Plazo (meses)" type="number" value={String(data.plazo_credito_meses ?? "")} onChange={set("plazo_credito_meses")} placeholder="6" />
-              <Field label="Cuota (S/)" type="number" value={f("cuota_credito_soles")} onChange={set("cuota_credito_soles")} placeholder="583.33" />
+              <Field label="Tipo de financiamiento" value={f("tipo_financiamiento")} onChange={set("tipo_financiamiento")} placeholder="Tarjeta crédito Scotia" />
+              <Field label="Tasa anual (%)" type="number" value={f("tasa_pct")} onChange={set("tasa_pct")} placeholder="5" />
+              <Field label="Plazo crédito (meses)" type="number" value={String(data.plazo_credito_meses ?? "")} onChange={set("plazo_credito_meses")} placeholder="6" />
+              <Field label="Cuota (S/mes)" type="number" value={f("cuota_credito_soles")} onChange={set("cuota_credito_soles")} placeholder="583.33" />
             </Row>
-            <Field label="URL Factura" value={f("factura_url")} onChange={set("factura_url")} placeholder="https://drive.google.com/..." />
-            <Field label="URL Web/Marketplace" value={f("web_url")} onChange={set("web_url")} placeholder="https://mercadolibre.com/..." />
           </Section>
 
           {/* Estado y arrendamiento */}
@@ -418,36 +553,31 @@ function EquipmentModal({ data, onChange, onSave, onClose, saving }: ModalProps)
               <SelectField label="Estado actual" value={f("estado_actual")} onChange={set("estado_actual")}
                 options={["Disponible","Arrendada","Mantenimiento","Vendida","Arrendada / Usuario con privilegios administrativos"]} />
               <Field label="Cliente actual" value={f("cliente_actual")} onChange={set("cliente_actual")} placeholder="Securex Perú" />
+              <Field label="Duración arriendo (m)" type="number" value={String(data.tipo_arriendo_meses ?? "")} onChange={set("tipo_arriendo_meses")} placeholder="16" />
             </Row>
             <Row>
-              <Field label="Duración arriendo (m)" type="number" value={String(data.tipo_arriendo_meses ?? "")} onChange={set("tipo_arriendo_meses")} placeholder="16" />
               <Field label="Inicio alquiler" type="date" value={f("inicio_alquiler")?.split("T")[0]} onChange={set("inicio_alquiler")} />
               <Field label="Fin alquiler" type="date" value={f("fin_alquiler")?.split("T")[0]} onChange={set("fin_alquiler")} />
-            </Row>
-            <Row>
               <Field label="Tarifa (USD/mes)" type="number" value={f("tarifa_usd")} onChange={set("tarifa_usd")} placeholder="120" />
               <Field label="OPEX (USD/mes)" type="number" value={f("opex_usd")} onChange={set("opex_usd")} placeholder="32.50" />
-              <Field label="Ingreso neto/mes (USD)" type="number" value={f("ingreso_neto_mensual_usd")} onChange={set("ingreso_neto_mensual_usd")} placeholder="87.50" />
             </Row>
           </Section>
 
-          {/* Métricas financieras */}
+          {/* Métricas financieras — calculadas o manuales */}
           <Section title="Métricas financieras">
+            <p className="text-xs text-[#999] -mt-2 mb-2">Usa la calculadora de arriba para auto-rellenar estos campos.</p>
             <Row>
-              <Field label="Valor residual 52% (USD)" type="number" value={f("valor_residual_usd")} onChange={set("valor_residual_usd")} placeholder="912.53" />
-              <Field label="Ingreso total proy. (USD)" type="number" value={f("ingreso_total_proyectado_usd")} onChange={set("ingreso_total_proyectado_usd")} placeholder="1920.00" />
+              <Field label="Valor residual (USD)" type="number" value={f("valor_residual_usd")} onChange={set("valor_residual_usd")} placeholder="912.53" />
+              <Field label="Ingreso neto/mes (USD)" type="number" value={f("ingreso_neto_mensual_usd")} onChange={set("ingreso_neto_mensual_usd")} placeholder="87.50" />
+              <Field label="Ingreso total proy. (USD)" type="number" value={f("ingreso_total_proyectado_usd")} onChange={set("ingreso_total_proyectado_usd")} placeholder="1920" />
               <Field label="Rentabilidad (%)" type="number" value={f("rentabilidad_pct")} onChange={set("rentabilidad_pct")} placeholder="15.3" />
             </Row>
           </Section>
 
           {/* Logística */}
-          <Section title="Logística y garantía">
+          <Section title="Logística">
             <Row>
-              <Field label="Seguro" value={f("seguro")} onChange={set("seguro")} placeholder="AppleCare Uno" />
-              <Field label="Garantía (años)" type="number" value={String(data.garantia_anos ?? "")} onChange={set("garantia_anos")} placeholder="3" />
               <Field label="Próximo mantenimiento" type="date" value={f("mantenimiento_proximo")?.split("T")[0]} onChange={set("mantenimiento_proximo")} />
-            </Row>
-            <Row>
               <Field label="Ubicación física" value={f("ubicacion_fisica")} onChange={set("ubicacion_fisica")} placeholder="Av. Primavera 543 – Lima" />
               <Field label="Responsable" value={f("responsable")} onChange={set("responsable")} placeholder="Tika Admin" />
             </Row>
@@ -462,25 +592,17 @@ function EquipmentModal({ data, onChange, onSave, onClose, saving }: ModalProps)
             </Row>
           </Section>
 
-          {/* Observaciones */}
           <Section title="Observaciones">
-            <textarea
-              value={f("observaciones")}
-              onChange={set("observaciones")}
-              rows={3}
+            <textarea value={f("observaciones")} onChange={set("observaciones")} rows={3}
               placeholder="Notas sobre el equipo…"
-              className="w-full px-3 py-2 text-sm border border-[#E5E5E5] rounded-xl outline-none focus:border-[#1B4FFF] resize-none"
-            />
+              className="w-full px-3 py-2 text-sm border border-[#E5E5E5] rounded-xl outline-none focus:border-[#1B4FFF] resize-none" />
           </Section>
         </div>
 
         <div className="px-6 py-4 border-t border-[#E5E5E5] flex justify-end gap-3">
           <button onClick={onClose} className="px-4 py-2 text-sm text-[#666] hover:text-[#333] cursor-pointer">Cancelar</button>
-          <button
-            onClick={onSave}
-            disabled={saving}
-            className="px-6 py-2 bg-[#1B4FFF] text-white text-sm font-700 rounded-full hover:bg-[#1340CC] transition-colors disabled:opacity-60 cursor-pointer"
-          >
+          <button onClick={onSave} disabled={saving}
+            className="px-6 py-2 bg-[#1B4FFF] text-white text-sm font-700 rounded-full hover:bg-[#1340CC] transition-colors disabled:opacity-60 cursor-pointer">
             {saving ? "Guardando…" : (data.id ? "Guardar cambios" : "Crear equipo")}
           </button>
         </div>
@@ -503,20 +625,16 @@ function Row({ children }: { children: React.ReactNode }) {
 }
 
 function Field({ label, value, onChange, type = "text", placeholder, mono }: {
-  label: string; value: string; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  label: string; value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   type?: string; placeholder?: string; mono?: boolean;
 }) {
   return (
     <div>
       <label className="block text-xs text-[#666] mb-1">{label}</label>
-      <input
-        type={type}
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
+      <input type={type} value={value} onChange={onChange} placeholder={placeholder}
         className={`w-full px-3 py-2 text-sm border border-[#E5E5E5] rounded-xl outline-none focus:border-[#1B4FFF] ${mono ? "font-mono" : ""}`}
-        step={type === "number" ? "any" : undefined}
-      />
+        step={type === "number" ? "any" : undefined} />
     </div>
   );
 }
