@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth";
 import { query } from "@/lib/db";
 import type { Metadata } from "next";
 import AdminTable from "./AdminTable";
+import AdminNav from "./AdminNav";
 
 export const metadata: Metadata = { title: "Admin | FLUX", robots: { index: false, follow: false } };
 
@@ -106,6 +107,8 @@ export default async function AdminPage() {
           <a href="/" className="text-sm text-[#666666] hover:text-[#1B4FFF] transition-colors">← Sitio</a>
         </div>
       </div>
+
+      <AdminNav />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
         <div className="mb-8">
