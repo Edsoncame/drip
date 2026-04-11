@@ -20,6 +20,7 @@ interface Sub {
   customer_ruc: string | null;
   admin_note: string | null;
   mp_subscription_id: string | null;
+  apple_care: boolean | null;
 }
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
@@ -157,9 +158,14 @@ export default function AdminTable({ subs }: { subs: Sub[] }) {
                     </td>
                     <td className="px-4 py-3 text-[#333333] max-w-[160px]">
                       <p className="font-500 truncate">{sub.product_name}</p>
-                      <p className="text-xs text-[#999999]">
-                        {new Date(sub.started_at).toLocaleDateString("es-PE", { day: "2-digit", month: "short" })}
-                      </p>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <p className="text-xs text-[#999999]">
+                          {new Date(sub.started_at).toLocaleDateString("es-PE", { day: "2-digit", month: "short" })}
+                        </p>
+                        {sub.apple_care && (
+                          <span className="text-[10px] font-700 px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-600">🛡️ AC+</span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <p className="font-700 text-[#18191F]">${sub.monthly_price}/mes</p>
@@ -214,6 +220,7 @@ export default function AdminTable({ subs }: { subs: Sub[] }) {
                           <Info label="Email"    value={sub.customer_email} copy />
                           <Info label="Teléfono" value={sub.customer_phone} copy />
                           <Info label="RUC"      value={sub.customer_ruc ?? "—"} />
+                          <Info label="AppleCare+" value={sub.apple_care ? "✅ Sí — activar antes de entrega" : "No"} />
                           <Info label="MP ID"    value={sub.mp_subscription_id ?? "—"} copy />
                         </div>
 

@@ -26,6 +26,7 @@ interface Sub {
   customer_ruc: string | null;
   admin_note: string | null;
   mp_subscription_id: string | null;
+  apple_care: boolean | null;
 }
 
 interface Stat {
@@ -67,7 +68,7 @@ export default async function AdminPage() {
              s.product_name, s.months, s.monthly_price, s.status,
              s.started_at, s.ends_at, s.admin_note, s.mp_subscription_id,
              s.customer_name, s.customer_email, s.customer_phone,
-             s.customer_company, s.customer_ruc
+             s.customer_company, s.customer_ruc, s.apple_care
       FROM subscriptions s
       LEFT JOIN users u ON u.id = s.user_id
       ORDER BY s.started_at DESC

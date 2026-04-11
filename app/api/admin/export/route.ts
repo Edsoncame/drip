@@ -20,12 +20,13 @@ export async function GET() {
     status: string; started_at: string; ends_at: string | null;
     customer_name: string; customer_email: string;
     customer_phone: string; customer_company: string; customer_ruc: string;
+    apple_care: boolean;
   }>(`
     SELECT s.id, u.name AS user_name, u.email AS user_email,
            s.product_name, s.months, s.monthly_price, s.status,
            s.started_at, s.ends_at,
            s.customer_name, s.customer_email, s.customer_phone,
-           s.customer_company, s.customer_ruc
+           s.customer_company, s.customer_ruc, s.apple_care
     FROM subscriptions s
     LEFT JOIN users u ON u.id = s.user_id
     ORDER BY s.started_at DESC
@@ -34,7 +35,7 @@ export async function GET() {
   const headers = [
     "ID", "Usuario", "Email usuario", "Producto", "Meses", "$/mes",
     "Estado", "Inicio", "Vence", "Cliente", "Email cliente",
-    "Teléfono", "Empresa", "RUC",
+    "Teléfono", "Empresa", "RUC", "AppleCare+",
   ];
 
   const rows = result.rows.map(r => [
@@ -52,6 +53,7 @@ export async function GET() {
     r.customer_phone ?? "",
     r.customer_company ?? "",
     r.customer_ruc ?? "",
+    r.apple_care ? "Sí" : "No",
   ]);
 
   const escape = (v: string | number) => {

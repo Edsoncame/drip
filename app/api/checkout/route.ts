@@ -98,8 +98,8 @@ export async function POST(req: NextRequest) {
 
     await query(
       `INSERT INTO subscriptions
-        (user_id, product_slug, product_name, months, monthly_price, status, started_at, ends_at, mp_subscription_id, customer_name, customer_email, customer_phone, customer_company, customer_ruc)
-       VALUES ($1,$2,$3,$4,$5,'active',NOW(),$6,$7,$8,$9,$10,$11,$12)
+        (user_id, product_slug, product_name, months, monthly_price, status, started_at, ends_at, mp_subscription_id, customer_name, customer_email, customer_phone, customer_company, customer_ruc, apple_care)
+       VALUES ($1,$2,$3,$4,$5,'active',NOW(),$6,$7,$8,$9,$10,$11,$12,$13)
        ON CONFLICT DO NOTHING`,
       [
         session?.userId ?? null,
@@ -114,6 +114,7 @@ export async function POST(req: NextRequest) {
         customer.phone,
         customer.company,
         customer.ruc || null,
+        appleCare,
       ]
     );
 
