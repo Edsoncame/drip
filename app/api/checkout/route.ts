@@ -3,7 +3,7 @@ import { MercadoPagoConfig, PreApprovalPlan, PreApproval } from "mercadopago";
 import { getProduct } from "@/lib/products";
 import { query } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { sendConfirmationEmail } from "@/lib/email";
+import { sendConfirmationEmail, sendEmail } from "@/lib/email";
 
 /**
  * MercadoPago Checkout — Suscripciones recurrentes
@@ -144,7 +144,39 @@ export async function POST(req: NextRequest) {
       ]
     );
 
-    // 4 — Send confirmation email (non-blocking)
+    // 4 — Auto-assign equipment from inventory
+    const SLUG_TO_MODEL: Record<string, string> = {
+      "macbook-air-13-m4": "MacBook Air",
+      "macbook-pro-14-m4": "MacBook Pro%M4",
+      "macbook-pro-14-m5": "MacBook Pro%M5",
+    };
+    const modelPattern = SLUG_TO_MODEL[slug];
+    if (modelPattern) {
+      const eqResult = await query<{ codigo_interno: string }>(
+        `UPDATE equipment SET estado_actual = 'Arrendada', updated_at = NOW()
+         WHERE id = (
+           SELECT id FROM equipment
+           WHERE modelo_completo ILIKE $1 AND estado_actual = 'Disponible'
+           ORDER BY fecha_compra ASC
+           LIMIT 1
+         )
+         RETURNING codigo_interno`,
+        [`%${modelPattern}%`]
+      );
+      if (eqResult.rows.length > 0) {
+        console.log(`${tag} auto-assigned equipment ${eqResult.rows[0].codigo_interno} to ${customer.email}`);
+      } else {
+        console.warn(`${tag} NO STOCK for ${slug} — manual assignment needed`);
+        // Alert admin
+        sendEmail({
+          to: "operaciones@fluxperu.com",
+          subject: `⚠️ SIN STOCK: ${product.name} — pedido de ${customer.name}`,
+          html: `<div style="font-family:Inter,sans-serif;padding:24px"><h2 style="color:#DC2626">⚠️ Sin stock disponible</h2><p><strong>${customer.name}</strong> (${customer.email}) acaba de pagar por <strong>${product.name}</strong> pero no hay equipos disponibles en inventario.</p><p>Acción requerida: asignar equipo manualmente desde el panel admin.</p></div>`,
+        }).catch(() => {});
+      }
+    }
+
+    // 5 — Send confirmation email (non-blocking)
     sendConfirmationEmail({
       to: customer.email,
       name: customer.name,

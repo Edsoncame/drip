@@ -29,15 +29,16 @@ interface Sub {
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   active:    { label: "Activo",       color: "bg-green-100 text-green-700" },
+  shipped:   { label: "Despachado",   color: "bg-purple-100 text-purple-700" },
   delivered: { label: "Entregado",    color: "bg-blue-100 text-blue-700" },
   paused:    { label: "Pausado",      color: "bg-yellow-100 text-yellow-700" },
   cancelled: { label: "Cancelado",    color: "bg-red-100 text-red-600" },
   completed: { label: "Completado",   color: "bg-gray-100 text-gray-500" },
 };
 
-const FILTERS = ["Todos", "active", "delivered", "paused", "cancelled", "completed"] as const;
+const FILTERS = ["Todos", "active", "shipped", "delivered", "paused", "cancelled", "completed"] as const;
 const FILTER_LABELS: Record<string, string> = {
-  Todos: "Todos", active: "Activos", delivered: "Entregados",
+  Todos: "Todos", active: "Activos", shipped: "Despachados", delivered: "Entregados",
   paused: "Pausados", cancelled: "Cancelados", completed: "Completados",
 };
 
@@ -50,6 +51,8 @@ export default function AdminTable({ subs }: { subs: Sub[] }) {
   const [updating, setUpdating] = useState<string | null>(null);
   const [noteEditing, setNoteEditing] = useState<string | null>(null);
   const [noteValue, setNoteValue] = useState("");
+  const [trackingEditing, setTrackingEditing] = useState<string | null>(null);
+  const [trackingValue, setTrackingValue] = useState("");
 
   const filtered = subs.filter(s => {
     const matchFilter = filter === "Todos" || s.status === filter;
@@ -61,14 +64,15 @@ export default function AdminTable({ subs }: { subs: Sub[] }) {
     return matchFilter && matchSearch;
   });
 
-  async function changeStatus(id: string, status: string) {
+  async function changeStatus(id: string, status: string, extra?: { tracking_number?: string; equipment_code?: string }) {
     setUpdating(id);
     await fetch("/api/admin/subscriptions", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, status }),
+      body: JSON.stringify({ id, status, ...extra }),
     });
     setUpdating(null);
+    setTrackingEditing(null);
     startTransition(() => router.refresh());
   }
 
@@ -187,10 +191,25 @@ export default function AdminTable({ subs }: { subs: Sub[] }) {
                     </td>
                     <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center gap-1.5">
-                        {/* Quick action buttons by status */}
+                        {/* Dispatch flow: active → shipped → delivered → completed */}
                         {sub.status === "active" && (
                           <ActionBtn
-                            label="Entregado"
+                            label="📦 Despachar"
+                            color="blue"
+                            loading={updating === sub.id}
+                            onClick={() => {
+                              if (sub.delivery_method === "pickup") {
+                                changeStatus(sub.id, "shipped");
+                              } else {
+                                setTrackingEditing(sub.id);
+                                setTrackingValue("");
+                              }
+                            }}
+                          />
+                        )}
+                        {sub.status === "shipped" && (
+                          <ActionBtn
+                            label="✅ Entregado"
                             color="blue"
                             loading={updating === sub.id}
                             onClick={() => changeStatus(sub.id, "delivered")}
@@ -204,13 +223,28 @@ export default function AdminTable({ subs }: { subs: Sub[] }) {
                             onClick={() => changeStatus(sub.id, "completed")}
                           />
                         )}
-                        {(sub.status === "active" || sub.status === "delivered") && (
+                        {(sub.status === "active" || sub.status === "shipped" || sub.status === "delivered") && (
                           <ActionBtn
                             label="Cancelar"
                             color="red"
                             loading={updating === sub.id}
                             onClick={() => changeStatus(sub.id, "cancelled")}
                           />
+                        )}
+                        {/* Tracking input for dispatch */}
+                        {trackingEditing === sub.id && (
+                          <div className="flex items-center gap-1.5 mt-1.5">
+                            <input
+                              autoFocus
+                              value={trackingValue}
+                              onChange={e => setTrackingValue(e.target.value)}
+                              placeholder="N° guía courier"
+                              className="px-2 py-1 text-xs border border-[#1B4FFF] rounded-lg outline-none w-28"
+                              onKeyDown={e => { if (e.key === "Enter") changeStatus(sub.id, "shipped", { tracking_number: trackingValue || undefined }); if (e.key === "Escape") setTrackingEditing(null); }}
+                            />
+                            <button onClick={() => changeStatus(sub.id, "shipped", { tracking_number: trackingValue || undefined })} className="px-2 py-1 bg-[#1B4FFF] text-white text-xs font-700 rounded-lg cursor-pointer">Enviar</button>
+                            <button onClick={() => setTrackingEditing(null)} className="text-xs text-[#999] cursor-pointer">✕</button>
+                          </div>
                         )}
                       </div>
                     </td>
