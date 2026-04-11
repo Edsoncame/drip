@@ -5,6 +5,22 @@ import { query } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { sendConfirmationEmail } from "@/lib/email";
 
+/**
+ * MercadoPago Checkout — Suscripciones recurrentes
+ *
+ * Variables de entorno requeridas:
+ *   MP_ACCESS_TOKEN        — Access token de producción (mercadopago.com → Tu negocio → Credenciales)
+ *   NEXT_PUBLIC_MP_PUBLIC_KEY — Public key de producción (para Card Brick en frontend)
+ *   MP_WEBHOOK_SECRET      — Clave secreta del webhook (Configuración → Webhooks → Clave secreta)
+ *   NEXT_PUBLIC_APP_URL    — URL base (https://www.fluxperu.com)
+ *
+ * Configurar en el dashboard de MercadoPago:
+ *   1. Ir a mercadopago.com → Tu negocio → Configuración → Webhooks
+ *   2. URL de notificación: https://www.fluxperu.com/api/webhooks/mercadopago
+ *   3. Eventos: subscription_preapproval, payment
+ *   4. Copiar la clave secreta → VERCEL env MP_WEBHOOK_SECRET
+ */
+
 const client = new MercadoPagoConfig({
   accessToken: process.env.MP_ACCESS_TOKEN!,
   options: { timeout: 5000 },

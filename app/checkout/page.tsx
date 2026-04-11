@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { getProduct } from "@/lib/products";
 import type { Product } from "@/lib/products";
 import type { ICardPaymentFormData, ICardPaymentBrickPayer, IAdditionalData } from "@mercadopago/sdk-react/esm/bricks/cardPayment/type";
+import { trackBeginCheckout, trackPurchase } from "@/lib/analytics";
 
 // ─── Step indicator ────────────────────────────────────────────────────────────
 function Steps({ current }: { current: number }) {
@@ -524,6 +525,12 @@ function PaymentForm({
         return;
       }
 
+      trackPurchase({
+        transactionId: data.subscriptionId ?? `flux-${Date.now()}`,
+        value: totalMonthly,
+        product: { name: product.name, slug: product.slug, price: plan.price, months, quantity },
+      });
+
       router.push(
         `/checkout/success?slug=${product.slug}&months=${months}&name=${encodeURIComponent(customer.name)}&email=${encodeURIComponent(customer.email)}&total=${totalMonthly}&qty=${quantity}`
       );
@@ -698,7 +705,7 @@ function CheckoutContent() {
           transition={{ duration: 0.25 }}
           className="bg-white rounded-3xl p-8 shadow-sm"
         >
-          {step === 1 && <Step1 product={product} months={months} appleCare={appleCare} onAppleCare={setAppleCare} quantity={quantity} onQuantity={setQuantity} onNext={() => setStep(2)} />}
+          {step === 1 && <Step1 product={product} months={months} appleCare={appleCare} onAppleCare={setAppleCare} quantity={quantity} onQuantity={setQuantity} onNext={() => { trackBeginCheckout({ name: product.name, slug: product.slug, price: plan.price, months, quantity }); setStep(2); }} />}
 
           {step === 2 && (
             <Step2

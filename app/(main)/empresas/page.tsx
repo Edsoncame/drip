@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { products } from "@/lib/products";
 import { motion } from "framer-motion";
+import { trackGenerateLead } from "@/lib/analytics";
 
 const fadeUp = { hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0 } };
 const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.06 } } };
@@ -26,6 +27,7 @@ function B2BForm() {
         body: JSON.stringify(form),
       });
       if (!res.ok) { const d = await res.json(); setError(d.error ?? "Error al enviar."); setLoading(false); return; }
+      trackGenerateLead("b2b_form");
       setSent(true);
     } catch {
       setError("Error de conexión. Intenta de nuevo.");

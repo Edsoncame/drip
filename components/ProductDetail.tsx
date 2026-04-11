@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import type { Product } from "@/lib/products";
+import { trackViewItem, trackAddToCart } from "@/lib/analytics";
 
 interface ImageSet {
   hero: string;
@@ -37,7 +38,12 @@ export default function ProductDetail({ product, images }: { product: Product; i
   const galleryImgs = images?.gallery ?? [];
   const currentImg = galleryImgs[activeImg] ?? images?.open ?? null;
 
+  useEffect(() => {
+    trackViewItem({ name: product.name, slug: product.slug, price: selected.price, months: selectedMonths });
+  }, [product.name, product.slug, selected.price, selectedMonths]);
+
   const handleCTA = () => {
+    trackAddToCart({ name: product.name, slug: product.slug, price: selected.price, months: selectedMonths, quantity: 1 });
     router.push(`/checkout?slug=${product.slug}&months=${selectedMonths}`);
   };
 

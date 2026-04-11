@@ -3,6 +3,7 @@
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
+import { trackSignUp } from "@/lib/analytics";
 import Link from "next/link";
 import GoogleAuthButton from "@/components/GoogleAuthButton";
 
@@ -60,6 +61,7 @@ function RegisterForm() {
         return;
       }
 
+      trackSignUp("email");
       router.push(redirect);
     } catch {
       setErrors({ general: "Error de conexión. Intenta de nuevo." });
