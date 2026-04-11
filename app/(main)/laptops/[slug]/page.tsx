@@ -3,6 +3,7 @@ import { getProduct, products } from "@/lib/products";
 import { getAppleImageSets } from "@/lib/appleImages";
 import { notFound } from "next/navigation";
 import ProductDetail from "@/components/ProductDetail";
+import { ProductJsonLd, BreadcrumbJsonLd } from "@/components/JsonLd";
 import { query } from "@/lib/db";
 
 export const revalidate = 86400;
@@ -18,7 +19,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const price = product.pricing[product.pricing.length - 1].price;
   return {
     title: product.name,
-    description: `Renta ${product.name} desde $${price}/mes. ${product.chip}, ${product.ram}, ${product.ssd}. Sin comprar, entrega en Lima en 24-48h.`,
+    description: `Alquiler ${product.name} desde $${price}/mes en Lima. ${product.chip}, ${product.ram}, ${product.ssd}. Sin comprar, sin depósito, entrega en 24-48h.`,
     openGraph: {
       title: `${product.name} | FLUX`,
       description: `${product.chip} · ${product.ram} · ${product.ssd} — desde $${price}/mes`,
@@ -58,5 +59,19 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   const images = imageSets[slug];
   const productWithStock = liveStock !== null ? { ...product, stock: liveStock } : product;
 
-  return <ProductDetail product={productWithStock} images={images} />;
+  const BASE = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.fluxperu.com";
+
+  return (
+    <>
+      <ProductJsonLd slug={slug} />
+      <BreadcrumbJsonLd
+        items={[
+          { name: "Inicio", url: BASE },
+          { name: "MacBooks", url: `${BASE}/laptops` },
+          { name: product.shortName, url: `${BASE}/laptops/${slug}` },
+        ]}
+      />
+      <ProductDetail product={productWithStock} images={images} />
+    </>
+  );
 }

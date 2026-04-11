@@ -1,4 +1,11 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Términos y Condiciones",
+  description: "Términos y condiciones del servicio de alquiler de MacBook de FLUX (Tika Services S.A.C.). Condiciones de renta, entrega, devolución y opción de compra.",
+  robots: { index: true, follow: true },
+};
 
 export default function TerminosPage() {
   return (

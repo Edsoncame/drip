@@ -5,7 +5,10 @@ import type { Metadata } from "next";
 import AdminNav from "../AdminNav";
 import PricingTable from "./PricingTable";
 
-export const metadata: Metadata = { title: "Precios | Admin FLUX", robots: { index: false, follow: false } };
+export const metadata: Metadata = {
+  title: "Precios | Admin FLUX",
+  robots: { index: false, follow: false },
+};
 
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "").split(",").map(e => e.trim().toLowerCase());
 

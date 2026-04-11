@@ -1,4 +1,11 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Política de Privacidad",
+  description: "Política de privacidad de FLUX (Tika Services S.A.C.). Cómo protegemos tus datos personales conforme a la Ley N.° 29733 del Perú.",
+  robots: { index: true, follow: true },
+};
 
 export default function PrivacidadPage() {
   return (

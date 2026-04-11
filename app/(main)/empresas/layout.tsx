@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Para Empresas",
-  description: "Equipa a tu equipo con MacBooks desde $80/mes. Sin CAPEX, sin trámites largos. Factura con RUC, entrega en Lima en 24-48h. Ideal para startups y empresas.",
+  title: "Alquiler de MacBook para Empresas en Lima",
+  description: "Equipa a tu equipo con MacBooks desde $85/mes. Sin CAPEX, factura con RUC, entrega en Lima en 24-48h. Ideal para startups, agencias y corporativos.",
   openGraph: {
-    title: "Para Empresas | FLUX",
-    description: "MacBooks para tu equipo desde $80/mes. Sin comprar, factura con RUC, entrega express en Lima.",
+    title: "Alquiler MacBook para Empresas | FLUX Perú",
+    description: "MacBooks para tu equipo desde $85/mes. Sin comprar, factura con RUC, entrega express en Lima.",
   },
 };
 
