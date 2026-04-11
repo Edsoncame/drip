@@ -129,18 +129,37 @@ export default function EquipmentTable({ equipment }: { equipment: Equipment[] }
     return Math.ceil((new Date(d).getTime() - Date.now()) / 86400000);
   }
 
-  // Compute live rentabilidad for table display
+  // Compute live rentabilidad for table display — tasa always derived from cuota+plazo
   function liveRent(eq: Equipment): number | null {
     const precio = Number(eq.precio_compra_usd);
-    const tasa = Number(eq.tasa_pct);
-    const plazo = eq.plazo_credito_meses ?? 6;
+    const plazo = eq.plazo_credito_meses ?? 0;
     const opex = Number(eq.opex_usd);
     const tarifa = Number(eq.tarifa_usd);
     const meses = eq.tipo_arriendo_meses ?? 16;
-    const residualPct = PLAN_RESIDUAL_PCT[String(meses)] ?? 55;
+    const tc = Number(eq.tipo_cambio) || 3.39;
+    const cuotaSoles = Number(eq.cuota_credito_soles) || 0;
+    const valorSoles = Number(eq.valor_soles) || (precio * tc);
     if (!precio || !tarifa) return null;
+    const monthly = (cuotaSoles > 0 && plazo > 0 && valorSoles > 0)
+      ? solveMonthlyRate(valorSoles, cuotaSoles, plazo) : 0;
+    const tasa = monthlyToAnnualPct(monthly);
+    const residualPct = PLAN_RESIDUAL_PCT[String(meses)] ?? 55;
     const r = calcPlan(precio, tasa, plazo, opex, residualPct, meses, tarifa);
     return r.rentabilidad ?? null;
+  }
+
+  // Derived tasa for table display
+  function derivedTasaForRow(eq: Equipment): string {
+    const precio = Number(eq.precio_compra_usd);
+    const plazo = eq.plazo_credito_meses ?? 0;
+    const tc = Number(eq.tipo_cambio) || 3.39;
+    const cuotaSoles = Number(eq.cuota_credito_soles) || 0;
+    const valorSoles = Number(eq.valor_soles) || (precio * tc);
+    if (cuotaSoles > 0 && plazo > 0 && valorSoles > 0) {
+      const r = solveMonthlyRate(valorSoles, cuotaSoles, plazo);
+      return `${monthlyToAnnualPct(r).toFixed(2)}% × ${plazo}m`;
+    }
+    return plazo > 0 ? `— × ${plazo}m` : "—";
   }
 
   return (
@@ -226,7 +245,7 @@ export default function EquipmentTable({ equipment }: { equipment: Equipment[] }
                     </td>
                     <td className="px-4 py-3 text-xs text-[#666666]">
                       <p className="truncate max-w-[110px]">{eq.tipo_financiamiento ?? "—"}</p>
-                      <p className="text-[#999]">{eq.tasa_pct ? `${eq.tasa_pct}% × ${eq.plazo_credito_meses}m` : "—"}</p>
+                      <p className="text-[#999]">{derivedTasaForRow(eq)}</p>
                     </td>
                     <td className="px-4 py-3">
                       {rent !== null ? <RentBadge pct={rent} /> : <span className="text-xs text-[#999]">—</span>}
@@ -532,7 +551,12 @@ function EquipmentModal({ data, onChange, onSave, onClose, saving }: ModalProps)
             </Row>
             <Row>
               <Field label="Tipo de financiamiento" value={f("tipo_financiamiento")} onChange={set("tipo_financiamiento")} placeholder="Tarjeta crédito Scotia" />
-              <Field label="Tasa anual (%)" type="number" value={f("tasa_pct")} onChange={set("tasa_pct")} placeholder="5" />
+              <div>
+                <p className="text-xs text-[#666666] mb-1">Tasa anual (auto-calculada)</p>
+                <div className="w-full px-3 py-2 text-sm border border-[#E5E5E5] rounded-xl bg-[#F7F7F7] text-[#1B4FFF] font-700">
+                  {tasaReady ? `${tasa.toFixed(2)}%` : <span className="text-[#999] font-400 italic">Ingresa cuota y plazo</span>}
+                </div>
+              </div>
               <Field label="Plazo crédito (meses)" type="number" value={String(data.plazo_credito_meses ?? "")} onChange={set("plazo_credito_meses")} placeholder="6" />
               <Field label="Cuota (S/mes)" type="number" value={f("cuota_credito_soles")} onChange={set("cuota_credito_soles")} placeholder="583.33" />
             </Row>
