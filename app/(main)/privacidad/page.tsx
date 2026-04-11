@@ -13,7 +13,7 @@ export default function PrivacidadPage() {
         {[
           {
             title: "1. Responsable del tratamiento",
-            content: "Tika Services S.A.C., con RUC 20608888888, con domicilio en Lima, Perú, es responsable del tratamiento de tus datos personales en cumplimiento de la Ley N.° 29733 — Ley de Protección de Datos Personales del Perú.",
+            content: "Tika Services S.A.C., con RUC 20605702512, con domicilio en Lima, Perú, es responsable del tratamiento de tus datos personales en cumplimiento de la Ley N.° 29733 — Ley de Protección de Datos Personales del Perú.",
           },
           {
             title: "2. Datos que recopilamos",

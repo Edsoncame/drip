@@ -13,7 +13,7 @@ export default function TerminosPage() {
         {[
           {
             title: "1. Objeto del servicio",
-            content: "FLUX, operado por Tika Services S.A.C. (RUC: 20608888888), ofrece el alquiler mensual de equipos MacBook a empresas y profesionales en Lima, Perú. El usuario accede al uso del equipo durante el plazo contratado a cambio de una renta mensual.",
+            content: "FLUX, operado por Tika Services S.A.C. (RUC: 20605702512), ofrece el alquiler mensual de equipos MacBook a empresas y profesionales en Lima, Perú. El usuario accede al uso del equipo durante el plazo contratado a cambio de una renta mensual.",
           },
           {
             title: "2. Condiciones de la renta",
