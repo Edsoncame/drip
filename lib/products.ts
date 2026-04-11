@@ -31,9 +31,9 @@ export const products: Product[] = [
     isNew: true,
     stock: 5,
     pricing: [
-      { months: 8,  price: 110 },
-      { months: 16, price: 90  },
-      { months: 24, price: 80  },
+      { months: 8,  price: 115 },
+      { months: 16, price: 95  },
+      { months: 24, price: 85  },
     ],
     specs: [
       { label: "Chip",    value: "Apple M4" },
@@ -58,9 +58,9 @@ export const products: Product[] = [
     image: "/images/macbook-pro-14-m4.png",
     stock: 3,
     pricing: [
-      { months: 8,  price: 155 },
-      { months: 16, price: 120 },
-      { months: 24, price: 105 },
+      { months: 8,  price: 165 },
+      { months: 16, price: 130 },
+      { months: 24, price: 110 },
     ],
     specs: [
       { label: "Chip",    value: "Apple M4" },
@@ -87,9 +87,9 @@ export const products: Product[] = [
     isNew: true,
     stock: 2,
     pricing: [
-      { months: 8,  price: 165 },
-      { months: 16, price: 130 },
-      { months: 24, price: 115 },
+      { months: 8,  price: 175 },
+      { months: 16, price: 140 },
+      { months: 24, price: 120 },
     ],
     specs: [
       { label: "Chip",    value: "Apple M5" },
