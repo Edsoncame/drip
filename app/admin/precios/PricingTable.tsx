@@ -48,6 +48,7 @@ export default function PricingTable({ pricing }: { pricing: PricingRow[] }) {
   const [tasa, setTasa]   = useState(0);
   const [plazo, setPlazo] = useState(12);
   const [opex, setOpex]   = useState(25);
+  const [mpFee, setMpFee] = useState(4.12); // MP Peru: 3.49% + IGV 18% ≈ 4.12%
   const [costos, setCostos] = useState<Record<string, string>>({});
 
   // Load persisted params from localStorage
@@ -57,6 +58,7 @@ export default function PricingTable({ pricing }: { pricing: PricingRow[] }) {
       if (p.tasa  !== undefined) setTasa(p.tasa);
       if (p.plazo !== undefined) setPlazo(p.plazo);
       if (p.opex  !== undefined) setOpex(p.opex);
+      if (p.mpFee !== undefined) setMpFee(p.mpFee);
       if (p.costos) setCostos(p.costos);
     } catch { /* ignore */ }
   }, []);
@@ -85,8 +87,21 @@ export default function PricingTable({ pricing }: { pricing: PricingRow[] }) {
     const residualPct = Number(cell.residual_pct) || PLAN_RESIDUAL_PCT[String(meta.meses)] || 55;
     const tarifa = Number(cell.precio_usd) || 0;
     const calc = calcPlan(pc, tasa, plazo, opex, residualPct, meta.meses, tarifa || undefined);
-    const margin = tarifa > 0 ? ((tarifa - calc.breakEven) / tarifa) * 100 : 0;
-    return { breakEven: calc.breakEven, suggested: calc.suggested, margin };
+
+    // MP takes mpFee% of every monthly payment.
+    // To cover costs, the tarifa charged must be higher by 1/(1-mpFee).
+    const mpFactor = 1 - mpFee / 100;
+    // Minimum tarifa to charge so that after MP cut you cover costs
+    const breakEvenWithMP = mpFactor > 0 ? calc.breakEven / mpFactor : calc.breakEven;
+    // Suggested tarifa including MP fee and target margin
+    const suggestedWithMP = mpFactor > 0 ? calc.suggested / mpFactor : calc.suggested;
+    // Real margin: % of net revenue (after MP) that is profit
+    const netPerMonth = tarifa * mpFactor;
+    const margin = tarifa > 0 ? ((netPerMonth - calc.breakEven) / netPerMonth) * 100 : 0;
+    // MP cost over the whole plan
+    const mpCostTotal = tarifa * (mpFee / 100) * meta.meses;
+
+    return { breakEven: calc.breakEven, breakEvenWithMP, suggested: suggestedWithMP, margin, mpCostTotal };
   }
 
   // ── CRUD ─────────────────────────────────────────────────────────────────
@@ -146,13 +161,13 @@ export default function PricingTable({ pricing }: { pricing: PricingRow[] }) {
           )}
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div>
             <label className="text-xs text-[#666] mb-1.5 block">Tasa anual (%)</label>
             <input type="number" value={tasa} min={0} max={100} step={0.5}
               onChange={e => { const v = Number(e.target.value); setTasa(v); persist({ tasa: v }); }}
               className="w-full px-3 py-2 text-sm border border-[#E5E5E5] rounded-xl outline-none focus:border-[#1B4FFF] transition-colors" />
-            <p className="text-[10px] text-[#999] mt-1">0 = cuotas sin interés</p>
+            <p className="text-[10px] text-[#999] mt-1">0 = sin interés</p>
           </div>
           <div>
             <label className="text-xs text-[#666] mb-1.5 block">Plazo crédito (meses)</label>
@@ -165,6 +180,13 @@ export default function PricingTable({ pricing }: { pricing: PricingRow[] }) {
             <input type="number" value={opex} min={0} step={1}
               onChange={e => { const v = Number(e.target.value); setOpex(v); persist({ opex: v }); }}
               className="w-full px-3 py-2 text-sm border border-[#E5E5E5] rounded-xl outline-none focus:border-[#1B4FFF] transition-colors" />
+          </div>
+          <div>
+            <label className="text-xs text-[#666] mb-1.5 block">Comisión MP (%)</label>
+            <input type="number" value={mpFee} min={0} max={20} step={0.01}
+              onChange={e => { const v = Number(e.target.value); setMpFee(v); persist({ mpFee: v }); }}
+              className="w-full px-3 py-2 text-sm border border-[#E5E5E5] rounded-xl outline-none focus:border-[#1B4FFF] transition-colors" />
+            <p className="text-[10px] text-[#999] mt-1">TC crédito: 4.12% · débito: 2.35%</p>
           </div>
         </div>
       </div>
@@ -271,8 +293,11 @@ export default function PricingTable({ pricing }: { pricing: PricingRow[] }) {
                             {/* Break-even + margen */}
                             {calc && (
                               <div className="flex flex-col items-center gap-0.5">
-                                <span className="text-[10px] text-[#999] font-500">
-                                  BE ${calc.breakEven.toFixed(2)}
+                                <span className="text-[10px] text-[#999] font-500" title="Mínimo a cobrar para cubrir todos los costos incluyendo comisión MP">
+                                  BE ${calc.breakEvenWithMP.toFixed(2)}
+                                  {mpFee > 0 && (
+                                    <span className="text-[#BBBBBB]"> · MP −${calc.mpCostTotal.toFixed(0)}</span>
+                                  )}
                                 </span>
                                 <MarginBadge margin={calc.margin} />
                               </div>
