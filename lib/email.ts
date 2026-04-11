@@ -1,6 +1,6 @@
 import { Resend } from "resend";
 
-const FROM = "FLUX <hola@flux.pe>";
+const FROM = "FLUX <hola@fluxperu.com>";
 
 function getResend() {
   if (!process.env.RESEND_API_KEY) throw new Error("RESEND_API_KEY is not set");
@@ -38,7 +38,7 @@ export async function sendConfirmationEmail({
       <tr><td>Vence</td><td style="text-align:right;font-weight:600;color:#18191F">${endStr}</td></tr>
     </table>
   </div>
-  <p style="color:#666;font-size:13px">¿Tienes dudas? Escríbenos a <a href="mailto:hola@flux.pe" style="color:#1B4FFF">hola@flux.pe</a> o al WhatsApp <a href="https://wa.me/51999000000" style="color:#1B4FFF">+51 999 000 000</a>.</p>
+  <p style="color:#666;font-size:13px">¿Tienes dudas? Escríbenos a <a href="mailto:hola@fluxperu.com" style="color:#1B4FFF">hola@fluxperu.com</a> o al WhatsApp <a href="https://wa.me/51999000000" style="color:#1B4FFF">+51 999 000 000</a>.</p>
   <p style="color:#999;font-size:12px;margin-top:24px">© 2026 FLUX — Tika Services S.A.C.</p>
 </div>`,
   });
@@ -88,9 +88,9 @@ export async function sendWelcomeEmail({
 <div style="font-family:Inter,sans-serif;max-width:560px;margin:0 auto;background:#fff;padding:32px 24px;border-radius:16px">
   <h1 style="font-size:28px;font-weight:900;color:#18191F;margin:0 0 8px">¡Hola, ${firstName}! 👋</h1>
   <p style="color:#666;margin:0 0 16px">Tu cuenta en FLUX está lista. Ahora puedes rentar MacBooks para tu equipo sin comprometer el balance de tu empresa.</p>
-  <a href="${process.env.NEXT_PUBLIC_APP_URL ?? "https://flux.pe"}/laptops" style="display:inline-block;background:#1B4FFF;color:#fff;font-weight:700;padding:14px 32px;border-radius:999px;text-decoration:none;font-size:15px;margin-bottom:20px">Ver MacBooks disponibles</a>
+  <a href="${process.env.NEXT_PUBLIC_APP_URL ?? "https://www.fluxperu.com"}/laptops" style="display:inline-block;background:#1B4FFF;color:#fff;font-weight:700;padding:14px 32px;border-radius:999px;text-decoration:none;font-size:15px;margin-bottom:20px">Ver MacBooks disponibles</a>
   ${referralSection}
-  <p style="color:#999;font-size:13px;margin-top:24px">¿Tienes dudas? Escríbenos a <a href="mailto:hola@flux.pe" style="color:#1B4FFF">hola@flux.pe</a>.</p>
+  <p style="color:#999;font-size:13px;margin-top:24px">¿Tienes dudas? Escríbenos a <a href="mailto:hola@fluxperu.com" style="color:#1B4FFF">hola@fluxperu.com</a>.</p>
   <p style="color:#999;font-size:12px;margin-top:8px">© 2026 FLUX — Tika Services S.A.C.</p>
 </div>`,
   });
@@ -104,7 +104,7 @@ export async function sendB2BLeadEmail({
 }) {
   await getResend().emails.send({
     from: FROM,
-    to: "ventas@flux.pe",
+    to: "ventas@fluxperu.com",
     replyTo: email,
     subject: `Nueva cotización B2B — ${empresa} (${cantidad} Macs)`,
     html: `

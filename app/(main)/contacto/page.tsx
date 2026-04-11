@@ -25,8 +25,8 @@ export default function ContactoPage() {
           {
             icon: "📧",
             title: "Correo general",
-            value: "hola@flux.pe",
-            href: "mailto:hola@flux.pe",
+            value: "hola@fluxperu.com",
+            href: "mailto:hola@fluxperu.com",
             desc: "Te respondemos en menos de 24 horas",
           },
           {
@@ -39,15 +39,15 @@ export default function ContactoPage() {
           {
             icon: "🏢",
             title: "Ventas corporativas",
-            value: "ventas@flux.pe",
-            href: "mailto:ventas@flux.pe",
+            value: "ventas@fluxperu.com",
+            href: "mailto:ventas@fluxperu.com",
             desc: "Para 5 o más Macs en tu empresa",
           },
           {
             icon: "🔒",
             title: "Privacidad y datos",
-            value: "privacidad@flux.pe",
-            href: "mailto:privacidad@flux.pe",
+            value: "privacidad@fluxperu.com",
+            href: "mailto:privacidad@fluxperu.com",
             desc: "Ejercicio de derechos ARCO",
           },
         ].map(item => (

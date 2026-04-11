@@ -186,7 +186,7 @@ function EntryModal({ entry, onSave, onClose }: {
           <div>
             <label className="text-xs text-[#666] mb-1.5 block">Usuario / Email</label>
             <input value={form.usuario ?? ""} onChange={set("usuario")}
-              placeholder="admin@flux.pe" className="w-full px-3 py-2 text-sm border border-[#E5E5E5] rounded-xl outline-none focus:border-[#1B4FFF] transition-colors font-mono" />
+              placeholder="admin@fluxperu.com" className="w-full px-3 py-2 text-sm border border-[#E5E5E5] rounded-xl outline-none focus:border-[#1B4FFF] transition-colors font-mono" />
           </div>
           <div>
             <label className="text-xs text-[#666] mb-1.5 block">Contraseña</label>

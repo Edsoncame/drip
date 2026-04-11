@@ -51,7 +51,7 @@ export default async function CuentaPage() {
       <div className="bg-white border border-[#E5E5E5] rounded-2xl p-6 mb-5">
         <div className="flex items-center justify-between mb-5">
           <h2 className="font-700 text-[#18191F]">Datos personales</h2>
-          <span className="text-xs text-[#999999]">Para editar escríbenos a hola@flux.pe</span>
+          <span className="text-xs text-[#999999]">Para editar escríbenos a hola@fluxperu.com</span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {[

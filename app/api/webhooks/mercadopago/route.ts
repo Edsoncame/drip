@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
 
       // Notify ops team
       await sendEmail({
-        to: "operaciones@flux.pe",
+        to: "operaciones@fluxperu.com",
         subject: `[OPS] Cancelación: ${row.customer_name} — ${row.product_name}`,
         html: opsAlertHtml("cancelada", row.customer_name, row.customer_email, row.product_name, dataId),
       }).catch(() => {});
@@ -133,7 +133,7 @@ export async function POST(req: NextRequest) {
 
     if (internalStatus === "paused" && row.customer_email) {
       await sendEmail({
-        to: "operaciones@flux.pe",
+        to: "operaciones@fluxperu.com",
         subject: `[OPS] Renta pausada: ${row.customer_name} — ${row.product_name}`,
         html: opsAlertHtml("pausada", row.customer_name, row.customer_email, row.product_name, dataId),
       }).catch(() => {});
@@ -156,7 +156,7 @@ function cancellationEmailHtml(name: string, productName: string): string {
   <p style="color:#666;margin:0 0 16px">Tu suscripción de <strong>${productName}</strong> ha sido cancelada en MercadoPago.</p>
   <p style="color:#666;margin:0 0 16px">En los próximos 30 días nuestro equipo coordinará contigo la devolución del equipo.</p>
   <p style="color:#666;margin:0 0 24px">Si crees que esto fue un error o deseas reactivar tu renta, contáctanos:</p>
-  <a href="mailto:hola@flux.pe" style="display:inline-block;background:#1B4FFF;color:#fff;font-weight:700;padding:12px 28px;border-radius:999px;text-decoration:none;font-size:14px">Contactar soporte</a>
+  <a href="mailto:hola@fluxperu.com" style="display:inline-block;background:#1B4FFF;color:#fff;font-weight:700;padding:12px 28px;border-radius:999px;text-decoration:none;font-size:14px">Contactar soporte</a>
   <p style="color:#999;font-size:12px;margin-top:24px">© 2026 FLUX — Tika Services S.A.C.</p>
 </div>`;
 }

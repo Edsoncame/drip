@@ -130,7 +130,7 @@ function SuccessContent() {
 
         <p className="text-center text-xs text-[#999999] mt-6">
           ¿Tienes preguntas? Escríbenos a{" "}
-          <a href="mailto:hola@flux.pe" className="text-[#1B4FFF]">hola@flux.pe</a>
+          <a href="mailto:hola@fluxperu.com" className="text-[#1B4FFF]">hola@fluxperu.com</a>
         </p>
       </div>
     </div>

@@ -41,7 +41,7 @@ export default function TerminosPage() {
           },
           {
             title: "8. Contacto",
-            content: "Para consultas sobre estos términos escríbenos a hola@flux.pe o llámanos al +51 999 000 000.",
+            content: "Para consultas sobre estos términos escríbenos a hola@fluxperu.com o llámanos al +51 999 000 000.",
           },
         ].map(section => (
           <div key={section.title}>

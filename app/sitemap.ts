@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 import { products } from "@/lib/products";
 
-const BASE = process.env.NEXT_PUBLIC_APP_URL ?? "https://flux.pe";
+const BASE = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.fluxperu.com";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();

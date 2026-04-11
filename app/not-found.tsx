@@ -39,7 +39,7 @@ export default function NotFound() {
 
         <p className="text-xs text-[#999999] mt-6">
           ¿Necesitas ayuda?{" "}
-          <a href="mailto:hola@flux.pe" className="text-[#1B4FFF] hover:underline">hola@flux.pe</a>
+          <a href="mailto:hola@fluxperu.com" className="text-[#1B4FFF] hover:underline">hola@fluxperu.com</a>
         </p>
       </div>
     </div>
