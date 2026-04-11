@@ -340,29 +340,22 @@ function EquipmentModal({ data, onChange, onSave, onClose, saving }: ModalProps)
 
   // ── Financial calculator state ──────────────────────────────────────────
   const [calcMargin, setCalcMargin] = useState(TARGET_MARGIN * 100); // editable margin %
-  const [derivedTasa, setDerivedTasa] = useState<number | null>(null);
 
   const precio = Number(data.precio_compra_usd) || 0;
-  const tasa = Number(data.tasa_pct) || 0;
-  const plazo = Number(data.plazo_credito_meses) || 6;
+  const plazo = Number(data.plazo_credito_meses) || 0;
   const opex = Number(data.opex_usd) || 0;
   const tarifa = Number(data.tarifa_usd) || 0;
   const mesesArr = Number(data.tipo_arriendo_meses) || 16;
   const tc = Number(data.tipo_cambio) || 3.39;
 
-  // Derive tasa from cuota + plazo
+  // Tasa siempre calculada desde cuota + plazo + precio (Newton-Raphson)
   const cuotaSoles = Number(data.cuota_credito_soles) || 0;
   const valorSoles = Number(data.valor_soles) || (precio * tc);
-
-  useEffect(() => {
-    if (cuotaSoles > 0 && plazo > 0 && valorSoles > 0) {
-      const r = solveMonthlyRate(valorSoles, cuotaSoles, plazo);
-      const annual = monthlyToAnnualPct(r);
-      setDerivedTasa(annual);
-    } else {
-      setDerivedTasa(null);
-    }
-  }, [cuotaSoles, plazo, valorSoles]);
+  const monthlyRate = (cuotaSoles > 0 && plazo > 0 && valorSoles > 0)
+    ? solveMonthlyRate(valorSoles, cuotaSoles, plazo)
+    : 0;
+  const tasa = monthlyToAnnualPct(monthlyRate); // % anual, siempre derivada
+  const tasaReady = tasa > 0;
 
   // Auto-calculate valor_soles when precio + tc change
   useEffect(() => {
@@ -398,10 +391,6 @@ function EquipmentModal({ data, onChange, onSave, onClose, saving }: ModalProps)
     });
   }, [currentPlan, precio, tarifa, opex, mesesArr, onChange]);
 
-  const applyTasa = () => {
-    if (derivedTasa !== null) onChange({ tasa_pct: derivedTasa.toFixed(2) });
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 overflow-y-auto py-8 px-4">
       <div className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl">
@@ -430,28 +419,31 @@ function EquipmentModal({ data, onChange, onSave, onClose, saving }: ModalProps)
                 </div>
               </div>
 
-              {/* Tasa derivada */}
-              {derivedTasa !== null && (
-                <div className="bg-white rounded-xl px-4 py-2 mb-3 flex items-center justify-between border border-[#E0E7FF]">
-                  <div>
-                    <p className="text-xs text-[#666]">Tasa derivada de cuota + plazo</p>
-                    <p className="text-sm font-800 text-[#1B4FFF]">{derivedTasa.toFixed(2)}% anual ({(derivedTasa/12).toFixed(3)}% mensual)</p>
+              {/* Tasa calculada automáticamente */}
+              <div className="bg-white rounded-xl px-4 py-2 mb-3 border border-[#E0E7FF] text-xs">
+                {tasaReady ? (
+                  <div className="grid grid-cols-4 gap-2 text-[#555]">
+                    <div>
+                      <span className="text-[#999]">Tasa calculada</span><br />
+                      <span className="font-800 text-[#1B4FFF]">{tasa.toFixed(2)}% anual</span>
+                    </div>
+                    <div>
+                      <span className="text-[#999]">Mensual</span><br />
+                      <span className="font-700">{(tasa/12).toFixed(3)}%</span>
+                    </div>
+                    <div>
+                      <span className="text-[#999]">Financiamiento total</span><br />
+                      <span className="font-700">${(precio*(tasa/100)*(plazo/12)).toFixed(2)}</span>
+                    </div>
+                    <div>
+                      <span className="text-[#999]">Cuota USD equiv.</span><br />
+                      <span className="font-700">${calcCuota(precio, monthlyRate, plazo).toFixed(2)}/m</span>
+                    </div>
                   </div>
-                  <button onClick={applyTasa}
-                    className="px-3 py-1.5 bg-[#1B4FFF] text-white text-xs font-700 rounded-full cursor-pointer hover:bg-[#1340CC]">
-                    Aplicar tasa
-                  </button>
-                </div>
-              )}
-
-              {/* Costo financiamiento */}
-              {tasa > 0 && (
-                <div className="bg-white rounded-xl px-4 py-2 mb-3 border border-[#E0E7FF] text-xs text-[#555] grid grid-cols-3 gap-2">
-                  <div><span className="text-[#999]">Financiamiento</span><br /><span className="font-700">${(precio*(tasa/100)*(plazo/12)).toFixed(2)}</span></div>
-                  <div><span className="text-[#999]">Tasa / Plazo</span><br /><span className="font-700">{tasa}% × {plazo}m</span></div>
-                  <div><span className="text-[#999]">Cuota USD</span><br /><span className="font-700">${calcCuota(precio, tasa/100/12, plazo).toFixed(2)}/m</span></div>
-                </div>
-              )}
+                ) : (
+                  <p className="text-[#999] italic">Ingresa precio de compra, cuota y plazo para calcular la tasa automáticamente.</p>
+                )}
+              </div>
 
               {/* Plan table */}
               <div className="bg-white rounded-xl overflow-hidden border border-[#E0E7FF]">
