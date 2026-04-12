@@ -50,6 +50,10 @@ export interface Equipment {
   clave_vault: string | null;
   clave_vault_url: string | null;
   observaciones: string | null;
+  colaborador: string | null;
+  compra_status: string | null;
+  compra_notas: string | null;
+  compra_inicio: string | null;
 }
 
 const ESTADO_STYLES: Record<string, string> = {
@@ -86,7 +90,7 @@ export default function EquipmentTable({ equipment }: { equipment: Equipment[] }
 
   const filtered = equipment.filter(e => {
     const q = search.toLowerCase();
-    const matchSearch = !q || [e.codigo_interno, e.modelo_completo, e.numero_serie, e.cliente_actual, e.proveedor, e.color].some(v => v?.toLowerCase().includes(q));
+    const matchSearch = !q || [e.codigo_interno, e.modelo_completo, e.numero_serie, e.cliente_actual, e.proveedor, e.color, e.colaborador].some(v => v?.toLowerCase().includes(q));
     const matchEstado = filterEstado === "Todos" || e.estado_actual.startsWith(filterEstado);
     return matchSearch && matchEstado;
   });
@@ -200,14 +204,14 @@ export default function EquipmentTable({ equipment }: { equipment: Equipment[] }
         <table className="w-full text-sm">
           <thead className="bg-[#F7F7F7]">
             <tr>
-              {["Código / Modelo","Spec","N° Serie","Estado / Cliente","Alquiler","Tarifa / OPEX","Costo compra","Financiamiento","ROI",""].map(h => (
+              {["Código / Modelo","Spec","N° Serie","Estado / Cliente","Colaborador / Compra","Alquiler","Tarifa / OPEX","Costo compra","Financiamiento","ROI",""].map(h => (
                 <th key={h} className="text-left px-4 py-3 text-xs font-700 text-[#666666] whitespace-nowrap">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-[#F0F0F0]">
             {filtered.length === 0 ? (
-              <tr><td colSpan={10} className="text-center py-12 text-[#999999]">Sin resultados</td></tr>
+              <tr><td colSpan={11} className="text-center py-12 text-[#999999]">Sin resultados</td></tr>
             ) : filtered.map(eq => {
               const stStyle = ESTADO_STYLES[eq.estado_actual.split(" / ")[0]] ?? "bg-gray-100 text-gray-500";
               const days = daysUntil(eq.mantenimiento_proximo);
@@ -231,6 +235,22 @@ export default function EquipmentTable({ equipment }: { equipment: Equipment[] }
                     <td className="px-4 py-3">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-700 ${stStyle}`}>{eq.estado_actual.split(" / ")[0]}</span>
                       {eq.cliente_actual && <p className="text-xs text-[#999] mt-1 truncate max-w-[120px]">{eq.cliente_actual}</p>}
+                    </td>
+                    <td className="px-4 py-3">
+                      {eq.colaborador ? (
+                        <div>
+                          <p className="text-xs font-600 text-[#18191F]">{eq.colaborador}</p>
+                          {eq.compra_status === "contrato_firmado" && (
+                            <span className="text-[10px] font-700 px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 mt-1 inline-block">Compra</span>
+                          )}
+                          {eq.compra_status === "no_desea" && (
+                            <span className="text-[10px] text-[#999] mt-0.5 block">No compra</span>
+                          )}
+                          {eq.compra_status === "desestimado" && (
+                            <span className="text-[10px] font-700 px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 mt-1 inline-block">Desestimado</span>
+                          )}
+                        </div>
+                      ) : <span className="text-xs text-[#999]">—</span>}
                     </td>
                     <td className="px-4 py-3 text-xs text-[#666666]">
                       <p>{eq.tipo_arriendo_meses ? `${eq.tipo_arriendo_meses}m` : "—"}</p>
@@ -265,7 +285,7 @@ export default function EquipmentTable({ equipment }: { equipment: Equipment[] }
 
                   {isExp && (
                     <tr key={`${eq.id}-exp`} className="bg-[#F5F8FF]">
-                      <td colSpan={10} className="px-6 pb-5 pt-3">
+                      <td colSpan={11} className="px-6 pb-5 pt-3">
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
                           <InfoCell label="Proveedor" value={eq.proveedor ?? "—"} />
                           <InfoCell label="Fecha compra" value={fmtDate(eq.fecha_compra)} />
@@ -585,6 +605,13 @@ function EquipmentModal({ data, onChange, onSave, onClose, saving }: ModalProps)
               <Field label="Fin alquiler" type="date" value={f("fin_alquiler")?.split("T")[0]} onChange={set("fin_alquiler")} />
               <Field label="Tarifa (USD/mes)" type="number" value={f("tarifa_usd")} onChange={set("tarifa_usd")} placeholder="120" />
               <Field label="OPEX (USD/mes)" type="number" value={f("opex_usd")} onChange={set("opex_usd")} placeholder="32.50" />
+            </Row>
+            <Row>
+              <Field label="Colaborador" value={f("colaborador")} onChange={set("colaborador")} placeholder="JEFRY" />
+              <SelectField label="Opción de compra" value={f("compra_status") ?? "no_desea"} onChange={set("compra_status")}
+                options={["no_desea", "contrato_firmado", "en_proceso", "desestimado", "completada"]} />
+              <Field label="Notas compra" value={f("compra_notas")} onChange={set("compra_notas")} placeholder="Firmó contrato..." />
+              <Field label="Inicio compra" type="date" value={f("compra_inicio")?.split("T")[0]} onChange={set("compra_inicio")} />
             </Row>
           </Section>
 
