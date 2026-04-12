@@ -1,12 +1,10 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { initMercadoPago, CardPayment } from "@mercadopago/sdk-react";
 import { motion } from "framer-motion";
 import { getProduct } from "@/lib/products";
 import type { Product } from "@/lib/products";
-import type { ICardPaymentFormData, ICardPaymentBrickPayer, IAdditionalData } from "@mercadopago/sdk-react/esm/bricks/cardPayment/type";
 import { trackBeginCheckout, trackPurchase } from "@/lib/analytics";
 
 // ─── Step indicator ────────────────────────────────────────────────────────────
@@ -706,48 +704,78 @@ function PaymentForm({
   const plan = product.pricing.find((p) => p.months === months)!;
   const totalMonthly = (plan.price + (appleCare ? APPLECARE_PRICE : 0)) * quantity;
 
-  const handleSubmit = async (formData: ICardPaymentFormData<ICardPaymentBrickPayer>, _additionalData?: IAdditionalData) => {
-    setLoading(true);
-    setError(null);
+  // Load CulqiJS
+  useEffect(() => {
+    if (document.getElementById("culqi-js")) return;
+    const script = document.createElement("script");
+    script.id = "culqi-js";
+    script.src = "https://checkout.culqi.com/js/v4";
+    script.async = true;
+    document.head.appendChild(script);
+  }, []);
 
-    try {
-      const res = await fetch("/api/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          slug: product.slug,
-          months,
-          appleCare,
-          quantity,
-          cardToken: formData.token,
-          customer,
-          delivery,
-          identity: { dniNumber: identity.dniNumber, dniPhoto: identity.dniPhoto, selfiePhoto: identity.selfiePhoto },
-        }),
-      });
+  const openCulqi = useCallback(() => {
+    const w = window as Window & { Culqi?: { publicKey: string; settings: (s: Record<string, unknown>) => void; open: () => void; close: () => void; token: { id: string } }; culqi?: () => void };
+    if (!w.Culqi) { setError("Cargando formulario de pago..."); return; }
 
-      const data = await res.json();
+    w.Culqi.publicKey = process.env.NEXT_PUBLIC_CULQI_PUBLIC_KEY!;
+    w.Culqi.settings({
+      title: "FLUX",
+      currency: "USD",
+      amount: totalMonthly * 100,
+      order: `flux-${Date.now()}`,
+    });
 
-      if (!res.ok) {
-        setError(data.error ?? "Error al procesar el pago");
-        setLoading(false);
+    // Callback when token is generated
+    w.culqi = async () => {
+      if (!w.Culqi?.token?.id) {
+        setError("No se pudo procesar la tarjeta. Intenta de nuevo.");
         return;
       }
+      setLoading(true);
+      setError(null);
 
-      trackPurchase({
-        transactionId: data.subscriptionId ?? `flux-${Date.now()}`,
-        value: totalMonthly,
-        product: { name: product.name, slug: product.slug, price: plan.price, months, quantity },
-      });
+      try {
+        const res = await fetch("/api/checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            slug: product.slug,
+            months,
+            appleCare,
+            quantity,
+            cardToken: w.Culqi.token.id,
+            customer,
+            delivery,
+            identity: { dniNumber: identity.dniNumber, dniPhoto: identity.dniPhoto, selfiePhoto: identity.selfiePhoto },
+          }),
+        });
 
-      router.push(
-        `/checkout/success?slug=${product.slug}&months=${months}&name=${encodeURIComponent(customer.name)}&email=${encodeURIComponent(customer.email)}&total=${totalMonthly}&qty=${quantity}`
-      );
-    } catch {
-      setError("Error de conexión. Intenta de nuevo.");
-      setLoading(false);
-    }
-  };
+        const data = await res.json();
+
+        if (!res.ok) {
+          setError(data.error ?? "Error al procesar el pago");
+          setLoading(false);
+          return;
+        }
+
+        trackPurchase({
+          transactionId: data.subscriptionId ?? `flux-${Date.now()}`,
+          value: totalMonthly,
+          product: { name: product.name, slug: product.slug, price: plan.price, months, quantity },
+        });
+
+        router.push(
+          `/checkout/success?slug=${product.slug}&months=${months}&name=${encodeURIComponent(customer.name)}&email=${encodeURIComponent(customer.email)}&total=${totalMonthly}&qty=${quantity}`
+        );
+      } catch {
+        setError("Error de conexión. Intenta de nuevo.");
+        setLoading(false);
+      }
+    };
+
+    w.Culqi.open();
+  }, [product, months, appleCare, quantity, customer, delivery, identity, totalMonthly, plan.price, router]);
 
   return (
     <div>
@@ -778,26 +806,20 @@ function PaymentForm({
         </div>
       </div>
 
-      {/* MP Card Brick */}
-      <div className="mb-4">
-        <CardPayment
-          initialization={{ amount: totalMonthly, payer: { email: customer.email } }}
-          customization={{
-            paymentMethods: {
-              minInstallments: 1,
-              maxInstallments: 1,
-            },
-            visual: {
-              hideFormTitle: true,
-              hidePaymentButton: loading,
-            },
-          }}
-          onSubmit={handleSubmit}
-          onError={(err) => {
-            setError(err?.message ?? "Error en el formulario de pago");
-          }}
-        />
-      </div>
+      {/* Pay button */}
+      <motion.button
+        onClick={openCulqi}
+        disabled={loading}
+        whileTap={!loading ? { scaleX: 1.06, scaleY: 0.91 } : {}}
+        transition={{ type: "spring", stiffness: 700, damping: 30 }}
+        className="w-full py-4 rounded-full bg-[#1B4FFF] text-white font-700 text-lg hover:bg-[#1340CC] transition-colors disabled:opacity-60 cursor-pointer flex items-center justify-center gap-2 mb-4"
+      >
+        {loading ? (
+          <><svg className="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="30 70"/></svg>Procesando pago…</>
+        ) : (
+          <>Pagar ${totalMonthly} USD</>
+        )}
+      </motion.button>
 
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4 text-sm text-red-600">
@@ -816,7 +838,7 @@ function PaymentForm({
 
       <div className="flex items-center justify-center gap-2 mt-3 mb-4 text-xs text-[#999999]">
         <span>🔒</span>
-        <span>Pago seguro con cifrado SSL — procesado por Mercado Pago</span>
+        <span>Pago seguro con cifrado SSL — procesado por Culqi</span>
       </div>
 
       <button
@@ -839,7 +861,6 @@ function CheckoutContent() {
   const product = getProduct(slug);
 
   const [step, setStep] = useState(1);
-  const [mpReady, setMpReady] = useState(false);
   const [appleCare, setAppleCare] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null); // null = loading
@@ -863,9 +884,6 @@ function CheckoutContent() {
   });
 
   useEffect(() => {
-    initMercadoPago(process.env.NEXT_PUBLIC_MP_PUBLIC_KEY!, { locale: "es-PE" });
-    setMpReady(true);
-
     // Check login + pre-fill all data
     fetch("/api/auth/me")
       .then(r => r.ok ? r.json() : null)
@@ -964,7 +982,7 @@ function CheckoutContent() {
             />
           )}
 
-          {step === 3 && mpReady && (
+          {step === 3 && (
             <PaymentForm
               product={product}
               months={months}

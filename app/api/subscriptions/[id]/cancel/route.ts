@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { MercadoPagoConfig, PreApproval } from "mercadopago";
 import { getSession } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
-
-const client = new MercadoPagoConfig({
-  accessToken: process.env.MP_ACCESS_TOKEN!,
-});
+import { cancelSubscription as cancelCulqiSubscription } from "@/lib/culqi";
 
 export async function POST(
   _req: NextRequest,
@@ -41,17 +37,14 @@ export async function POST(
       return NextResponse.json({ error: "Esta renta ya está cancelada" }, { status: 400 });
     }
 
-    // Cancel in MercadoPago
-    if (sub.mp_subscription_id) {
+    // Cancel in Culqi
+    if (sub.mp_subscription_id && sub.mp_subscription_id.startsWith("sxn_")) {
       try {
-        await new PreApproval(client).update({
-          id: sub.mp_subscription_id,
-          body: { status: "cancelled" },
-        });
-        console.log(`${tag} MP preapproval cancelled mp_id=${sub.mp_subscription_id}`);
-      } catch (mpErr) {
-        console.error(`${tag} MP cancel failed mp_id=${sub.mp_subscription_id}`, mpErr);
-        // Continue — still cancel locally even if MP fails
+        await cancelCulqiSubscription(sub.mp_subscription_id);
+        console.log(`${tag} Culqi subscription cancelled id=${sub.mp_subscription_id}`);
+      } catch (cancelErr) {
+        console.error(`${tag} Culqi cancel failed id=${sub.mp_subscription_id}`, cancelErr);
+        // Continue — still cancel locally
       }
     }
 

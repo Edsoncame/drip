@@ -13,6 +13,7 @@
     "@stripe/react-stripe-js": "^6.1.0",
     "@stripe/stripe-js": "^9.1.0",
     "bcryptjs": "^3.0.3",
+    "culqi-node": "^2.1.0",
     "framer-motion": "^12.38.0",
     "jose": "^6.2.2",
     "mercadopago": "^2.12.0",
