@@ -20,6 +20,7 @@ export default function EndOfContractActions({
   subscriptionId, productName, months, monthlyPrice,
   daysLeft, deliveryAddress, deliveryDistrito, endAction, purchasePrice,
 }: Props) {
+  const maxReached = endAction === "max_reached";
   const router = useRouter();
   const [action, setAction] = useState<"return" | "purchase" | null>(null);
   const [returnMethod, setReturnMethod] = useState<"pickup" | "office">("pickup");
@@ -86,14 +87,20 @@ export default function EndOfContractActions({
 
   return (
     <div className="mt-5 pt-5 border-t border-[#F0F0F0]">
-      <div className={`rounded-2xl p-5 ${daysLeft <= 0 ? "bg-orange-50 border border-orange-200" : "bg-[#F5F8FF] border border-[#DDEAFF]"}`}>
+      <div className={`rounded-2xl p-5 ${maxReached ? "bg-red-50 border border-red-200" : daysLeft <= 0 ? "bg-orange-50 border border-orange-200" : "bg-[#F5F8FF] border border-[#DDEAFF]"}`}>
         <h3 className="font-700 text-[#18191F] mb-1">
-          {daysLeft <= 0 ? "Tu contrato ha vencido" : `Tu contrato vence en ${daysLeft} días`}
+          {maxReached
+            ? "Tu renta llegó al plazo máximo"
+            : daysLeft <= 0
+              ? "Tu contrato ha vencido"
+              : `Tu contrato vence en ${daysLeft} días`}
         </h3>
         <p className="text-sm text-[#666666] mb-4">
-          {daysLeft <= 0
-            ? "Mientras decides, tu renta sigue activa mes a mes. Elige cuando estés listo:"
-            : "Tu renta se extenderá automáticamente mes a mes. O puedes elegir:"}
+          {maxReached
+            ? "Debes comprar o devolver el equipo. Si no decides en 30 días, se cobrará automáticamente el valor de compra."
+            : daysLeft <= 0
+              ? "Mientras decides, tu renta sigue activa mes a mes. Elige cuando estés listo:"
+              : "Tu renta se extenderá automáticamente mes a mes. O puedes elegir:"}
         </p>
 
         <AnimatePresence mode="wait">
@@ -131,15 +138,17 @@ export default function EndOfContractActions({
                 <span className="text-lg font-800 text-[#1B4FFF]">${purchasePrice}</span>
               </button>
 
-              {/* Continue */}
-              <div className="flex items-center gap-4 p-4 rounded-xl bg-[#F7F7F7]">
-                <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-xl flex-shrink-0">🔄</div>
-                <div className="flex-1">
-                  <p className="font-700 text-[#18191F] text-sm">Seguir rentando</p>
-                  <p className="text-xs text-[#666666]">No hagas nada. Tu renta sigue mes a mes automáticamente.</p>
+              {/* Continue — only if NOT at max */}
+              {!maxReached && (
+                <div className="flex items-center gap-4 p-4 rounded-xl bg-[#F7F7F7]">
+                  <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-xl flex-shrink-0">🔄</div>
+                  <div className="flex-1">
+                    <p className="font-700 text-[#18191F] text-sm">Seguir rentando</p>
+                    <p className="text-xs text-[#666666]">No hagas nada. Tu renta sigue mes a mes automáticamente.</p>
+                  </div>
+                  <span className="text-sm font-700 text-[#333333]">${monthlyPrice}/mes</span>
                 </div>
-                <span className="text-sm font-700 text-[#333333]">${monthlyPrice}/mes</span>
-              </div>
+              )}
             </motion.div>
           )}
 

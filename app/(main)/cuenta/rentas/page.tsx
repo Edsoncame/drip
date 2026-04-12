@@ -129,7 +129,8 @@ export default async function RentasPage() {
                 {(() => {
                   if (!sub.ends_at || !["active", "delivered"].includes(sub.status)) return null;
                   const daysLeft = Math.ceil((new Date(sub.ends_at).getTime() - Date.now()) / 86400000);
-                  if (daysLeft > 60) return null;
+                  const isMaxReached = sub.end_action === "max_reached";
+                  if (daysLeft > 60 && !isMaxReached) return null;
 
                   const residualPct = RESIDUAL_VALUES[sub.months] ?? 0.55;
                   const estimatedValue = parseFloat(sub.monthly_price) * sub.months * 1.4;

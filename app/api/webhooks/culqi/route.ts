@@ -51,17 +51,93 @@ export async function POST(req: NextRequest) {
       case "subscription.charge.succeeded": {
         const email = body.data?.email;
         if (email) {
-          // Update subscription — extend ends_at by 1 month (auto-renewal)
-          await query(
-            `UPDATE subscriptions SET
-              status = 'active',
-              ends_at = GREATEST(ends_at, NOW()) + INTERVAL '1 month',
-              next_billing_at = NOW() + INTERVAL '1 month',
-              updated_at = NOW()
+          // Check if rental has reached maximum allowed period
+          const subs = await query<{
+            id: string; months: number; started_at: string;
+            customer_name: string; customer_email: string;
+            customer_phone: string; product_name: string;
+            monthly_price: string;
+          }>(
+            `SELECT id, months, started_at, customer_name, customer_email,
+                    customer_phone, product_name, monthly_price
+             FROM subscriptions
              WHERE customer_email = $1 AND status IN ('active', 'delivered')`,
             [email]
           );
-          console.log(`${tag} recurring charge succeeded for ${email} — ends_at extended +1 month`);
+
+          for (const sub of subs.rows) {
+            const MAX_MONTHS: Record<number, number> = { 8: 16, 16: 24, 24: 30 };
+            const maxAllowed = MAX_MONTHS[sub.months] ?? sub.months + 8;
+            const monthsUsed = Math.ceil(
+              (Date.now() - new Date(sub.started_at).getTime()) / (30.44 * 86400000)
+            );
+
+            if (monthsUsed >= maxAllowed) {
+              // Hit the limit — notify that they must buy or return
+              console.log(`${tag} rental ${sub.id} hit max ${maxAllowed}m (used ${monthsUsed}m) — forcing decision`);
+
+              // Calculate purchase price
+              const RESIDUAL: Record<number, number> = { 8: 0.775, 16: 0.55, 24: 0.325 };
+              const residualPct = RESIDUAL[sub.months] ?? 0.325;
+              const estimatedValue = parseFloat(sub.monthly_price) * sub.months * 1.4;
+              const purchasePrice = Math.round(estimatedValue * residualPct);
+
+              await query(
+                `UPDATE subscriptions SET
+                  end_action = 'max_reached',
+                  purchase_price_usd = $2,
+                  updated_at = NOW()
+                WHERE id = $1`,
+                [sub.id, purchasePrice]
+              );
+
+              const firstName = sub.customer_name.split(" ")[0];
+              sendEmail({
+                to: sub.customer_email,
+                subject: `${firstName}, tu renta de ${sub.product_name} llegó al límite`,
+                html: `
+<div style="font-family:Inter,sans-serif;max-width:560px;margin:0 auto;background:#fff;padding:32px 24px;border-radius:16px">
+  <h1 style="font-size:22px;font-weight:900;color:#18191F;margin:0 0 8px">${firstName}, tu renta llegó al plazo máximo</h1>
+  <p style="color:#666;margin:0 0 16px">Tu <strong>${sub.product_name}</strong> ha cumplido el período máximo de alquiler. Tienes <strong>30 días</strong> para decidir:</p>
+  <div style="background:#EEF2FF;border-radius:12px;padding:16px;margin:0 0 12px;display:flex;align-items:center;gap:12px">
+    <span style="font-size:24px">💰</span>
+    <div>
+      <p style="font-weight:700;color:#18191F;margin:0">Comprar tu Mac por $${purchasePrice} USD</p>
+      <p style="color:#666;font-size:13px;margin:4px 0 0">El equipo pasa a ser 100% tuyo.</p>
+    </div>
+  </div>
+  <div style="background:#F7F7F7;border-radius:12px;padding:16px;margin:0 0 16px;display:flex;align-items:center;gap:12px">
+    <span style="font-size:24px">↩️</span>
+    <div>
+      <p style="font-weight:700;color:#18191F;margin:0">Devolver el equipo</p>
+      <p style="color:#666;font-size:13px;margin:4px 0 0">Sin costo. Coordinamos el recojo.</p>
+    </div>
+  </div>
+  <p style="color:#DC2626;font-size:13px;font-weight:600;margin:0 0 16px">Si no respondes en 30 días, se cobrará automáticamente el valor de compra ($${purchasePrice}).</p>
+  <a href="https://www.fluxperu.com/cuenta/rentas" style="display:inline-block;background:#1B4FFF;color:#fff;font-weight:700;padding:14px 32px;border-radius:999px;text-decoration:none;font-size:14px">Ver mis opciones</a>
+  <p style="color:#999;font-size:12px;margin-top:24px">© 2026 FLUX — Tika Services S.A.C.</p>
+</div>`,
+              }).catch(() => {});
+
+              sendEmail({
+                to: "operaciones@fluxperu.com",
+                subject: `[OPS] ⚠️ Renta al límite: ${sub.customer_name} — ${sub.product_name} (${monthsUsed}m/${maxAllowed}m)`,
+                html: `<div style="font-family:Inter,sans-serif;padding:24px"><h2 style="color:#DC2626">⚠️ Renta alcanzó límite máximo</h2><p><strong>${sub.customer_name}</strong> (${sub.customer_email}) tiene ${monthsUsed} meses de uso (máximo ${maxAllowed}). Debe comprar ($${purchasePrice}) o devolver en 30 días.</p><p><a href="https://wa.me/51${sub.customer_phone.replace(/\D/g, "").replace(/^51/, "")}">WhatsApp</a></p></div>`,
+              }).catch(() => {});
+            } else {
+              // Normal renewal — extend
+              await query(
+                `UPDATE subscriptions SET
+                  status = 'active',
+                  ends_at = GREATEST(ends_at, NOW()) + INTERVAL '1 month',
+                  next_billing_at = NOW() + INTERVAL '1 month',
+                  updated_at = NOW()
+                WHERE id = $1`,
+                [sub.id]
+              );
+              console.log(`${tag} recurring charge succeeded for ${email} sub=${sub.id} (${monthsUsed}/${maxAllowed}m) — extended +1 month`);
+            }
+          }
         }
         break;
       }
