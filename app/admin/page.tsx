@@ -148,11 +148,10 @@ export default async function AdminPage() {
         <div className="bg-[#FFFBEB] border border-yellow-200 rounded-xl px-5 py-3 mb-8 flex items-start gap-3 text-sm">
           <span className="text-lg flex-shrink-0">⚡</span>
           <div>
-            <span className="font-700 text-yellow-800">Webhook de MercadoPago — </span>
+            <span className="font-700 text-yellow-800">Webhook de Culqi — </span>
             <span className="text-yellow-700">
-              Configura la URL <code className="bg-yellow-100 px-1 rounded text-xs font-mono">/api/webhooks/mercadopago</code> en tu panel de MP
-              para que los cambios de estado se sincronicen automáticamente.
-              Agrega <code className="bg-yellow-100 px-1 rounded text-xs font-mono">MP_WEBHOOK_SECRET</code> en tus env vars.
+              Configura la URL <code className="bg-yellow-100 px-1 rounded text-xs font-mono">fluxperu.com/api/webhooks/culqi</code> en Culqi Panel → Desarrollo → Webhooks
+              para que los cobros recurrentes se sincronicen automáticamente.
             </span>
           </div>
         </div>
