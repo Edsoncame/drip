@@ -135,14 +135,14 @@ export default function ClientsTable({ clients, allSubs }: { clients: Client[]; 
         <table className="w-full text-sm">
           <thead className="bg-[#F7F7F7]">
             <tr>
-              {["Cliente", "Contacto", "Empresa", "Rentas", "Revenue", "Registro"].map(h => (
+              {["Cliente", "Contacto", "Empresa", "Rentas", "Revenue", "Último alquiler", "Registro"].map(h => (
                 <th key={h} className="text-left px-4 py-3 text-xs font-700 text-[#666666] whitespace-nowrap">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-[#F0F0F0]">
             {filtered.length === 0 ? (
-              <tr><td colSpan={6} className="text-center py-12 text-[#999999]">Sin resultados</td></tr>
+              <tr><td colSpan={7} className="text-center py-12 text-[#999999]">Sin resultados</td></tr>
             ) : filtered.map(client => {
               const isExpanded = expanded === client.id;
               const clientSubs = allSubs.filter(s => s.user_id === client.id);
@@ -186,6 +186,11 @@ export default function ClientsTable({ clients, allSubs }: { clients: Client[]; 
                       <p className="font-700 text-[#18191F]">${parseFloat(client.total_spent).toLocaleString("en-US", { minimumFractionDigits: 0 })}</p>
                     </td>
                     <td className="px-4 py-3 text-xs text-[#666666]">
+                      {client.last_sub_date
+                        ? new Date(client.last_sub_date).toLocaleDateString("es-PE", { day: "2-digit", month: "short", year: "2-digit" })
+                        : <span className="text-[#CCCCCC]">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-[#666666]">
                       {new Date(client.created_at).toLocaleDateString("es-PE", { day: "2-digit", month: "short", year: "2-digit" })}
                     </td>
                   </tr>
@@ -193,7 +198,7 @@ export default function ClientsTable({ clients, allSubs }: { clients: Client[]; 
                   {/* Expanded detail */}
                   {isExpanded && (
                     <tr className="bg-[#F5F8FF]">
-                      <td colSpan={6} className="px-6 pb-5 pt-2">
+                      <td colSpan={7} className="px-6 pb-5 pt-2">
                         {/* Contact info */}
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
                           <InfoCard label="Email" value={client.email} copy />
