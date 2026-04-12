@@ -1,0 +1,138 @@
+import { NextRequest, NextResponse } from "next/server";
+import { query } from "@/lib/db";
+import { sendEmail } from "@/lib/email";
+
+/**
+ * Culqi Webhook Handler
+ *
+ * Configurar en Culqi Panel → Desarrollo → Webhooks:
+ *   URL: https://www.fluxperu.com/api/webhooks/culqi
+ *   Eventos: subscription.charge.succeeded, subscription.charge.failed,
+ *            charge.succeeded, charge.failed, charge.expired
+ *
+ * Culqi envía POST con JSON body incluyendo el evento y los datos.
+ */
+
+const tag = "[webhook/culqi]";
+
+interface CulqiEvent {
+  type: string;
+  id: string;
+  data: {
+    object: string;
+    id: string;
+    amount?: number;
+    currency_code?: string;
+    email?: string;
+    outcome?: {
+      type: string;
+      user_message: string;
+    };
+    subscription_id?: string;
+    metadata?: Record<string, string>;
+  };
+}
+
+export async function POST(req: NextRequest) {
+  let body: CulqiEvent;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  const eventType = body.type ?? "";
+  const dataId = body.data?.id ?? body.id ?? "";
+  console.log(`${tag} received type=${eventType} id=${dataId}`);
+
+  try {
+    switch (eventType) {
+      // ── Subscription charge succeeded (recurring payment) ──
+      case "subscription.charge.succeeded": {
+        const email = body.data?.email;
+        if (email) {
+          // Update subscription — confirm it's still active
+          await query(
+            `UPDATE subscriptions SET status = 'active', updated_at = NOW()
+             WHERE customer_email = $1 AND status IN ('active', 'delivered')`,
+            [email]
+          );
+          console.log(`${tag} recurring charge succeeded for ${email}`);
+        }
+        break;
+      }
+
+      // ── Subscription charge failed (payment failed) ──
+      case "subscription.charge.failed": {
+        const email = body.data?.email;
+        if (email) {
+          // Get subscription details
+          const sub = await query<{
+            id: string; customer_name: string; customer_email: string;
+            product_name: string; monthly_price: string;
+          }>(
+            `SELECT id, customer_name, customer_email, product_name, monthly_price
+             FROM subscriptions
+             WHERE customer_email = $1 AND status IN ('active', 'delivered')
+             ORDER BY started_at DESC LIMIT 1`,
+            [email]
+          );
+
+          if (sub.rows.length > 0) {
+            const row = sub.rows[0];
+            const firstName = row.customer_name.split(" ")[0];
+
+            // Notify customer
+            sendEmail({
+              to: row.customer_email,
+              subject: `⚠️ Tu pago de FLUX no pudo procesarse`,
+              html: `
+<div style="font-family:Inter,sans-serif;max-width:560px;margin:0 auto;background:#fff;padding:32px 24px;border-radius:16px">
+  <h1 style="font-size:22px;font-weight:900;color:#18191F;margin:0 0 8px">${firstName}, tu pago no pudo procesarse</h1>
+  <p style="color:#666;margin:0 0 16px">El cobro mensual de <strong>$${row.monthly_price}</strong> por tu <strong>${row.product_name}</strong> fue rechazado.</p>
+  <p style="color:#666;margin:0 0 16px">Esto puede pasar si tu tarjeta expiró, no tiene fondos suficientes, o el banco lo bloqueó.</p>
+  <p style="color:#666;margin:0 0 24px"><strong>Tienes 5 días hábiles para regularizar el pago.</strong> Después de ese plazo podemos suspender tu servicio.</p>
+  <a href="https://wa.me/51932648702" style="display:inline-block;background:#1B4FFF;color:#fff;font-weight:700;padding:14px 32px;border-radius:999px;text-decoration:none;font-size:14px">Contactar soporte</a>
+  <p style="color:#999;font-size:12px;margin-top:24px">© 2026 FLUX — Tika Services S.A.C.</p>
+</div>`,
+            }).catch(() => {});
+
+            // Notify ops
+            sendEmail({
+              to: "operaciones@fluxperu.com",
+              subject: `[OPS] Pago fallido: ${row.customer_name} — ${row.product_name}`,
+              html: `
+<div style="font-family:Inter,sans-serif;padding:24px">
+  <h2 style="color:#DC2626">⚠️ Pago rechazado</h2>
+  <p><strong>${row.customer_name}</strong> (${row.customer_email})</p>
+  <p>Producto: ${row.product_name} — $${row.monthly_price}/mes</p>
+  <p>Acción: contactar al cliente en 5 días hábiles si no regulariza.</p>
+</div>`,
+            }).catch(() => {});
+
+            console.log(`${tag} recurring charge FAILED for ${email} — notifications sent`);
+          }
+        }
+        break;
+      }
+
+      // ── One-time charge events ──
+      case "charge.succeeded":
+        console.log(`${tag} charge succeeded id=${dataId}`);
+        break;
+
+      case "charge.failed":
+      case "charge.expired":
+        console.log(`${tag} charge ${eventType} id=${dataId}`);
+        break;
+
+      default:
+        console.log(`${tag} unhandled event type=${eventType}`);
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error(`${tag} error processing event`, err);
+    return NextResponse.json({ error: "Internal error" }, { status: 500 });
+  }
+}
