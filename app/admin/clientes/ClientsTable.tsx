@@ -188,7 +188,7 @@ export default function ClientsTable({ clients, allSubs }: { clients: Client[]; 
                     <td className="px-4 py-3 text-xs text-[#666666]">
                       {client.last_sub_date
                         ? new Date(client.last_sub_date).toLocaleDateString("es-PE", { day: "2-digit", month: "short", year: "2-digit" })
-                        : <span className="text-[#CCCCCC]">—</span>}
+                        : <span className="text-[#CCCCCC]">0</span>}
                     </td>
                     <td className="px-4 py-3 text-xs text-[#666666]">
                       {new Date(client.created_at).toLocaleDateString("es-PE", { day: "2-digit", month: "short", year: "2-digit" })}
