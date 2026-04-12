@@ -152,7 +152,21 @@ export async function POST(req: NextRequest) {
       ]
     );
 
-    // 4 — Auto-assign equipment from inventory
+    // 4 — Update user profile with latest data (for faster future checkouts)
+    if (session?.userId) {
+      await query(
+        `UPDATE users SET
+          phone = COALESCE(NULLIF($2, ''), phone),
+          company = COALESCE(NULLIF($3, ''), company),
+          ruc = COALESCE(NULLIF($4, ''), ruc),
+          dni_number = COALESCE(NULLIF($5, ''), dni_number),
+          updated_at = NOW()
+        WHERE id = $1`,
+        [session.userId, customer.phone, customer.company, customer.ruc || "", identity?.dniNumber || ""]
+      );
+    }
+
+    // 5 — Auto-assign equipment from inventory
     const SLUG_TO_MODEL: Record<string, string> = {
       "macbook-air-13-m4": "MacBook Air",
       "macbook-pro-14-m4": "MacBook Pro%M4",

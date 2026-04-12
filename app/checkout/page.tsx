@@ -842,6 +842,7 @@ function CheckoutContent() {
   const [mpReady, setMpReady] = useState(false);
   const [appleCare, setAppleCare] = useState(false);
   const [quantity, setQuantity] = useState(1);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null); // null = loading
   const [customer, setCustomer] = useState<CustomerData>({
     name: "",
     email: "",
@@ -865,21 +866,31 @@ function CheckoutContent() {
     initMercadoPago(process.env.NEXT_PUBLIC_MP_PUBLIC_KEY!, { locale: "es-PE" });
     setMpReady(true);
 
-    // Pre-fill customer data if logged in
+    // Check login + pre-fill all data
     fetch("/api/auth/me")
       .then(r => r.ok ? r.json() : null)
       .then(data => {
         if (data?.user) {
+          setIsLoggedIn(true);
+          const u = data.user;
           setCustomer(prev => ({
-            name: prev.name || data.user.name || "",
-            email: prev.email || data.user.email || "",
-            phone: prev.phone || data.user.phone || "",
-            company: prev.company || data.user.company || "",
-            ruc: prev.ruc,
+            name: prev.name || u.name || "",
+            email: prev.email || u.email || "",
+            phone: prev.phone || u.phone || "",
+            company: prev.company || u.company || "",
+            ruc: prev.ruc || u.ruc || "",
           }));
+          if (u.dni_number) {
+            setIdentity(prev => ({
+              ...prev,
+              dniNumber: prev.dniNumber || u.dni_number || "",
+            }));
+          }
+        } else {
+          setIsLoggedIn(false);
         }
       })
-      .catch(() => {});
+      .catch(() => setIsLoggedIn(false));
   }, []);
 
   if (!product) {
@@ -910,7 +921,7 @@ function CheckoutContent() {
           <img src="/images/logoflux.svg" alt="Flux" className="h-10 mx-auto" />
         </a>
 
-        <Steps current={step} />
+        <Steps current={step === 1.5 ? 2 : step} />
 
         <motion.div
           key={step}
@@ -919,7 +930,53 @@ function CheckoutContent() {
           transition={{ duration: 0.25 }}
           className="bg-white rounded-3xl p-8 shadow-sm"
         >
-          {step === 1 && <Step1 product={product} months={months} appleCare={appleCare} onAppleCare={setAppleCare} quantity={quantity} onQuantity={setQuantity} onNext={() => { trackBeginCheckout({ name: product.name, slug: product.slug, price: plan.price, months, quantity }); setStep(2); }} />}
+          {step === 1 && <Step1 product={product} months={months} appleCare={appleCare} onAppleCare={setAppleCare} quantity={quantity} onQuantity={setQuantity} onNext={() => {
+            trackBeginCheckout({ name: product.name, slug: product.slug, price: plan.price, months, quantity });
+            if (isLoggedIn === false) {
+              setStep(1.5 as number);
+            } else {
+              setStep(2);
+            }
+          }} />}
+
+          {/* Login gate */}
+          {step === 1.5 && (
+            <div>
+              <h2 className="text-2xl font-800 text-[#18191F] mb-2">Inicia sesión para continuar</h2>
+              <p className="text-sm text-[#666666] mb-6">
+                Necesitas una cuenta para rentar. Si ya tienes una, todos tus datos se llenarán automáticamente.
+              </p>
+
+              <div className="space-y-3 mb-6">
+                <a
+                  href={`/auth/login?redirect=${encodeURIComponent(`/checkout?slug=${slug}&months=${months}`)}`}
+                  className="w-full flex items-center justify-center gap-2 py-4 rounded-full bg-[#1B4FFF] text-white font-700 text-base hover:bg-[#1340CC] transition-colors"
+                >
+                  Ya tengo cuenta — Ingresar
+                </a>
+                <a
+                  href={`/auth/registro?redirect=${encodeURIComponent(`/checkout?slug=${slug}&months=${months}`)}`}
+                  className="w-full flex items-center justify-center gap-2 py-4 rounded-full border-2 border-[#E5E5E5] text-[#333333] font-700 text-base hover:border-[#1B4FFF] hover:text-[#1B4FFF] transition-colors"
+                >
+                  Crear cuenta gratis
+                </a>
+              </div>
+
+              <div className="bg-[#F7F7F7] rounded-xl p-4">
+                <p className="text-xs text-[#666666] leading-relaxed">
+                  <strong className="text-[#333333]">¿Por qué necesito cuenta?</strong> Tu cuenta te permite ver tus rentas, descargar contratos, gestionar pagos y contactar soporte. Si ya tienes cuenta, tus datos se llenan solos y el checkout es más rápido.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setStep(1)}
+                className="w-full py-3 mt-4 rounded-full border border-[#E5E5E5] text-[#666666] font-600 text-sm hover:border-[#1B4FFF] hover:text-[#1B4FFF] transition-colors cursor-pointer"
+              >
+                Volver
+              </button>
+            </div>
+          )}
 
           {step === 2 && (
             <Step2

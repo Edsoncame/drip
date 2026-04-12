@@ -12,8 +12,9 @@ export async function GET() {
 
   const result = await query<{
     id: string; name: string; email: string; company: string; phone: string;
+    ruc: string | null; dni_number: string | null;
   }>(
-    "SELECT id, name, email, company, phone FROM users WHERE id = $1",
+    "SELECT id, name, email, company, phone, ruc, dni_number FROM users WHERE id = $1",
     [session.userId]
   );
 
