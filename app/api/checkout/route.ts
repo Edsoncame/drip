@@ -118,8 +118,53 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // 3 — Save subscription to DB
+    // 3 — Ensure user account exists (auto-create for guests)
     const session = await getSession();
+    let userId = session?.userId ?? null;
+
+    if (!userId) {
+      // Check if email already has an account
+      const existing = await query<{ id: string }>(
+        "SELECT id FROM users WHERE email = $1",
+        [customer.email.toLowerCase()]
+      );
+
+      if (existing.rows.length > 0) {
+        userId = existing.rows[0].id;
+      } else {
+        // Auto-create account (no password — user sets it later via email)
+        const { generateUniqueReferralCode } = await import("@/lib/referrals");
+        const referralCode = await generateUniqueReferralCode();
+        const created = await query<{ id: string }>(
+          `INSERT INTO users (name, email, phone, company, ruc, dni_number, referral_code)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           RETURNING id`,
+          [customer.name, customer.email.toLowerCase(), customer.phone, customer.company, customer.ruc || null, identity?.dniNumber || null, referralCode]
+        );
+        userId = created.rows[0].id;
+        console.log(`${tag} auto-created user id=${userId} email=${customer.email}`);
+
+        // Send welcome email with password setup link
+        const { signToken } = await import("@/lib/auth");
+        const resetToken = await signToken({ userId, email: customer.email, name: customer.name });
+        const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.fluxperu.com";
+        sendEmail({
+          to: customer.email,
+          subject: "Bienvenido a FLUX — Configura tu contraseña",
+          html: `
+<div style="font-family:Inter,sans-serif;max-width:560px;margin:0 auto;background:#fff;padding:32px 24px;border-radius:16px">
+  <h1 style="font-size:22px;font-weight:900;color:#18191F;margin:0 0 8px">Bienvenido a FLUX, ${customer.name.split(" ")[0]}</h1>
+  <p style="color:#666;margin:0 0 16px">Tu renta de <strong>${product.name}</strong> está confirmada. Creamos una cuenta para ti automáticamente.</p>
+  <p style="color:#666;margin:0 0 24px">Configura tu contraseña para acceder a tu panel, ver tus rentas y descargar tu contrato:</p>
+  <a href="${APP_URL}/auth/nueva-password?token=${resetToken}" style="display:inline-block;background:#1B4FFF;color:#fff;font-weight:700;padding:14px 32px;border-radius:999px;text-decoration:none;font-size:14px">Crear mi contraseña</a>
+  <p style="color:#999;font-size:12px;margin-top:24px">Este enlace expira en 7 días. Si no solicitaste esto, ignora este email.</p>
+  <p style="color:#999;font-size:12px;margin-top:16px">© 2026 FLUX — Tika Services S.A.C.</p>
+</div>`,
+        }).catch(() => {});
+      }
+    }
+
+    // 4 — Save subscription to DB
     const endsAt = new Date();
     endsAt.setMonth(endsAt.getMonth() + months);
 
@@ -129,7 +174,7 @@ export async function POST(req: NextRequest) {
        VALUES ($1,$2,$3,$4,$5,'active',NOW(),$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
        ON CONFLICT DO NOTHING`,
       [
-        session?.userId ?? null,
+        userId,
         product.slug,
         product.name,
         months,
@@ -153,7 +198,7 @@ export async function POST(req: NextRequest) {
     );
 
     // 4 — Update user profile with latest data (for faster future checkouts)
-    if (session?.userId) {
+    if (userId) {
       await query(
         `UPDATE users SET
           phone = COALESCE(NULLIF($2, ''), phone),
@@ -162,7 +207,7 @@ export async function POST(req: NextRequest) {
           dni_number = COALESCE(NULLIF($5, ''), dni_number),
           updated_at = NOW()
         WHERE id = $1`,
-        [session.userId, customer.phone, customer.company, customer.ruc || "", identity?.dniNumber || ""]
+        [userId, customer.phone, customer.company, customer.ruc || "", identity?.dniNumber || ""]
       );
     }
 
@@ -208,7 +253,7 @@ export async function POST(req: NextRequest) {
       endsAt,
     }).catch(() => {});
 
-    console.log(`${tag} subscription created mp_id=${preApproval.id} product=${slug} months=${months} user=${session?.userId ?? "guest"}`);
+    console.log(`${tag} subscription created mp_id=${preApproval.id} product=${slug} months=${months} user=${userId}`);
 
     return NextResponse.json({
       subscriptionId: preApproval.id,

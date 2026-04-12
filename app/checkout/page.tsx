@@ -932,49 +932,22 @@ function CheckoutContent() {
         >
           {step === 1 && <Step1 product={product} months={months} appleCare={appleCare} onAppleCare={setAppleCare} quantity={quantity} onQuantity={setQuantity} onNext={() => {
             trackBeginCheckout({ name: product.name, slug: product.slug, price: plan.price, months, quantity });
-            if (isLoggedIn === false) {
-              setStep(1.5 as number);
-            } else {
-              setStep(2);
-            }
+            setStep(2);
           }} />}
 
-          {/* Login gate */}
-          {step === 1.5 && (
-            <div>
-              <h2 className="text-2xl font-800 text-[#18191F] mb-2">Inicia sesión para continuar</h2>
-              <p className="text-sm text-[#666666] mb-6">
-                Necesitas una cuenta para rentar. Si ya tienes una, todos tus datos se llenarán automáticamente.
-              </p>
-
-              <div className="space-y-3 mb-6">
-                <a
-                  href={`/auth/login?redirect=${encodeURIComponent(`/checkout?slug=${slug}&months=${months}`)}`}
-                  className="w-full flex items-center justify-center gap-2 py-4 rounded-full bg-[#1B4FFF] text-white font-700 text-base hover:bg-[#1340CC] transition-colors"
-                >
-                  Ya tengo cuenta — Ingresar
-                </a>
-                <a
-                  href={`/auth/registro?redirect=${encodeURIComponent(`/checkout?slug=${slug}&months=${months}`)}`}
-                  className="w-full flex items-center justify-center gap-2 py-4 rounded-full border-2 border-[#E5E5E5] text-[#333333] font-700 text-base hover:border-[#1B4FFF] hover:text-[#1B4FFF] transition-colors"
-                >
-                  Crear cuenta gratis
-                </a>
+          {/* Login banner for guests in step 2 */}
+          {step === 2 && isLoggedIn === false && (
+            <div className="bg-[#EEF2FF] rounded-xl p-4 mb-5 flex items-center gap-3">
+              <div className="w-8 h-8 bg-[#1B4FFF] rounded-full flex items-center justify-center flex-shrink-0">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
               </div>
-
-              <div className="bg-[#F7F7F7] rounded-xl p-4">
-                <p className="text-xs text-[#666666] leading-relaxed">
-                  <strong className="text-[#333333]">¿Por qué necesito cuenta?</strong> Tu cuenta te permite ver tus rentas, descargar contratos, gestionar pagos y contactar soporte. Si ya tienes cuenta, tus datos se llenan solos y el checkout es más rápido.
+              <div className="flex-1">
+                <p className="text-xs text-[#333333]">
+                  <strong>¿Ya tienes cuenta?</strong>{" "}
+                  <a href={`/auth/login?redirect=${encodeURIComponent(`/checkout?slug=${slug}&months=${months}`)}`}
+                    className="text-[#1B4FFF] font-600 hover:underline">Inicia sesión</a> para llenar tus datos automáticamente.
                 </p>
               </div>
-
-              <button
-                type="button"
-                onClick={() => setStep(1)}
-                className="w-full py-3 mt-4 rounded-full border border-[#E5E5E5] text-[#666666] font-600 text-sm hover:border-[#1B4FFF] hover:text-[#1B4FFF] transition-colors cursor-pointer"
-              >
-                Volver
-              </button>
             </div>
           )}
 
