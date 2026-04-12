@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 
 interface Client {
   id: string;
@@ -49,9 +50,23 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 export default function ClientsTable({ clients, allSubs }: { clients: Client[]; allSubs: SubDetail[] }) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "active" | "inactive">("all");
+  const [verifying, setVerifying] = useState<string | null>(null);
+
+  const verifyIdentity = async (userId: string, verified: boolean) => {
+    setVerifying(userId);
+    await fetch("/api/admin/verify-identity", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, verified }),
+    });
+    setVerifying(null);
+    startTransition(() => router.refresh());
+  };
 
   const filtered = clients.filter(c => {
     const q = search.toLowerCase();
@@ -220,7 +235,7 @@ export default function ClientsTable({ clients, allSubs }: { clients: Client[]; 
                         </div>
 
                         {/* Quick actions */}
-                        <div className="flex gap-2 mb-4">
+                        <div className="flex gap-2 mb-4 flex-wrap">
                           <a
                             href={`https://wa.me/51${(client.phone ?? "").replace(/\D/g, "").replace(/^51/, "")}`}
                             target="_blank" rel="noreferrer"
@@ -234,7 +249,25 @@ export default function ClientsTable({ clients, allSubs }: { clients: Client[]; 
                           >
                             Email
                           </a>
+                          {client.identity_verified ? (
+                            <button
+                              onClick={() => verifyIdentity(client.id, false)}
+                              disabled={verifying === client.id}
+                              className="px-3 py-1.5 bg-green-100 text-green-700 text-xs font-700 rounded-full cursor-pointer hover:bg-green-200 transition-colors disabled:opacity-50"
+                            >
+                              ✓ ID Verificado
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => verifyIdentity(client.id, true)}
+                              disabled={verifying === client.id}
+                              className="px-3 py-1.5 bg-orange-100 text-orange-700 text-xs font-700 rounded-full cursor-pointer hover:bg-orange-200 transition-colors disabled:opacity-50"
+                            >
+                              {verifying === client.id ? "..." : "Verificar ID"}
+                            </button>
+                          )}
                         </div>
+                        {isPending && <p className="text-xs text-[#1B4FFF] mb-2">Actualizando...</p>}
 
                         {/* Subscriptions */}
                         {clientSubs.length > 0 ? (
