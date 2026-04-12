@@ -51,13 +51,17 @@ export async function POST(req: NextRequest) {
       case "subscription.charge.succeeded": {
         const email = body.data?.email;
         if (email) {
-          // Update subscription — confirm it's still active
+          // Update subscription — extend ends_at by 1 month (auto-renewal)
           await query(
-            `UPDATE subscriptions SET status = 'active', updated_at = NOW()
+            `UPDATE subscriptions SET
+              status = 'active',
+              ends_at = GREATEST(ends_at, NOW()) + INTERVAL '1 month',
+              next_billing_at = NOW() + INTERVAL '1 month',
+              updated_at = NOW()
              WHERE customer_email = $1 AND status IN ('active', 'delivered')`,
             [email]
           );
-          console.log(`${tag} recurring charge succeeded for ${email}`);
+          console.log(`${tag} recurring charge succeeded for ${email} — ends_at extended +1 month`);
         }
         break;
       }
