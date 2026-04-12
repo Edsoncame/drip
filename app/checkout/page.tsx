@@ -184,6 +184,7 @@ type CustomerData = {
   phone: string;
   company: string;
   ruc: string;
+  customerType: "persona" | "empresa";
 };
 
 type DeliveryData = {
@@ -272,7 +273,7 @@ function Step2({
     if (!data.name.trim()) e.name = "Requerido";
     if (!data.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) e.email = "Email inválido";
     if (!data.phone.trim()) e.phone = "Requerido";
-    if (!data.company.trim()) e.company = "Requerido";
+    if (data.customerType === "empresa" && !data.company.trim()) e.company = "Requerido";
     if (!identity.dniNumber.trim() || !/^\d{8,12}$/.test(identity.dniNumber.trim())) e.dniNumber = "DNI o CE válido requerido (8-12 dígitos)";
     if (!identity.dniPhoto) e.dniPhoto = "Foto del DNI requerida";
     if (!identity.selfiePhoto) e.selfiePhoto = "Selfie con DNI requerida";
@@ -294,62 +295,120 @@ function Step2({
     <form onSubmit={handleSubmit}>
       <h2 className="text-2xl font-800 text-[#18191F] mb-6">Tus datos</h2>
 
-      <div className="space-y-4">
-        {(
-          [
-            { key: "name", label: "Nombre completo", placeholder: "Juan Pérez", type: "text" },
-            { key: "email", label: "Correo electrónico", placeholder: "juan@empresa.com", type: "email" },
-            { key: "phone", label: "Teléfono / WhatsApp", placeholder: "+51 999 000 000", type: "tel" },
-            { key: "company", label: "Empresa", placeholder: "Mi Empresa S.A.C.", type: "text" },
-          ] as const
-        ).map(({ key, label, placeholder, type }) => (
-          <div key={key}>
-            <label className="block text-sm font-600 text-[#333333] mb-1">
-              {label} <span className="text-[#1B4FFF]">*</span>
-            </label>
-            <input
-              type={type}
-              value={data[key]}
-              onChange={(e) => onChange({ ...data, [key]: e.target.value })}
-              placeholder={placeholder}
-              className={`w-full px-4 py-3 rounded-xl border text-sm outline-none transition-all ${
-                errors[key]
-                  ? "border-red-400 bg-red-50"
-                  : "border-[#E5E5E5] focus:border-[#1B4FFF] focus:ring-2 focus:ring-[#1B4FFF]/10"
-              }`}
-            />
-            {errors[key] && <p className="text-red-500 text-xs mt-1">{errors[key]}</p>}
-          </div>
-        ))}
+      {/* Customer type selector */}
+      <div className="flex gap-3 mb-6">
+        <button
+          type="button"
+          onClick={() => onChange({ ...data, customerType: "persona" })}
+          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-700 transition-all cursor-pointer ${
+            data.customerType === "persona" ? "border-[#1B4FFF] bg-[#EEF2FF] text-[#1B4FFF]" : "border-[#E5E5E5] text-[#666666] hover:border-[#BBCAFF]"
+          }`}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+          Persona
+        </button>
+        <button
+          type="button"
+          onClick={() => onChange({ ...data, customerType: "empresa" })}
+          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-700 transition-all cursor-pointer ${
+            data.customerType === "empresa" ? "border-[#1B4FFF] bg-[#EEF2FF] text-[#1B4FFF]" : "border-[#E5E5E5] text-[#666666] hover:border-[#BBCAFF]"
+          }`}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v3"/></svg>
+          Empresa
+        </button>
+      </div>
 
+      <div className="space-y-4">
+        {/* Common fields */}
         <div>
           <label className="block text-sm font-600 text-[#333333] mb-1">
-            RUC <span className="text-[#999999] font-400">(opcional — para factura)</span>
+            Nombre completo <span className="text-[#1B4FFF]">*</span>
           </label>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={data.ruc}
+          <input type="text" value={data.name} onChange={(e) => onChange({ ...data, name: e.target.value })}
+            placeholder="Juan Pérez"
+            className={`w-full px-4 py-3 rounded-xl border text-sm outline-none transition-all ${errors.name ? "border-red-400 bg-red-50" : "border-[#E5E5E5] focus:border-[#1B4FFF] focus:ring-2 focus:ring-[#1B4FFF]/10"}`} />
+          {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
+        </div>
+        <div>
+          <label className="block text-sm font-600 text-[#333333] mb-1">
+            Correo electrónico <span className="text-[#1B4FFF]">*</span>
+          </label>
+          <input type="email" value={data.email} onChange={(e) => onChange({ ...data, email: e.target.value })}
+            placeholder={data.customerType === "empresa" ? "juan@empresa.com" : "juan@gmail.com"}
+            className={`w-full px-4 py-3 rounded-xl border text-sm outline-none transition-all ${errors.email ? "border-red-400 bg-red-50" : "border-[#E5E5E5] focus:border-[#1B4FFF] focus:ring-2 focus:ring-[#1B4FFF]/10"}`} />
+          {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+        </div>
+        <div>
+          <label className="block text-sm font-600 text-[#333333] mb-1">
+            Teléfono / WhatsApp <span className="text-[#1B4FFF]">*</span>
+          </label>
+          <input type="tel" value={data.phone} onChange={(e) => onChange({ ...data, phone: e.target.value })}
+            placeholder="+51 999 000 000"
+            className={`w-full px-4 py-3 rounded-xl border text-sm outline-none transition-all ${errors.phone ? "border-red-400 bg-red-50" : "border-[#E5E5E5] focus:border-[#1B4FFF] focus:ring-2 focus:ring-[#1B4FFF]/10"}`} />
+          {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
+        </div>
+
+        {/* Empresa fields */}
+        {data.customerType === "empresa" && (
+          <>
+            <div>
+              <label className="block text-sm font-600 text-[#333333] mb-1">
+                Empresa <span className="text-[#1B4FFF]">*</span>
+              </label>
+              <input type="text" value={data.company} onChange={(e) => onChange({ ...data, company: e.target.value })}
+                placeholder="Mi Empresa S.A.C."
+                className={`w-full px-4 py-3 rounded-xl border text-sm outline-none transition-all ${errors.company ? "border-red-400 bg-red-50" : "border-[#E5E5E5] focus:border-[#1B4FFF] focus:ring-2 focus:ring-[#1B4FFF]/10"}`} />
+              {errors.company && <p className="text-red-500 text-xs mt-1">{errors.company}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-600 text-[#333333] mb-1">
+                RUC <span className="text-[#1B4FFF]">*</span>
+              </label>
+              <div className="flex gap-2">
+                <input type="text" value={data.ruc}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/\D/g, "").slice(0, 11);
+                    onChange({ ...data, ruc: v });
+                    if (v.length === 11) verifyRuc(v);
+                    else setRucStatus({});
+                  }}
+                  placeholder="20123456789"
+                  className={`flex-1 px-4 py-3 rounded-xl border text-sm outline-none transition-all ${
+                    rucStatus.valid === false ? "border-red-400" : "border-[#E5E5E5] focus:border-[#1B4FFF] focus:ring-2 focus:ring-[#1B4FFF]/10"
+                  }`} />
+                {rucStatus.loading && <div className="flex items-center text-xs text-[#999999]">Verificando...</div>}
+              </div>
+              {rucStatus.valid === true && (
+                <p className="text-xs text-green-600 mt-1 font-600">✓ {rucStatus.razonSocial} — ACTIVO/HABIDO</p>
+              )}
+              {rucStatus.valid === false && data.ruc.length === 11 && (
+                <p className="text-xs text-red-500 mt-1">✕ RUC no activo o no habido en SUNAT</p>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* Persona — optional RUC for boleta */}
+        {data.customerType === "persona" && (
+          <div>
+            <label className="block text-sm font-600 text-[#333333] mb-1">
+              RUC <span className="text-[#999999] font-400">(opcional — solo si necesitas factura)</span>
+            </label>
+            <input type="text" value={data.ruc}
               onChange={(e) => {
                 const v = e.target.value.replace(/\D/g, "").slice(0, 11);
                 onChange({ ...data, ruc: v });
                 if (v.length === 11) verifyRuc(v);
                 else setRucStatus({});
               }}
-              placeholder="20123456789"
-              className={`flex-1 px-4 py-3 rounded-xl border text-sm outline-none transition-all ${
-                rucStatus.valid === false ? "border-red-400" : "border-[#E5E5E5] focus:border-[#1B4FFF] focus:ring-2 focus:ring-[#1B4FFF]/10"
-              }`}
-            />
-            {rucStatus.loading && <div className="flex items-center text-xs text-[#999999]">Verificando...</div>}
+              placeholder="10123456789"
+              className="w-full px-4 py-3 rounded-xl border border-[#E5E5E5] text-sm outline-none focus:border-[#1B4FFF] focus:ring-2 focus:ring-[#1B4FFF]/10 transition-all" />
+            {rucStatus.valid === true && (
+              <p className="text-xs text-green-600 mt-1 font-600">✓ {rucStatus.razonSocial}</p>
+            )}
           </div>
-          {rucStatus.valid === true && (
-            <p className="text-xs text-green-600 mt-1 font-600">✓ {rucStatus.razonSocial} — ACTIVO/HABIDO</p>
-          )}
-          {rucStatus.valid === false && data.ruc.length === 11 && (
-            <p className="text-xs text-red-500 mt-1">✕ RUC no activo o no habido en SUNAT</p>
-          )}
-        </div>
+        )}
       </div>
 
       {/* Identity verification — friendly design */}
@@ -870,6 +929,7 @@ function CheckoutContent() {
     phone: "",
     company: "",
     ruc: "",
+    customerType: "persona",
   });
   const [delivery, setDelivery] = useState<DeliveryData>({
     method: "shipping",
@@ -897,6 +957,7 @@ function CheckoutContent() {
             phone: prev.phone || u.phone || "",
             company: prev.company || u.company || "",
             ruc: prev.ruc || u.ruc || "",
+            customerType: u.company ? "empresa" : prev.customerType,
           }));
           if (u.dni_number) {
             setIdentity(prev => ({
