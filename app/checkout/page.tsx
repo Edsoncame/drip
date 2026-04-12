@@ -354,92 +354,148 @@ function Step2({
         </div>
       </div>
 
-      {/* Identity verification */}
-      <div className="mt-6">
-        <h3 className="text-base font-700 text-[#18191F] mb-1">Verificación de identidad</h3>
-        <p className="text-xs text-[#999999] mb-4">Requerido para proteger tu equipo y el nuestro. Tus documentos se almacenan de forma segura.</p>
+      {/* Identity verification — friendly design */}
+      <div className="mt-8">
+        <div className="bg-[#F5F8FF] rounded-2xl p-5 mb-5">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-10 h-10 bg-[#1B4FFF] rounded-full flex items-center justify-center flex-shrink-0">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            </div>
+            <div>
+              <h3 className="text-base font-700 text-[#18191F]">Verifica tu identidad</h3>
+              <p className="text-xs text-[#666666]">3 pasos rápidos para proteger tu equipo</p>
+            </div>
+          </div>
+          <p className="text-xs text-[#999999] leading-relaxed">Esto nos permite confirmar que eres tú. Tus documentos se guardan de forma segura y nunca se comparten con terceros.</p>
+        </div>
 
-        <div className="space-y-4">
-          {/* DNI number */}
-          <div>
-            <label className="block text-sm font-600 text-[#333333] mb-1">
-              N° de DNI o Carnet de Extranjería <span className="text-[#1B4FFF]">*</span>
-            </label>
-            <input
-              type="text"
-              value={identity.dniNumber}
-              onChange={(e) => onIdentityChange({ ...identity, dniNumber: e.target.value.replace(/\D/g, "").slice(0, 12) })}
-              placeholder="12345678"
-              className={`w-full px-4 py-3 rounded-xl border text-sm outline-none transition-all ${
-                errors.dniNumber ? "border-red-400 bg-red-50" : "border-[#E5E5E5] focus:border-[#1B4FFF] focus:ring-2 focus:ring-[#1B4FFF]/10"
-              }`}
-            />
-            {errors.dniNumber && <p className="text-red-500 text-xs mt-1">{errors.dniNumber}</p>}
+        <div className="space-y-5">
+          {/* Step 1 — DNI number */}
+          <div className="flex gap-4">
+            <div className="flex flex-col items-center">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-700 flex-shrink-0 ${
+                identity.dniNumber.length >= 8 ? "bg-[#2D7D46] text-white" : "bg-[#E5E5E5] text-[#999999]"
+              }`}>
+                {identity.dniNumber.length >= 8 ? "✓" : "1"}
+              </div>
+              <div className="w-0.5 flex-1 bg-[#E5E5E5] mt-2" />
+            </div>
+            <div className="flex-1 pb-2">
+              <p className="font-700 text-[#18191F] text-sm mb-1">Escribe tu número de DNI o CE</p>
+              <p className="text-xs text-[#999999] mb-2">El mismo que aparece en tu documento de identidad</p>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={identity.dniNumber}
+                onChange={(e) => onIdentityChange({ ...identity, dniNumber: e.target.value.replace(/\D/g, "").slice(0, 12) })}
+                placeholder="Ej: 70123456"
+                className={`w-full px-4 py-3 rounded-xl border text-sm outline-none transition-all ${
+                  errors.dniNumber ? "border-red-400 bg-red-50" : "border-[#E5E5E5] focus:border-[#1B4FFF] focus:ring-2 focus:ring-[#1B4FFF]/10"
+                }`}
+              />
+              {errors.dniNumber && <p className="text-red-500 text-xs mt-1">{errors.dniNumber}</p>}
+            </div>
           </div>
 
-          {/* DNI photo */}
-          <div>
-            <label className="block text-sm font-600 text-[#333333] mb-1">
-              Foto del DNI (frente) <span className="text-[#1B4FFF]">*</span>
-            </label>
-            {identity.dniPhoto ? (
-              <div className="relative">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={identity.dniPhoto} alt="DNI" className="w-full h-32 object-cover rounded-xl border border-[#E5E5E5]" />
-                <button type="button" onClick={() => onIdentityChange({ ...identity, dniPhoto: "" })}
-                  className="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full text-xs font-700 cursor-pointer">✕</button>
-              </div>
-            ) : (
-              <label className={`w-full flex flex-col items-center gap-2 py-6 rounded-xl border-2 border-dashed cursor-pointer transition-colors ${
-                errors.dniPhoto ? "border-red-400 bg-red-50" : "border-[#E5E5E5] hover:border-[#1B4FFF] hover:bg-[#F5F8FF]"
+          {/* Step 2 — DNI photo */}
+          <div className="flex gap-4">
+            <div className="flex flex-col items-center">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-700 flex-shrink-0 ${
+                identity.dniPhoto ? "bg-[#2D7D46] text-white" : "bg-[#E5E5E5] text-[#999999]"
               }`}>
-                <input type="file" accept="image/*" capture="environment" className="sr-only" disabled={uploadingDni}
-                  onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, "dni"); }} />
-                {uploadingDni ? (
-                  <span className="text-sm text-[#999999]">Subiendo...</span>
-                ) : (
-                  <>
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
-                    <span className="text-sm text-[#666666]">Toca para tomar foto o subir imagen</span>
-                  </>
-                )}
-              </label>
-            )}
-            {errors.dniPhoto && <p className="text-red-500 text-xs mt-1">{errors.dniPhoto}</p>}
+                {identity.dniPhoto ? "✓" : "2"}
+              </div>
+              <div className="w-0.5 flex-1 bg-[#E5E5E5] mt-2" />
+            </div>
+            <div className="flex-1 pb-2">
+              <p className="font-700 text-[#18191F] text-sm mb-1">Toma una foto de tu DNI</p>
+              <p className="text-xs text-[#999999] mb-3">Solo el lado frontal, donde aparece tu foto y nombre</p>
+              {identity.dniPhoto ? (
+                <div className="relative rounded-2xl overflow-hidden border-2 border-[#2D7D46]">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={identity.dniPhoto} alt="Tu DNI" className="w-full h-36 object-cover" />
+                  <div className="absolute top-2 right-2 flex gap-1.5">
+                    <span className="bg-[#2D7D46] text-white text-[10px] font-700 px-2 py-1 rounded-full">Listo</span>
+                    <button type="button" onClick={() => onIdentityChange({ ...identity, dniPhoto: "" })}
+                      className="w-6 h-6 bg-black/50 text-white rounded-full text-xs flex items-center justify-center cursor-pointer hover:bg-black/70">✕</button>
+                  </div>
+                </div>
+              ) : (
+                <label className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${
+                  errors.dniPhoto ? "border-red-400 bg-red-50" : "border-dashed border-[#CCCCCC] hover:border-[#1B4FFF] hover:bg-[#F5F8FF]"
+                }`}>
+                  <input type="file" accept="image/*" capture="environment" className="sr-only" disabled={uploadingDni}
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, "dni"); }} />
+                  <div className="w-12 h-12 bg-[#F0F0F0] rounded-xl flex items-center justify-center flex-shrink-0">
+                    {uploadingDni ? (
+                      <svg className="animate-spin w-5 h-5 text-[#1B4FFF]" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="30 70"/></svg>
+                    ) : (
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="1.5"><rect x="2" y="4" width="20" height="16" rx="3"/><circle cx="9" cy="11" r="2.5"/><path d="M15 9h2M15 12h2"/><path d="M5 18c1-2 3-3 4-3s3 1 4 3"/></svg>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-sm font-600 text-[#333333]">{uploadingDni ? "Subiendo..." : "Subir foto del DNI"}</p>
+                    <p className="text-xs text-[#999999]">Toca aqui para abrir la camara</p>
+                  </div>
+                </label>
+              )}
+              {errors.dniPhoto && <p className="text-red-500 text-xs mt-1">{errors.dniPhoto}</p>}
+            </div>
           </div>
 
-          {/* Selfie with DNI */}
-          <div>
-            <label className="block text-sm font-600 text-[#333333] mb-1">
-              Selfie sosteniendo tu DNI <span className="text-[#1B4FFF]">*</span>
-            </label>
-            <p className="text-xs text-[#999999] mb-2">Tómate una foto sosteniendo tu DNI junto a tu cara. Esto verifica que eres el titular.</p>
-            {identity.selfiePhoto ? (
-              <div className="relative">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={identity.selfiePhoto} alt="Selfie" className="w-full h-32 object-cover rounded-xl border border-[#E5E5E5]" />
-                <button type="button" onClick={() => onIdentityChange({ ...identity, selfiePhoto: "" })}
-                  className="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full text-xs font-700 cursor-pointer">✕</button>
-              </div>
-            ) : (
-              <label className={`w-full flex flex-col items-center gap-2 py-6 rounded-xl border-2 border-dashed cursor-pointer transition-colors ${
-                errors.selfiePhoto ? "border-red-400 bg-red-50" : "border-[#E5E5E5] hover:border-[#1B4FFF] hover:bg-[#F5F8FF]"
+          {/* Step 3 — Selfie */}
+          <div className="flex gap-4">
+            <div className="flex flex-col items-center">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-700 flex-shrink-0 ${
+                identity.selfiePhoto ? "bg-[#2D7D46] text-white" : "bg-[#E5E5E5] text-[#999999]"
               }`}>
-                <input type="file" accept="image/*" capture="user" className="sr-only" disabled={uploadingSelfie}
-                  onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, "selfie"); }} />
-                {uploadingSelfie ? (
-                  <span className="text-sm text-[#999999]">Subiendo...</span>
-                ) : (
-                  <>
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
-                    <span className="text-sm text-[#666666]">Toca para tomar selfie o subir imagen</span>
-                  </>
-                )}
-              </label>
-            )}
-            {errors.selfiePhoto && <p className="text-red-500 text-xs mt-1">{errors.selfiePhoto}</p>}
+                {identity.selfiePhoto ? "✓" : "3"}
+              </div>
+            </div>
+            <div className="flex-1">
+              <p className="font-700 text-[#18191F] text-sm mb-1">Tomate una selfie con tu DNI</p>
+              <p className="text-xs text-[#999999] mb-3">Sostiene tu DNI junto a tu cara. Así confirmamos que eres el titular.</p>
+              {identity.selfiePhoto ? (
+                <div className="relative rounded-2xl overflow-hidden border-2 border-[#2D7D46]">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={identity.selfiePhoto} alt="Tu selfie" className="w-full h-36 object-cover" />
+                  <div className="absolute top-2 right-2 flex gap-1.5">
+                    <span className="bg-[#2D7D46] text-white text-[10px] font-700 px-2 py-1 rounded-full">Listo</span>
+                    <button type="button" onClick={() => onIdentityChange({ ...identity, selfiePhoto: "" })}
+                      className="w-6 h-6 bg-black/50 text-white rounded-full text-xs flex items-center justify-center cursor-pointer hover:bg-black/70">✕</button>
+                  </div>
+                </div>
+              ) : (
+                <label className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${
+                  errors.selfiePhoto ? "border-red-400 bg-red-50" : "border-dashed border-[#CCCCCC] hover:border-[#1B4FFF] hover:bg-[#F5F8FF]"
+                }`}>
+                  <input type="file" accept="image/*" capture="user" className="sr-only" disabled={uploadingSelfie}
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, "selfie"); }} />
+                  <div className="w-12 h-12 bg-[#F0F0F0] rounded-xl flex items-center justify-center flex-shrink-0">
+                    {uploadingSelfie ? (
+                      <svg className="animate-spin w-5 h-5 text-[#1B4FFF]" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="30 70"/></svg>
+                    ) : (
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="1.5"><circle cx="12" cy="10" r="4"/><path d="M20 21c0-4.4-3.6-8-8-8s-8 3.6-8 8"/><path d="M16 3h5v5M21 3l-5 5"/></svg>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-sm font-600 text-[#333333]">{uploadingSelfie ? "Subiendo..." : "Tomar selfie con DNI"}</p>
+                    <p className="text-xs text-[#999999]">Tu cara + tu DNI en la misma foto</p>
+                  </div>
+                </label>
+              )}
+              {errors.selfiePhoto && <p className="text-red-500 text-xs mt-1">{errors.selfiePhoto}</p>}
+            </div>
           </div>
         </div>
+
+        {/* All 3 complete */}
+        {identity.dniNumber.length >= 8 && identity.dniPhoto && identity.selfiePhoto && (
+          <div className="mt-4 bg-[#E5F3DF] rounded-xl p-3 flex items-center gap-2">
+            <span className="text-lg">✅</span>
+            <p className="text-sm font-600 text-[#2D7D46]">Identidad verificada. ¡Ya casi terminas!</p>
+          </div>
+        )}
       </div>
 
       {/* Delivery method */}
