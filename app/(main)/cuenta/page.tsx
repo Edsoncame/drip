@@ -35,6 +35,7 @@ export default async function CuentaPage() {
         {/* Quick links */}
         {[
           { href: "/cuenta/rentas", icon: "💻", label: "Mis rentas", desc: "Ver equipos activos" },
+          { href: "/cuenta/pagos", icon: "💳", label: "Mis pagos", desc: "Historial y comprobantes" },
           { href: "/cuenta/referidos", icon: "🎁", label: "Referidos", desc: "Invita y gana beneficios" },
           { href: "/laptops", icon: "🛍️", label: "Rentar otro equipo", desc: "Ver catálogo" },
         ].map(item => (
