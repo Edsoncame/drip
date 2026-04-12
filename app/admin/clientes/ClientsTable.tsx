@@ -11,6 +11,7 @@ interface Client {
   ruc: string | null;
   google_id: string | null;
   referral_code: string | null;
+  identity_verified: boolean | null;
   created_at: string;
   total_subs: string;
   active_subs: string;
@@ -160,7 +161,12 @@ export default function ClientsTable({ clients, allSubs }: { clients: Client[]; 
                           {client.name.charAt(0).toUpperCase()}
                         </div>
                         <div>
-                          <p className="font-600 text-[#18191F]">{client.name}</p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="font-600 text-[#18191F]">{client.name}</p>
+                            {client.identity_verified && (
+                              <span className="text-[10px] font-700 px-1.5 py-0.5 rounded-full bg-green-100 text-green-700" title="DNI verificado">✓ ID</span>
+                            )}
+                          </div>
                           <p className="text-xs text-[#999999]">{client.email}</p>
                         </div>
                       </div>

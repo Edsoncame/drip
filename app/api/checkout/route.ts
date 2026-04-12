@@ -197,15 +197,17 @@ export async function POST(req: NextRequest) {
 
     // 5 — Update user profile
     if (userId) {
+      const hasIdentityDocs = identity?.dniPhoto && identity.dniPhoto !== "verified" && identity?.selfiePhoto && identity.selfiePhoto !== "verified";
       await query(
         `UPDATE users SET
           phone = COALESCE(NULLIF($2, ''), phone),
           company = COALESCE(NULLIF($3, ''), company),
           ruc = COALESCE(NULLIF($4, ''), ruc),
           dni_number = COALESCE(NULLIF($5, ''), dni_number),
+          identity_verified = CASE WHEN $6 THEN true ELSE identity_verified END,
           updated_at = NOW()
         WHERE id = $1`,
-        [userId, customer.phone, customer.company, customer.ruc || "", identity?.dniNumber || ""]
+        [userId, customer.phone, customer.company, customer.ruc || "", identity?.dniNumber || "", hasIdentityDocs ?? false]
       );
     }
 

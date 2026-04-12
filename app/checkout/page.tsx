@@ -411,7 +411,20 @@ function Step2({
         )}
       </div>
 
-      {/* Identity verification — friendly design */}
+      {/* Identity verification — skip if already verified */}
+      {identity.dniPhoto === "verified" && identity.selfiePhoto === "verified" ? (
+        <div className="mt-8">
+          <div className="bg-[#E5F3DF] rounded-2xl p-5 flex items-center gap-3">
+            <div className="w-10 h-10 bg-[#2D7D46] rounded-full flex items-center justify-center flex-shrink-0">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+            </div>
+            <div>
+              <h3 className="text-base font-700 text-[#2D7D46]">Identidad verificada</h3>
+              <p className="text-xs text-[#666666]">Tu DNI {identity.dniNumber} ya fue verificado anteriormente.</p>
+            </div>
+          </div>
+        </div>
+      ) : (
       <div className="mt-8">
         <div className="bg-[#F5F8FF] rounded-2xl p-5 mb-5">
           <div className="flex items-center gap-3 mb-2">
@@ -547,13 +560,14 @@ function Step2({
         </div>
 
         {/* All 3 complete */}
-        {identity.dniNumber.length >= 8 && identity.dniPhoto && identity.selfiePhoto && (
+        {identity.dniNumber.length >= 8 && identity.dniPhoto && identity.selfiePhoto && identity.dniPhoto !== "verified" && (
           <div className="mt-4 bg-[#E5F3DF] rounded-xl p-3 flex items-center gap-2">
             <span className="text-lg">✅</span>
             <p className="text-sm font-600 text-[#2D7D46]">Identidad verificada. ¡Ya casi terminas!</p>
           </div>
         )}
       </div>
+      )}
 
       {/* Delivery method */}
       <div className="mt-6">
@@ -963,6 +977,8 @@ function CheckoutContent() {
             setIdentity(prev => ({
               ...prev,
               dniNumber: prev.dniNumber || u.dni_number || "",
+              // If already verified, mark photos as done so we skip the upload
+              ...(u.identity_verified ? { dniPhoto: "verified", selfiePhoto: "verified" } : {}),
             }));
           }
         } else {
