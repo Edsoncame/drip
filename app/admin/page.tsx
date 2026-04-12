@@ -31,6 +31,10 @@ interface Sub {
   delivery_address: string | null;
   delivery_distrito: string | null;
   delivery_reference: string | null;
+  dni_number: string | null;
+  dni_photo_url: string | null;
+  selfie_url: string | null;
+  identity_verified: boolean | null;
 }
 
 interface Stat {
@@ -73,7 +77,8 @@ export default async function AdminPage() {
              s.started_at, s.ends_at, s.admin_note, s.mp_subscription_id,
              s.customer_name, s.customer_email, s.customer_phone,
              s.customer_company, s.customer_ruc, s.apple_care,
-             s.delivery_method, s.delivery_address, s.delivery_distrito, s.delivery_reference
+             s.delivery_method, s.delivery_address, s.delivery_distrito, s.delivery_reference,
+             s.dni_number, s.dni_photo_url, s.selfie_url, s.identity_verified
       FROM subscriptions s
       LEFT JOIN users u ON u.id = s.user_id
       ORDER BY s.started_at DESC

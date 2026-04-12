@@ -195,6 +195,12 @@ type DeliveryData = {
   reference: string;
 };
 
+type IdentityData = {
+  dniNumber: string;
+  dniPhoto: string;   // base64 data URL
+  selfiePhoto: string; // base64 data URL
+};
+
 const LIMA_DISTRITOS = [
   "Ate", "Barranco", "Breña", "Carabayllo", "Chaclacayo", "Chorrillos",
   "Cieneguilla", "Comas", "El Agustino", "Independencia", "Jesús María",
@@ -215,6 +221,8 @@ function Step2({
   onChange,
   delivery,
   onDeliveryChange,
+  identity,
+  onIdentityChange,
 }: {
   onNext: () => void;
   onBack: () => void;
@@ -222,9 +230,44 @@ function Step2({
   onChange: (d: CustomerData) => void;
   delivery: DeliveryData;
   onDeliveryChange: (d: DeliveryData) => void;
+  identity: IdentityData;
+  onIdentityChange: (d: IdentityData) => void;
 }) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [rucStatus, setRucStatus] = useState<{ valid?: boolean; razonSocial?: string; loading?: boolean }>({});
+  const [uploadingDni, setUploadingDni] = useState(false);
+  const [uploadingSelfie, setUploadingSelfie] = useState(false);
+
+  const verifyRuc = async (ruc: string) => {
+    if (ruc.length !== 11) return;
+    setRucStatus({ loading: true });
+    try {
+      const res = await fetch(`/api/verify-ruc?ruc=${ruc}`);
+      const data = await res.json();
+      setRucStatus({ valid: data.valid, razonSocial: data.razonSocial });
+    } catch {
+      setRucStatus({});
+    }
+  };
+
+  const handleFileUpload = async (file: File, type: "dni" | "selfie") => {
+    if (type === "dni") setUploadingDni(true);
+    else setUploadingSelfie(true);
+
+    const form = new FormData();
+    form.append("file", file);
+    try {
+      const res = await fetch("/api/upload", { method: "POST", body: form });
+      const data = await res.json();
+      if (data.dataUrl) {
+        if (type === "dni") onIdentityChange({ ...identity, dniPhoto: data.dataUrl });
+        else onIdentityChange({ ...identity, selfiePhoto: data.dataUrl });
+      }
+    } catch { /* ignore */ }
+    if (type === "dni") setUploadingDni(false);
+    else setUploadingSelfie(false);
+  };
 
   const validate = () => {
     const e: Record<string, string> = {};
@@ -232,6 +275,9 @@ function Step2({
     if (!data.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) e.email = "Email inválido";
     if (!data.phone.trim()) e.phone = "Requerido";
     if (!data.company.trim()) e.company = "Requerido";
+    if (!identity.dniNumber.trim() || !/^\d{8,12}$/.test(identity.dniNumber.trim())) e.dniNumber = "DNI o CE válido requerido (8-12 dígitos)";
+    if (!identity.dniPhoto) e.dniPhoto = "Foto del DNI requerida";
+    if (!identity.selfiePhoto) e.selfiePhoto = "Selfie con DNI requerida";
     if (delivery.method === "shipping") {
       if (!delivery.address.trim()) e.address = "Requerido";
       if (!delivery.distrito) e.distrito = "Selecciona un distrito";
@@ -280,15 +326,119 @@ function Step2({
 
         <div>
           <label className="block text-sm font-600 text-[#333333] mb-1">
-            RUC <span className="text-[#999999] font-400">(opcional)</span>
+            RUC <span className="text-[#999999] font-400">(opcional — para factura)</span>
           </label>
-          <input
-            type="text"
-            value={data.ruc}
-            onChange={(e) => onChange({ ...data, ruc: e.target.value })}
-            placeholder="20123456789"
-            className="w-full px-4 py-3 rounded-xl border border-[#E5E5E5] text-sm outline-none focus:border-[#1B4FFF] focus:ring-2 focus:ring-[#1B4FFF]/10 transition-all"
-          />
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={data.ruc}
+              onChange={(e) => {
+                const v = e.target.value.replace(/\D/g, "").slice(0, 11);
+                onChange({ ...data, ruc: v });
+                if (v.length === 11) verifyRuc(v);
+                else setRucStatus({});
+              }}
+              placeholder="20123456789"
+              className={`flex-1 px-4 py-3 rounded-xl border text-sm outline-none transition-all ${
+                rucStatus.valid === false ? "border-red-400" : "border-[#E5E5E5] focus:border-[#1B4FFF] focus:ring-2 focus:ring-[#1B4FFF]/10"
+              }`}
+            />
+            {rucStatus.loading && <div className="flex items-center text-xs text-[#999999]">Verificando...</div>}
+          </div>
+          {rucStatus.valid === true && (
+            <p className="text-xs text-green-600 mt-1 font-600">✓ {rucStatus.razonSocial} — ACTIVO/HABIDO</p>
+          )}
+          {rucStatus.valid === false && data.ruc.length === 11 && (
+            <p className="text-xs text-red-500 mt-1">✕ RUC no activo o no habido en SUNAT</p>
+          )}
+        </div>
+      </div>
+
+      {/* Identity verification */}
+      <div className="mt-6">
+        <h3 className="text-base font-700 text-[#18191F] mb-1">Verificación de identidad</h3>
+        <p className="text-xs text-[#999999] mb-4">Requerido para proteger tu equipo y el nuestro. Tus documentos se almacenan de forma segura.</p>
+
+        <div className="space-y-4">
+          {/* DNI number */}
+          <div>
+            <label className="block text-sm font-600 text-[#333333] mb-1">
+              N° de DNI o Carnet de Extranjería <span className="text-[#1B4FFF]">*</span>
+            </label>
+            <input
+              type="text"
+              value={identity.dniNumber}
+              onChange={(e) => onIdentityChange({ ...identity, dniNumber: e.target.value.replace(/\D/g, "").slice(0, 12) })}
+              placeholder="12345678"
+              className={`w-full px-4 py-3 rounded-xl border text-sm outline-none transition-all ${
+                errors.dniNumber ? "border-red-400 bg-red-50" : "border-[#E5E5E5] focus:border-[#1B4FFF] focus:ring-2 focus:ring-[#1B4FFF]/10"
+              }`}
+            />
+            {errors.dniNumber && <p className="text-red-500 text-xs mt-1">{errors.dniNumber}</p>}
+          </div>
+
+          {/* DNI photo */}
+          <div>
+            <label className="block text-sm font-600 text-[#333333] mb-1">
+              Foto del DNI (frente) <span className="text-[#1B4FFF]">*</span>
+            </label>
+            {identity.dniPhoto ? (
+              <div className="relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={identity.dniPhoto} alt="DNI" className="w-full h-32 object-cover rounded-xl border border-[#E5E5E5]" />
+                <button type="button" onClick={() => onIdentityChange({ ...identity, dniPhoto: "" })}
+                  className="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full text-xs font-700 cursor-pointer">✕</button>
+              </div>
+            ) : (
+              <label className={`w-full flex flex-col items-center gap-2 py-6 rounded-xl border-2 border-dashed cursor-pointer transition-colors ${
+                errors.dniPhoto ? "border-red-400 bg-red-50" : "border-[#E5E5E5] hover:border-[#1B4FFF] hover:bg-[#F5F8FF]"
+              }`}>
+                <input type="file" accept="image/*" capture="environment" className="sr-only" disabled={uploadingDni}
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, "dni"); }} />
+                {uploadingDni ? (
+                  <span className="text-sm text-[#999999]">Subiendo...</span>
+                ) : (
+                  <>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+                    <span className="text-sm text-[#666666]">Toca para tomar foto o subir imagen</span>
+                  </>
+                )}
+              </label>
+            )}
+            {errors.dniPhoto && <p className="text-red-500 text-xs mt-1">{errors.dniPhoto}</p>}
+          </div>
+
+          {/* Selfie with DNI */}
+          <div>
+            <label className="block text-sm font-600 text-[#333333] mb-1">
+              Selfie sosteniendo tu DNI <span className="text-[#1B4FFF]">*</span>
+            </label>
+            <p className="text-xs text-[#999999] mb-2">Tómate una foto sosteniendo tu DNI junto a tu cara. Esto verifica que eres el titular.</p>
+            {identity.selfiePhoto ? (
+              <div className="relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={identity.selfiePhoto} alt="Selfie" className="w-full h-32 object-cover rounded-xl border border-[#E5E5E5]" />
+                <button type="button" onClick={() => onIdentityChange({ ...identity, selfiePhoto: "" })}
+                  className="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full text-xs font-700 cursor-pointer">✕</button>
+              </div>
+            ) : (
+              <label className={`w-full flex flex-col items-center gap-2 py-6 rounded-xl border-2 border-dashed cursor-pointer transition-colors ${
+                errors.selfiePhoto ? "border-red-400 bg-red-50" : "border-[#E5E5E5] hover:border-[#1B4FFF] hover:bg-[#F5F8FF]"
+              }`}>
+                <input type="file" accept="image/*" capture="user" className="sr-only" disabled={uploadingSelfie}
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, "selfie"); }} />
+                {uploadingSelfie ? (
+                  <span className="text-sm text-[#999999]">Subiendo...</span>
+                ) : (
+                  <>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                    <span className="text-sm text-[#666666]">Toca para tomar selfie o subir imagen</span>
+                  </>
+                )}
+              </label>
+            )}
+            {errors.selfiePhoto && <p className="text-red-500 text-xs mt-1">{errors.selfiePhoto}</p>}
+          </div>
         </div>
       </div>
 
@@ -481,6 +631,7 @@ function PaymentForm({
   quantity,
   customer,
   delivery,
+  identity,
   onBack,
 }: {
   product: Product;
@@ -489,6 +640,7 @@ function PaymentForm({
   quantity: number;
   customer: CustomerData;
   delivery: DeliveryData;
+  identity: IdentityData;
   onBack: () => void;
 }) {
   const router = useRouter();
@@ -514,6 +666,7 @@ function PaymentForm({
           cardToken: formData.token,
           customer,
           delivery,
+          identity: { dniNumber: identity.dniNumber, dniPhoto: identity.dniPhoto, selfiePhoto: identity.selfiePhoto },
         }),
       });
 
@@ -646,6 +799,11 @@ function CheckoutContent() {
     distrito: "",
     reference: "",
   });
+  const [identity, setIdentity] = useState<IdentityData>({
+    dniNumber: "",
+    dniPhoto: "",
+    selfiePhoto: "",
+  });
 
   useEffect(() => {
     initMercadoPago(process.env.NEXT_PUBLIC_MP_PUBLIC_KEY!, { locale: "es-PE" });
@@ -713,6 +871,8 @@ function CheckoutContent() {
               onChange={setCustomer}
               delivery={delivery}
               onDeliveryChange={setDelivery}
+              identity={identity}
+              onIdentityChange={setIdentity}
               onBack={() => setStep(1)}
               onNext={() => setStep(3)}
             />
@@ -726,6 +886,7 @@ function CheckoutContent() {
               quantity={quantity}
               customer={customer}
               delivery={delivery}
+              identity={identity}
               onBack={() => setStep(2)}
             />
           )}

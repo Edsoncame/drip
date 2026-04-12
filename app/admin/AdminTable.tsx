@@ -25,6 +25,10 @@ interface Sub {
   delivery_address: string | null;
   delivery_distrito: string | null;
   delivery_reference: string | null;
+  dni_number: string | null;
+  dni_photo_url: string | null;
+  selfie_url: string | null;
+  identity_verified: boolean | null;
 }
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
@@ -267,6 +271,36 @@ export default function AdminTable({ subs }: { subs: Sub[] }) {
                             <Info label="Distrito" value={sub.delivery_distrito ?? "—"} />
                             <Info label="Dirección" value={sub.delivery_address} copy />
                             <Info label="Referencia" value={sub.delivery_reference ?? "—"} />
+                          </div>
+                        )}
+
+                        {/* Identity verification */}
+                        {sub.dni_number && (
+                          <div className="mb-3">
+                            <p className="text-xs font-700 text-[#666666] uppercase tracking-wider mb-2">
+                              Verificación de identidad
+                              {sub.identity_verified
+                                ? <span className="ml-2 text-green-600 normal-case">✅ Verificado</span>
+                                : <span className="ml-2 text-orange-500 normal-case">⏳ Pendiente de verificar</span>
+                              }
+                            </p>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                              <Info label="DNI / CE" value={sub.dni_number} copy />
+                              {sub.dni_photo_url && (
+                                <div className="bg-white rounded-xl p-2 border border-[#E5E5E5]">
+                                  <p className="text-xs text-[#999999] mb-1">Foto DNI</p>
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img src={sub.dni_photo_url} alt="DNI" className="w-full h-20 object-cover rounded-lg" />
+                                </div>
+                              )}
+                              {sub.selfie_url && (
+                                <div className="bg-white rounded-xl p-2 border border-[#E5E5E5]">
+                                  <p className="text-xs text-[#999999] mb-1">Selfie con DNI</p>
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img src={sub.selfie_url} alt="Selfie" className="w-full h-20 object-cover rounded-lg" />
+                                </div>
+                              )}
+                            </div>
                           </div>
                         )}
 
