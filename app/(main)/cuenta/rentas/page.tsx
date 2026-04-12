@@ -4,6 +4,7 @@ import { query } from "@/lib/db";
 import { getProduct } from "@/lib/products";
 import Link from "next/link";
 import CancelSubscriptionButton from "@/components/CancelSubscriptionButton";
+import EndOfContractActions from "@/components/EndOfContractActions";
 
 interface Subscription {
   id: string;
@@ -15,7 +16,10 @@ interface Subscription {
   started_at: string;
   ends_at: string | null;
   mp_subscription_id: string | null;
-  equipment_price: string | null;
+  delivery_address: string | null;
+  delivery_distrito: string | null;
+  end_action: string | null;
+  purchase_price_usd: string | null;
 }
 
 const RESIDUAL_VALUES: Record<number, number> = { 8: 0.775, 16: 0.55, 24: 0.325 };
@@ -35,7 +39,8 @@ export default async function RentasPage() {
 
   const result = await query<Subscription>(
     `SELECT id, product_slug, product_name, months, monthly_price, status,
-            started_at, ends_at, mp_subscription_id, NULL::text AS equipment_price
+            started_at, ends_at, mp_subscription_id,
+            delivery_address, delivery_distrito, end_action, purchase_price_usd
      FROM subscriptions
      WHERE user_id = $1
      ORDER BY started_at DESC`,
@@ -120,79 +125,30 @@ export default async function RentasPage() {
                   </div>
                 </div>
 
-                {/* End-of-contract options — show when within 60 days of ending or past due */}
+                {/* End-of-contract options */}
                 {(() => {
                   if (!sub.ends_at || !["active", "delivered"].includes(sub.status)) return null;
-                  const endsAtDate = new Date(sub.ends_at);
-                  const daysLeft = Math.ceil((endsAtDate.getTime() - Date.now()) / 86400000);
+                  const daysLeft = Math.ceil((new Date(sub.ends_at).getTime() - Date.now()) / 86400000);
                   if (daysLeft > 60) return null;
 
-                  // Calculate residual purchase price
-                  const product = getProduct(sub.product_slug);
                   const residualPct = RESIDUAL_VALUES[sub.months] ?? 0.55;
-                  // Use total rent as proxy for equipment value if no product match
-                  const equipmentValue = product
-                    ? product.pricing[product.pricing.length - 1].price * sub.months * 1.4 // approximate retail
-                    : parseFloat(sub.monthly_price) * sub.months;
-                  const purchasePrice = Math.round(equipmentValue * residualPct);
+                  const estimatedValue = parseFloat(sub.monthly_price) * sub.months * 1.4;
+                  const purchasePrice = sub.purchase_price_usd
+                    ? parseFloat(sub.purchase_price_usd)
+                    : Math.round(estimatedValue * residualPct);
 
                   return (
-                    <div className="mt-5 pt-5 border-t border-[#F0F0F0]">
-                      <div className={`rounded-2xl p-5 ${daysLeft <= 0 ? "bg-orange-50 border border-orange-200" : "bg-[#F5F8FF] border border-[#DDEAFF]"}`}>
-                        <h3 className="font-700 text-[#18191F] mb-1">
-                          {daysLeft <= 0 ? "Tu contrato ha vencido" : `Tu contrato vence en ${daysLeft} días`}
-                        </h3>
-                        <p className="text-sm text-[#666666] mb-4">
-                          {daysLeft <= 0
-                            ? "Elige qué hacer con tu equipo. Tienes 30 días para decidir."
-                            : "Pronto termina tu plazo. Estas son tus opciones:"}
-                        </p>
-
-                        <div className="space-y-3">
-                          {/* Option 1: Return */}
-                          <a
-                            href={`https://wa.me/51932648702?text=${encodeURIComponent(`Hola FLUX, quiero coordinar la devolución de mi ${sub.product_name}`)}`}
-                            target="_blank" rel="noreferrer"
-                            className="w-full flex items-center gap-4 p-4 rounded-xl border border-[#E5E5E5] bg-white hover:border-[#1B4FFF] transition-colors"
-                          >
-                            <div className="w-10 h-10 bg-[#F0F0F0] rounded-xl flex items-center justify-center text-xl flex-shrink-0">↩️</div>
-                            <div className="flex-1">
-                              <p className="font-700 text-[#18191F] text-sm">Devolver equipo</p>
-                              <p className="text-xs text-[#666666]">Sin costo. Coordinamos el recojo.</p>
-                            </div>
-                            <span className="text-sm font-700 text-[#2D7D46]">Gratis</span>
-                          </a>
-
-                          {/* Option 2: Purchase */}
-                          <a
-                            href={`https://wa.me/51932648702?text=${encodeURIComponent(`Hola FLUX, quiero comprar mi ${sub.product_name} al valor de $${purchasePrice}`)}`}
-                            target="_blank" rel="noreferrer"
-                            className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-[#1B4FFF] bg-[#EEF2FF] hover:bg-[#DDEAFF] transition-colors"
-                          >
-                            <div className="w-10 h-10 bg-[#1B4FFF]/10 rounded-xl flex items-center justify-center text-xl flex-shrink-0">💰</div>
-                            <div className="flex-1">
-                              <p className="font-700 text-[#18191F] text-sm">Comprar este equipo</p>
-                              <p className="text-xs text-[#666666]">Quédate con tu Mac para siempre.</p>
-                            </div>
-                            <span className="text-lg font-800 text-[#1B4FFF]">${purchasePrice}</span>
-                          </a>
-
-                          {/* Option 3: Continue renting */}
-                          <a
-                            href={`https://wa.me/51932648702?text=${encodeURIComponent(`Hola FLUX, quiero seguir rentando mi ${sub.product_name}`)}`}
-                            target="_blank" rel="noreferrer"
-                            className="w-full flex items-center gap-4 p-4 rounded-xl border border-[#E5E5E5] bg-white hover:border-[#1B4FFF] transition-colors"
-                          >
-                            <div className="w-10 h-10 bg-[#F0F0F0] rounded-xl flex items-center justify-center text-xl flex-shrink-0">🔄</div>
-                            <div className="flex-1">
-                              <p className="font-700 text-[#18191F] text-sm">Seguir rentando</p>
-                              <p className="text-xs text-[#666666]">Mismo precio, mes a mes, sin nuevo contrato.</p>
-                            </div>
-                            <span className="text-sm font-700 text-[#333333]">${sub.monthly_price}/mes</span>
-                          </a>
-                        </div>
-                      </div>
-                    </div>
+                    <EndOfContractActions
+                      subscriptionId={sub.id}
+                      productName={sub.product_name}
+                      months={sub.months}
+                      monthlyPrice={parseFloat(sub.monthly_price)}
+                      daysLeft={daysLeft}
+                      deliveryAddress={sub.delivery_address}
+                      deliveryDistrito={sub.delivery_distrito}
+                      endAction={sub.end_action}
+                      purchasePrice={purchasePrice}
+                    />
                   );
                 })()}
 
