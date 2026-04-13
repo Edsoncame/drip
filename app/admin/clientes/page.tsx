@@ -50,11 +50,27 @@ interface SubDetail {
   mp_subscription_id: string | null;
 }
 
+interface PaymentDetail {
+  id: string;
+  user_id: string;
+  amount: string;
+  period_label: string;
+  due_date: string;
+  status: string;
+  payment_method: string | null;
+  receipt_url: string | null;
+  receipt_uploaded_at: string | null;
+  validated_at: string | null;
+  admin_note: string | null;
+  invoice_url: string | null;
+  invoice_number: string | null;
+}
+
 export default async function ClientesPage() {
   const session = await getSession();
   if (!session || !ADMIN_EMAILS.includes(session.email.toLowerCase())) redirect("/");
 
-  const [clientsResult, subsResult] = await Promise.all([
+  const [clientsResult, subsResult, paymentsResult] = await Promise.all([
     query<Client>(`
       SELECT u.id, u.name, u.email, u.phone, u.company, u.ruc, u.legal_representative,
              u.google_id, u.referral_code, u.identity_verified, u.created_at,
@@ -78,10 +94,18 @@ export default async function ClientesPage() {
       WHERE user_id IS NOT NULL
       ORDER BY started_at DESC
     `),
+    query<PaymentDetail>(`
+      SELECT id, user_id, amount, period_label, due_date, status,
+             payment_method, receipt_url, receipt_uploaded_at, validated_at,
+             admin_note, invoice_url, invoice_number
+      FROM payments
+      ORDER BY due_date DESC
+    `),
   ]);
 
   const clients = clientsResult.rows;
   const allSubs = subsResult.rows;
+  const allPayments = paymentsResult.rows;
 
   // Stats
   const totalClients = clients.length;
@@ -135,7 +159,7 @@ export default async function ClientesPage() {
           </div>
         </div>
 
-        <ClientsTable clients={clients} allSubs={allSubs} />
+        <ClientsTable clients={clients} allSubs={allSubs} allPayments={allPayments} />
       </div>
     </div>
   );

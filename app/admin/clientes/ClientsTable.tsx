@@ -41,6 +41,22 @@ interface SubDetail {
   mp_subscription_id: string | null;
 }
 
+interface PaymentDetail {
+  id: string;
+  user_id: string;
+  amount: string;
+  period_label: string;
+  due_date: string;
+  status: string;
+  payment_method: string | null;
+  receipt_url: string | null;
+  receipt_uploaded_at: string | null;
+  validated_at: string | null;
+  admin_note: string | null;
+  invoice_url: string | null;
+  invoice_number: string | null;
+}
+
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   active:    { label: "Activo",      color: "bg-green-100 text-green-700" },
   shipped:   { label: "Despachado",  color: "bg-purple-100 text-purple-700" },
@@ -50,7 +66,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   completed: { label: "Completado",  color: "bg-gray-100 text-gray-500" },
 };
 
-export default function ClientsTable({ clients, allSubs }: { clients: Client[]; allSubs: SubDetail[] }) {
+export default function ClientsTable({ clients, allSubs, allPayments }: { clients: Client[]; allSubs: SubDetail[]; allPayments: PaymentDetail[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [search, setSearch] = useState("");
@@ -163,6 +179,7 @@ export default function ClientsTable({ clients, allSubs }: { clients: Client[]; 
             ) : filtered.map(client => {
               const isExpanded = expanded === client.id;
               const clientSubs = allSubs.filter(s => s.user_id === client.id);
+              const clientPayments = allPayments.filter(p => p.user_id === client.id);
               const activeSubs = parseInt(client.active_subs);
 
               return (
@@ -303,6 +320,73 @@ export default function ClientsTable({ clients, allSubs }: { clients: Client[]; 
                           </div>
                         ) : (
                           <p className="text-xs text-[#999999]">Este cliente no tiene suscripciones.</p>
+                        )}
+
+                        {/* Payments */}
+                        {clientPayments.length > 0 && (
+                          <div className="mt-4">
+                            <p className="text-xs font-700 text-[#666666] uppercase tracking-wider mb-2">
+                              Pagos ({clientPayments.length})
+                              {clientPayments.some(p => p.status === "reviewing") && (
+                                <span className="ml-2 inline-block px-1.5 py-0.5 text-[10px] font-700 rounded-full bg-blue-100 text-blue-700 normal-case">
+                                  Nuevo por revisar
+                                </span>
+                              )}
+                            </p>
+                            <div className="space-y-2">
+                              {clientPayments.slice(0, 8).map(p => {
+                                const stStyles: Record<string, string> = {
+                                  validated: "bg-green-100 text-green-700",
+                                  reviewing: "bg-blue-100 text-blue-700",
+                                  pending: "bg-yellow-100 text-yellow-700",
+                                  overdue: "bg-red-100 text-red-600",
+                                  upcoming: "bg-gray-100 text-gray-500",
+                                };
+                                const stLabels: Record<string, string> = {
+                                  validated: "Pagado",
+                                  reviewing: "Por revisar",
+                                  pending: "Pendiente",
+                                  overdue: "Vencido",
+                                  upcoming: "Próximo",
+                                };
+                                return (
+                                  <div key={p.id} className="bg-white rounded-xl border border-[#E5E5E5] p-3 flex items-center gap-3 flex-wrap">
+                                    <div className="flex-1 min-w-[140px]">
+                                      <p className="font-600 text-[#18191F] text-sm">{p.period_label}</p>
+                                      <p className="text-xs text-[#999999]">
+                                        Vence {new Date(p.due_date).toLocaleDateString("es-PE", { day: "2-digit", month: "short", year: "2-digit" })}
+                                      </p>
+                                    </div>
+                                    <p className="font-700 text-[#18191F]">${parseFloat(p.amount).toFixed(2)}</p>
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-700 ${stStyles[p.status] ?? "bg-gray-100 text-gray-500"}`}>
+                                      {stLabels[p.status] ?? p.status}
+                                    </span>
+                                    {p.payment_method === "culqi" ? (
+                                      <span className="text-[10px] font-700 px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700">💳 Tarjeta</span>
+                                    ) : (
+                                      <span className="text-[10px] font-700 px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700">🏦 Transf.</span>
+                                    )}
+                                    {p.receipt_url && (
+                                      <a href={p.receipt_url} target="_blank" rel="noreferrer" className="text-xs text-[#1B4FFF] hover:underline font-600">Voucher</a>
+                                    )}
+                                    {p.invoice_url && (
+                                      <a href={p.invoice_url} target="_blank" rel="noreferrer" className="text-xs text-[#2D7D46] hover:underline font-600">📄 {p.invoice_number}</a>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                              {clientPayments.length > 8 && (
+                                <p className="text-xs text-[#999999] text-center py-2">
+                                  Y {clientPayments.length - 8} pagos más...
+                                </p>
+                              )}
+                            </div>
+                            <div className="mt-3 flex gap-3">
+                              <a href="/admin/pagos" className="text-xs text-[#1B4FFF] font-600 hover:underline">
+                                → Ver en módulo Pagos (validar/rechazar)
+                              </a>
+                            </div>
+                          </div>
                         )}
                       </td>
                     </tr>
