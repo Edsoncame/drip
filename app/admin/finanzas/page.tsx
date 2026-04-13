@@ -79,11 +79,13 @@ export default async function FinanzasPage() {
   // Global totals (only for active — plazo not exhausted)
   let totalMensual = 0;
   let totalPendiente = 0;
+  let totalPagado = 0;
   let activos = 0;
 
   const groupStats = Array.from(groups.entries()).map(([banco, rows]) => {
     let mensualGrupo = 0;
     let pendienteGrupo = 0;
+    let pagadoGrupo = 0;
     const enriched = rows.map(r => {
       const cuota = Number(r.cuota_credito_soles) || 0;
       const plazo = r.plazo_credito_meses || 0;
@@ -97,9 +99,11 @@ export default async function FinanzasPage() {
       }
       totalMensual += restantes > 0 ? cuota : 0;
       totalPendiente += pendiente;
+      totalPagado += cuota * pagados;
+      pagadoGrupo += cuota * pagados;
       return { ...r, cuota, plazo, pagados, restantes, pendiente, proximo: nextDueDate(r.fecha_compra, plazo) };
     });
-    return { banco, rows: enriched, mensualGrupo, pendienteGrupo };
+    return { banco, rows: enriched, mensualGrupo, pendienteGrupo, pagadoGrupo };
   });
 
   return (
@@ -128,16 +132,21 @@ export default async function FinanzasPage() {
         </div>
 
         {/* Totals */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
           <div className="bg-white rounded-2xl p-5 border border-[#E5E5E5]">
             <div className="text-2xl mb-2">📅</div>
             <p className="text-2xl font-800 text-[#18191F]">{fmtSoles(totalMensual)}</p>
-            <p className="text-xs text-[#666666] mt-1">Total a pagar este mes</p>
+            <p className="text-xs text-[#666666] mt-1">A pagar este mes</p>
+          </div>
+          <div className="bg-white rounded-2xl p-5 border border-green-200 bg-green-50">
+            <div className="text-2xl mb-2">✓</div>
+            <p className="text-2xl font-800 text-green-700">{fmtSoles(totalPagado)}</p>
+            <p className="text-xs text-green-700 mt-1">Ya pagado a la fecha</p>
           </div>
           <div className="bg-white rounded-2xl p-5 border border-[#E5E5E5]">
             <div className="text-2xl mb-2">💳</div>
             <p className="text-2xl font-800 text-[#18191F]">{fmtSoles(totalPendiente)}</p>
-            <p className="text-xs text-[#666666] mt-1">Deuda total pendiente</p>
+            <p className="text-xs text-[#666666] mt-1">Deuda pendiente</p>
           </div>
           <div className="bg-white rounded-2xl p-5 border border-[#E5E5E5]">
             <div className="text-2xl mb-2">💻</div>
@@ -160,13 +169,17 @@ export default async function FinanzasPage() {
                     <h2 className="font-700 text-[#18191F] text-lg">{group.banco}</h2>
                     <p className="text-xs text-[#666] mt-0.5">{group.rows.length} equipo{group.rows.length > 1 ? "s" : ""}</p>
                   </div>
-                  <div className="flex gap-6 text-right">
+                  <div className="flex gap-6 text-right flex-wrap">
                     <div>
                       <p className="text-[10px] text-[#999] uppercase">Cuota mensual</p>
                       <p className="font-800 text-[#1B4FFF] text-lg">{fmtSoles(group.mensualGrupo)}</p>
                     </div>
                     <div>
-                      <p className="text-[10px] text-[#999] uppercase">Pendiente total</p>
+                      <p className="text-[10px] text-green-700 uppercase">Ya pagado</p>
+                      <p className="font-800 text-green-700 text-lg">{fmtSoles(group.pagadoGrupo)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-[#999] uppercase">Pendiente</p>
                       <p className="font-800 text-[#18191F] text-lg">{fmtSoles(group.pendienteGrupo)}</p>
                     </div>
                   </div>
