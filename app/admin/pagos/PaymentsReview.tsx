@@ -69,19 +69,22 @@ export default function PaymentsReview({ payments }: { payments: Payment[] }) {
 
   const handleReceiptUpload = async (paymentId: string, file: File) => {
     setProcessing(paymentId);
-    const fd = new FormData();
-    fd.append("file", file);
-    const up = await fetch("/api/upload", { method: "POST", body: fd });
-    const upData = await up.json();
-    if (upData.dataUrl) {
-      await fetch(`/api/payments/${paymentId}/receipt`, {
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(`/api/payments/${paymentId}/receipt`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ receiptUrl: upData.dataUrl }),
+        body: fd,
       });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Error al subir comprobante");
+      showToast("success", "Comprobante subido correctamente");
       startTransition(() => router.refresh());
+    } catch (e) {
+      showToast("error", e instanceof Error ? e.message : "Error");
+    } finally {
+      setProcessing(null);
     }
-    setProcessing(null);
   };
 
   const handleInvoiceDelete = async (paymentId: string, invoiceId: string, invoiceNum: string) => {

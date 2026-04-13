@@ -10,30 +10,25 @@ export default function UploadReceipt({ paymentId, hasReceipt }: { paymentId: st
 
   const handleUpload = async (file: File) => {
     setUploading(true);
-
-    // Convert to base64
-    const form = new FormData();
-    form.append("file", file);
-    const uploadRes = await fetch("/api/upload", { method: "POST", body: form });
-    const uploadData = await uploadRes.json();
-
-    if (!uploadData.dataUrl) {
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(`/api/payments/${paymentId}/receipt`, {
+        method: "POST",
+        body: fd,
+      });
+      if (res.ok) {
+        setDone(true);
+        router.refresh();
+      } else {
+        const json = await res.json();
+        alert(json.error || "Error al subir el comprobante. Intenta de nuevo.");
+      }
+    } catch {
+      alert("Error al subir el comprobante. Intenta de nuevo.");
+    } finally {
       setUploading(false);
-      return;
     }
-
-    // Save receipt to payment
-    const res = await fetch(`/api/payments/${paymentId}/receipt`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ receiptUrl: uploadData.dataUrl }),
-    });
-
-    if (res.ok) {
-      setDone(true);
-      router.refresh();
-    }
-    setUploading(false);
   };
 
   if (done) {
