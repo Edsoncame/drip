@@ -283,8 +283,33 @@ export default function PaymentsReview({ payments }: { payments: Payment[] }) {
                       /* Already has receipt */
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={p.receipt_url} alt="Comprobante" className="w-full max-h-64 object-contain rounded-xl border border-[#E5E5E5] bg-white" />
+                          {(() => {
+                            const isPdf = /\.pdf(\?|$)/i.test(p.receipt_url) || p.receipt_url.startsWith("data:application/pdf");
+                            const isImage = /\.(jpg|jpeg|png|webp)(\?|$)/i.test(p.receipt_url) || p.receipt_url.startsWith("data:image/");
+                            if (isImage) {
+                              return (
+                                <a href={p.receipt_url} target="_blank" rel="noreferrer" className="block">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img src={p.receipt_url} alt="Comprobante" className="w-full max-h-64 object-contain rounded-xl border border-[#E5E5E5] bg-white hover:border-[#1B4FFF] transition-colors" />
+                                </a>
+                              );
+                            }
+                            return (
+                              <a
+                                href={p.receipt_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex flex-col items-center justify-center w-full h-48 rounded-xl border-2 border-[#E5E5E5] bg-white hover:border-[#1B4FFF] hover:bg-[#F5F8FF] transition-all gap-3"
+                              >
+                                <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke={isPdf ? "#DC2626" : "#1B4FFF"} strokeWidth="1.5">
+                                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                  <polyline points="14 2 14 8 20 8"/>
+                                </svg>
+                                <p className="text-sm font-700 text-[#18191F]">{isPdf ? "Ver PDF del comprobante" : "Ver archivo"}</p>
+                                <p className="text-[10px] text-[#666]">Click para abrir en nueva pestaña</p>
+                              </a>
+                            );
+                          })()}
                           {p.receipt_uploaded_at && (
                             <p className="text-xs text-[#999999] mt-2">
                               Subido: {new Date(p.receipt_uploaded_at).toLocaleDateString("es-PE", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
