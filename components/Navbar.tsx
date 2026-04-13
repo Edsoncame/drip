@@ -91,10 +91,10 @@ export default function Navbar() {
                 </Link>
               ))}
               {user?.isAdmin && (
-                <Link href="/admin"
+                <a href="/admin"
                   className="ml-1 px-3 py-2 text-sm font-700 rounded-full bg-[#1B4FFF] text-white hover:bg-[#1340CC] transition-colors">
                   Admin
-                </Link>
+                </a>
               )}
             </div>
 
@@ -147,11 +147,11 @@ export default function Navbar() {
                           Mis pagos
                         </Link>
                         {user.isAdmin && (
-                          <Link href="/admin" onClick={() => setUserMenuOpen(false)}
+                          <a href="/admin" onClick={() => setUserMenuOpen(false)}
                             className="flex items-center gap-3 px-4 py-2.5 text-sm text-[#1B4FFF] hover:bg-[#EEF2FF] transition-colors font-600">
                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
                             Panel admin
-                          </Link>
+                          </a>
                         )}
                         <div className="border-t border-[#F0F0F0] mt-1 pt-1">
                           <button onClick={handleLogout}
