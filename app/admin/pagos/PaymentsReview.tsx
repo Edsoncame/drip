@@ -40,6 +40,7 @@ export default function PaymentsReview({ payments }: { payments: Payment[] }) {
   const [noteValue, setNoteValue] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [invoiceAmount, setInvoiceAmount] = useState("");
+  const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
   const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
 
   const showToast = (type: "success" | "error", msg: string) => {
@@ -80,6 +81,19 @@ export default function PaymentsReview({ payments }: { payments: Payment[] }) {
       startTransition(() => router.refresh());
     }
     setProcessing(null);
+  };
+
+  const handleInvoiceDelete = async (paymentId: string, invoiceId: string, invoiceNum: string) => {
+    if (!confirm(`¿Eliminar la factura ${invoiceNum}? Esta acción no se puede deshacer.`)) return;
+    try {
+      const res = await fetch(`/api/admin/payments/${paymentId}/invoice/${invoiceId}`, { method: "DELETE" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Error al eliminar");
+      showToast("success", `Factura ${invoiceNum} eliminada`);
+      startTransition(() => router.refresh());
+    } catch (e) {
+      showToast("error", e instanceof Error ? e.message : "Error");
+    }
   };
 
   const handleInvoiceUpload = async (paymentId: string, file: File) => {
@@ -345,41 +359,68 @@ export default function PaymentsReview({ payments }: { payments: Payment[] }) {
                       {p.invoices.map(inv => {
                         const isImage = /\.(jpg|jpeg|png|webp)$/i.test(inv.invoice_url);
                         return (
-                          <a
+                          <div
                             key={inv.id}
-                            href={inv.invoice_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="group relative block bg-white border-2 border-green-200 rounded-2xl overflow-hidden hover:border-green-500 hover:shadow-md transition-all"
+                            className="relative bg-white border-2 border-green-200 rounded-2xl overflow-hidden hover:border-green-500 hover:shadow-md transition-all"
                           >
-                            {/* Preview */}
-                            <div className="aspect-[4/5] bg-gradient-to-br from-green-50 to-white flex items-center justify-center relative">
-                              {isImage ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img src={inv.invoice_url} alt={inv.invoice_number} className="absolute inset-0 w-full h-full object-cover" />
-                              ) : (
-                                <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="1.5">
-                                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                                  <polyline points="14 2 14 8 20 8"/>
-                                  <text x="12" y="18" fontSize="4" fill="#16a34a" textAnchor="middle" fontWeight="700" stroke="none">PDF</text>
-                                </svg>
-                              )}
-                              <div className="absolute top-2 right-2 bg-green-600 text-white text-[10px] font-700 px-2 py-0.5 rounded-full shadow">
-                                ✓
+                            {/* Delete button — always visible top-left */}
+                            <button
+                              type="button"
+                              onClick={() => handleInvoiceDelete(p.id, inv.id, inv.invoice_number)}
+                              className="absolute top-2 left-2 z-10 w-7 h-7 rounded-full bg-white border border-red-200 text-red-600 hover:bg-red-600 hover:text-white hover:border-red-600 flex items-center justify-center shadow-sm transition-colors cursor-pointer"
+                              aria-label="Eliminar factura"
+                              title="Eliminar factura"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <polyline points="3 6 5 6 21 6" />
+                                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                                <path d="M10 11v6M14 11v6" />
+                              </svg>
+                            </button>
+                            {/* Preview (clickable) */}
+                            <a href={inv.invoice_url} target="_blank" rel="noreferrer" className="block">
+                              <div className="aspect-[4/5] bg-gradient-to-br from-green-50 to-white flex items-center justify-center relative">
+                                {isImage ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={inv.invoice_url} alt={inv.invoice_number} className="absolute inset-0 w-full h-full object-cover" />
+                                ) : (
+                                  <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="1.5">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                    <polyline points="14 2 14 8 20 8"/>
+                                    <text x="12" y="18" fontSize="4" fill="#16a34a" textAnchor="middle" fontWeight="700" stroke="none">PDF</text>
+                                  </svg>
+                                )}
+                                <div className="absolute top-2 right-2 bg-green-600 text-white text-[10px] font-700 px-2 py-0.5 rounded-full shadow">
+                                  ✓ Subida
+                                </div>
                               </div>
+                              <div className="p-3 border-t border-green-100">
+                                <p className="text-xs font-700 text-[#18191F] truncate">{inv.invoice_number}</p>
+                                <p className="text-[10px] text-[#666] mt-0.5">
+                                  {inv.amount ? `$${parseFloat(inv.amount).toFixed(2)} · ` : ""}
+                                  {new Date(inv.uploaded_at).toLocaleDateString("es-PE", { day: "2-digit", month: "short" })}
+                                </p>
+                              </div>
+                            </a>
+                            {/* Action buttons — always visible */}
+                            <div className="flex border-t border-green-100 divide-x divide-green-100">
+                              <a
+                                href={inv.invoice_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex-1 py-2 text-xs font-700 text-green-700 hover:bg-green-50 text-center transition-colors"
+                              >
+                                Ver
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => handleInvoiceDelete(p.id, inv.id, inv.invoice_number)}
+                                className="flex-1 py-2 text-xs font-700 text-red-600 hover:bg-red-50 text-center transition-colors cursor-pointer"
+                              >
+                                Eliminar
+                              </button>
                             </div>
-                            {/* Info */}
-                            <div className="p-3 border-t border-green-100">
-                              <p className="text-xs font-700 text-[#18191F] truncate">{inv.invoice_number}</p>
-                              <p className="text-[10px] text-[#666] mt-0.5">
-                                {inv.amount ? `$${parseFloat(inv.amount).toFixed(2)} · ` : ""}
-                                {new Date(inv.uploaded_at).toLocaleDateString("es-PE", { day: "2-digit", month: "short" })}
-                              </p>
-                            </div>
-                            <div className="absolute inset-x-0 bottom-0 py-2 bg-green-600 text-white text-xs font-700 text-center opacity-0 group-hover:opacity-100 transition-opacity">
-                              Ver archivo
-                            </div>
-                          </a>
+                          </div>
                         );
                       })}
 
