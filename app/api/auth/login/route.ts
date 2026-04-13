@@ -13,8 +13,9 @@ export async function POST(req: NextRequest) {
 
     const result = await query<{
       id: string; name: string; email: string; password_hash: string;
+      is_admin: boolean; is_super_admin: boolean;
     }>(
-      "SELECT id, name, email, password_hash FROM users WHERE email = $1",
+      "SELECT id, name, email, password_hash, is_admin, is_super_admin FROM users WHERE email = $1",
       [email.toLowerCase()]
     );
 
@@ -29,7 +30,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Email o contraseña incorrectos" }, { status: 401 });
     }
 
-    const token = await signToken({ userId: user.id, email: user.email, name: user.name });
+    const token = await signToken({
+      userId: user.id,
+      email: user.email,
+      name: user.name,
+      isAdmin: user.is_admin,
+      isSuperAdmin: user.is_super_admin,
+    });
 
     const res = NextResponse.json({ user: { id: user.id, name: user.name, email: user.email } });
     res.cookies.set(sessionCookieOptions(token));

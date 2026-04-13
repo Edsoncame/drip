@@ -15,6 +15,8 @@ export interface SessionPayload {
   userId: string;
   email: string;
   name: string;
+  isAdmin?: boolean;
+  isSuperAdmin?: boolean;
 }
 
 export async function signToken(payload: SessionPayload): Promise<string> {

@@ -12,13 +12,21 @@ async function getSessionFromRequest(req: NextRequest) {
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, SECRET);
-    return payload as { userId: string; email: string; name: string };
+    return payload as {
+      userId: string;
+      email: string;
+      name: string;
+      isAdmin?: boolean;
+      isSuperAdmin?: boolean;
+    };
   } catch {
     return null;
   }
 }
 
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "")
+// Legacy bootstrap: only used for users whose JWT was issued before the
+// is_admin column existed. Real admin check happens in requireAdmin() (Node runtime).
+const LEGACY_ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "")
   .split(",")
   .map((e) => e.trim().toLowerCase())
   .filter(Boolean);
@@ -29,7 +37,12 @@ export async function proxy(req: NextRequest) {
   // ── Protect /admin ──────────────────────────────────────────────────────────
   if (pathname.startsWith("/admin")) {
     const session = await getSessionFromRequest(req);
-    if (!session || !ADMIN_EMAILS.includes(session.email.toLowerCase())) {
+    if (!session) {
+      return NextResponse.redirect(new URL("/", req.url));
+    }
+    // Allow if JWT has isAdmin claim (new flow) OR legacy env var match
+    const isAdmin = session.isAdmin === true || LEGACY_ADMIN_EMAILS.includes(session.email.toLowerCase());
+    if (!isAdmin) {
       return NextResponse.redirect(new URL("/", req.url));
     }
     return NextResponse.next();
