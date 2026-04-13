@@ -5,6 +5,7 @@ import { getProduct } from "@/lib/products";
 import Link from "next/link";
 import CancelSubscriptionButton from "@/components/CancelSubscriptionButton";
 import EndOfContractActions from "@/components/EndOfContractActions";
+import EquipmentDetails from "@/components/EquipmentDetails";
 
 interface Subscription {
   id: string;
@@ -20,6 +21,15 @@ interface Subscription {
   delivery_distrito: string | null;
   end_action: string | null;
   purchase_price_usd: string | null;
+  equipment_code: string | null;
+  numero_serie: string | null;
+  modelo_completo: string | null;
+  color: string | null;
+  teclado: string | null;
+  usuario_dispositivo: string | null;
+  clave_dispositivo: string | null;
+  colaborador: string | null;
+  area: string | null;
 }
 
 const RESIDUAL_VALUES: Record<number, number> = { 8: 0.775, 16: 0.55, 24: 0.325 };
@@ -37,13 +47,24 @@ export default async function RentasPage() {
   const session = await getSession();
   if (!session) redirect("/auth/login?redirect=/cuenta/rentas");
 
+  // Check if user is empresa (has company)
+  const userResult = await query<{ company: string | null }>(
+    "SELECT company FROM users WHERE id = $1",
+    [session.userId]
+  );
+  const isCompany = !!userResult.rows[0]?.company;
+
   const result = await query<Subscription>(
-    `SELECT id, product_slug, product_name, months, monthly_price, status,
-            started_at, ends_at, mp_subscription_id,
-            delivery_address, delivery_distrito, end_action, purchase_price_usd
-     FROM subscriptions
-     WHERE user_id = $1
-     ORDER BY started_at DESC`,
+    `SELECT s.id, s.product_slug, s.product_name, s.months, s.monthly_price, s.status,
+            s.started_at, s.ends_at, s.mp_subscription_id,
+            s.delivery_address, s.delivery_distrito, s.end_action, s.purchase_price_usd,
+            s.equipment_code,
+            e.numero_serie, e.modelo_completo, e.color, e.teclado,
+            e.usuario_dispositivo, e.clave_dispositivo, e.colaborador, e.area
+     FROM subscriptions s
+     LEFT JOIN equipment e ON e.codigo_interno = s.equipment_code
+     WHERE s.user_id = $1
+     ORDER BY s.started_at DESC`,
     [session.userId]
   );
   const subs = result.rows;
@@ -124,6 +145,23 @@ export default async function RentasPage() {
                     <p className="font-700 text-[#18191F] text-sm">{endsDate ?? "En curso"}</p>
                   </div>
                 </div>
+
+                {/* Equipment details — only if linked to an equipment */}
+                {sub.equipment_code && (
+                  <EquipmentDetails
+                    subscriptionId={sub.id}
+                    equipmentCode={sub.equipment_code}
+                    numeroSerie={sub.numero_serie}
+                    modelo={sub.modelo_completo}
+                    color={sub.color}
+                    teclado={sub.teclado}
+                    usuarioDispositivo={sub.usuario_dispositivo}
+                    claveDispositivo={sub.clave_dispositivo}
+                    colaborador={sub.colaborador}
+                    area={sub.area}
+                    isCompany={isCompany}
+                  />
+                )}
 
                 {/* End-of-contract options */}
                 {(() => {
