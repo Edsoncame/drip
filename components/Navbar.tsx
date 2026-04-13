@@ -26,7 +26,7 @@ export default function Navbar() {
   const router = useRouter();
 
   useEffect(() => {
-    fetch("/api/auth/me")
+    fetch("/api/auth/me", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => { if (data?.user) setUser(data.user); })
       .catch(() => {});
@@ -90,6 +90,12 @@ export default function Navbar() {
                   {item.label}
                 </Link>
               ))}
+              {user?.isAdmin && (
+                <Link href="/admin"
+                  className="ml-1 px-3 py-2 text-sm font-700 rounded-full bg-[#1B4FFF] text-white hover:bg-[#1340CC] transition-colors">
+                  Admin
+                </Link>
+              )}
             </div>
 
             {/* Right — auth area */}
