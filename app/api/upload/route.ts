@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const MAX_SIZE = 5 * 1024 * 1024; // 5MB
-const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,11 +13,11 @@ export async function POST(req: NextRequest) {
     }
 
     if (!ALLOWED_TYPES.includes(file.type)) {
-      return NextResponse.json({ error: "Solo se aceptan imágenes JPG, PNG o WebP" }, { status: 400 });
+      return NextResponse.json({ error: "Solo JPG, PNG, WebP o PDF" }, { status: 400 });
     }
 
     if (file.size > MAX_SIZE) {
-      return NextResponse.json({ error: "La imagen no debe superar 5MB" }, { status: 400 });
+      return NextResponse.json({ error: "El archivo no debe superar 10MB" }, { status: 400 });
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
