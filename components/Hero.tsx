@@ -9,7 +9,7 @@ const CDN = "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is";
 const slides = [
   {
     tag: "MacBook Pro — Apple M5",
-    title: "La Mac más potente.\nAhora en goteo mensual.",
+    title: "La Mac más potente.\nAhora en alquiler mensual.",
     subtitle: "Desde $115/mes · Sin comprar · Sin CAPEX · Entrega a tu empresa",
     cta: "Ver MacBook Pro",
     href: "/laptops/macbook-pro-14-m5",
