@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { Fragment, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 interface Client {
@@ -183,7 +183,7 @@ export default function ClientsTable({ clients, allSubs, allPayments }: { client
               const activeSubs = parseInt(client.active_subs);
 
               return (
-                <tbody key={client.id}>
+                <Fragment key={client.id}>
                   <tr
                     className={`hover:bg-[#FAFAFA] transition-colors cursor-pointer ${isExpanded ? "bg-[#F5F8FF]" : ""}`}
                     onClick={() => setExpanded(isExpanded ? null : client.id)}
@@ -391,7 +391,7 @@ export default function ClientsTable({ clients, allSubs, allPayments }: { client
                       </td>
                     </tr>
                   )}
-                </tbody>
+                </Fragment>
               );
             })}
           </tbody>
