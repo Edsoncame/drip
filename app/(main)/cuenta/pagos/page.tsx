@@ -161,8 +161,8 @@ export default async function PagosPage() {
                     </div>
                   )}
 
-                  {/* Invoice download — shown for ANY payment that has an invoice */}
-                  {payment.invoice_url && (
+                  {/* Invoice — always visible, disabled if not yet uploaded */}
+                  {payment.invoice_url ? (
                     <a href={payment.invoice_url} target="_blank" rel="noreferrer"
                       download={`${payment.invoice_number ?? "factura"}.pdf`}
                       className="flex items-center gap-3 p-3 rounded-xl border border-[#1B4FFF] bg-[#F5F8FF] hover:bg-[#EEF2FF] transition-colors">
@@ -177,6 +177,24 @@ export default async function PagosPage() {
                         <path d="M12 4v16m0 0l-6-6m6 6l6-6"/>
                       </svg>
                     </a>
+                  ) : (
+                    <div className="flex items-center gap-3 p-3 rounded-xl border border-[#E5E5E5] bg-[#F7F7F7] cursor-not-allowed">
+                      <div className="w-10 h-10 bg-[#E5E5E5] rounded-lg flex items-center justify-center flex-shrink-0">
+                        <span className="text-lg grayscale opacity-50">📄</span>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-600 text-[#999999]">Factura en proceso</p>
+                        <p className="text-xs text-[#BBBBBB]">
+                          {payment.status === "validated"
+                            ? "Estamos emitiendo tu factura. Te avisaremos por email."
+                            : "Disponible después de validar el pago."}
+                        </p>
+                      </div>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#CCCCCC" strokeWidth="2">
+                        <rect x="3" y="11" width="18" height="11" rx="2"/>
+                        <path d="M7 11V7a5 5 0 0110 0v4"/>
+                      </svg>
+                    </div>
                   )}
                 </div>
 
