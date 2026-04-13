@@ -32,16 +32,21 @@ export const PLAN_INFO: Record<PlanKey, { label: string; months: number; residua
 };
 
 /**
- * Ratios derivados del promedio de 3 modelos de referencia.
+ * Ratios derivados del promedio de 3 modelos de referencia usando
+ * los costos REALES de compra:
+ *   - Air M4 13": ~$1,124
+ *   - Pro M4 14": ~$1,721
+ *   - Pro M5 14": ~$2,065
+ *
  * ratio = (precio_mensual × meses_total) / costo_equipo
  */
 const PLAN_RATIO: Record<PlanKey, number> = {
-  estreno_8m:              1.375,  // 37.5% de profit sobre 8m
-  estreno_16m:             2.184,  // 118.4% sobre 16m
-  estreno_24m:             2.893,  // 189.3% sobre 24m
-  realquiler_8m_usado_8m:  0.914,
-  realquiler_8m_usado_16m: 0.774,
-  realquiler_16m_usado_8m: 1.703,
+  estreno_8m:              0.714,
+  estreno_16m:             1.135,
+  estreno_24m:             1.503,
+  realquiler_8m_usado_8m:  0.475,
+  realquiler_8m_usado_16m: 0.402,
+  realquiler_16m_usado_8m: 0.885,
 };
 
 /**
