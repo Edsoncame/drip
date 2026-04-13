@@ -135,6 +135,11 @@ export default function Navbar() {
                           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
                           Mis rentas
                         </Link>
+                        <Link href="/cuenta/pagos" onClick={() => setUserMenuOpen(false)}
+                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-[#333333] hover:bg-[#F7F7F7] transition-colors">
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+                          Mis pagos
+                        </Link>
                         {user.isAdmin && (
                           <Link href="/admin" onClick={() => setUserMenuOpen(false)}
                             className="flex items-center gap-3 px-4 py-2.5 text-sm text-[#1B4FFF] hover:bg-[#EEF2FF] transition-colors font-600">
@@ -245,6 +250,7 @@ export default function Navbar() {
                     </div>
                     <Link href="/cuenta" onClick={() => setMenuOpen(false)} className="px-4 py-3 font-600 rounded-xl hover:bg-gray-50 text-[#333333]">Mi cuenta</Link>
                     <Link href="/cuenta/rentas" onClick={() => setMenuOpen(false)} className="px-4 py-3 font-600 rounded-xl hover:bg-gray-50 text-[#333333]">Mis rentas</Link>
+                    <Link href="/cuenta/pagos" onClick={() => setMenuOpen(false)} className="px-4 py-3 font-600 rounded-xl hover:bg-gray-50 text-[#333333]">Mis pagos</Link>
                     {user.isAdmin && (
                       <Link href="/admin" onClick={() => setMenuOpen(false)} className="px-4 py-3 font-600 rounded-xl hover:bg-[#EEF2FF] text-[#1B4FFF]">Panel admin</Link>
                     )}

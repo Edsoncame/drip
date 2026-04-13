@@ -133,8 +133,8 @@ export default async function PagosPage() {
                 </div>
 
                 {/* Actions based on status */}
-                {payment.status === "validated" && (
-                  <div className="space-y-2">
+                <div className="space-y-2">
+                  {payment.status === "validated" && (
                     <div className="bg-[#E5F3DF] rounded-xl p-3 flex items-center gap-2">
                       <span className="text-green-600">✓</span>
                       <p className="text-sm text-[#2D7D46] font-600">
@@ -142,43 +142,45 @@ export default async function PagosPage() {
                         {payment.validated_at && ` el ${new Date(payment.validated_at).toLocaleDateString("es-PE", { day: "2-digit", month: "short" })}`}
                       </p>
                     </div>
-                    {payment.invoice_url && (
-                      <a href={payment.invoice_url} target="_blank" rel="noreferrer"
-                        download={`${payment.invoice_number ?? "factura"}.pdf`}
-                        className="flex items-center gap-3 p-3 rounded-xl border border-[#1B4FFF] bg-[#F5F8FF] hover:bg-[#EEF2FF] transition-colors">
-                        <div className="w-10 h-10 bg-[#1B4FFF]/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                          <span className="text-lg">📄</span>
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-700 text-[#18191F]">Descargar factura</p>
-                          <p className="text-xs text-[#666666]">{payment.invoice_number}</p>
-                        </div>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1B4FFF" strokeWidth="2.5">
-                          <path d="M12 4v16m0 0l-6-6m6 6l6-6"/>
-                        </svg>
-                      </a>
-                    )}
-                  </div>
-                )}
+                  )}
 
-                {payment.status === "reviewing" && (
-                  <div className="bg-[#DBEAFE] rounded-xl p-3 flex items-center gap-2">
-                    <span>⏳</span>
-                    <p className="text-sm text-[#1D4ED8] font-600">Estamos revisando tu comprobante. Te avisamos pronto.</p>
-                  </div>
-                )}
+                  {payment.status === "reviewing" && (
+                    <div className="bg-[#DBEAFE] rounded-xl p-3 flex items-center gap-2">
+                      <span>⏳</span>
+                      <p className="text-sm text-[#1D4ED8] font-600">Estamos revisando tu comprobante. Te avisamos pronto.</p>
+                    </div>
+                  )}
 
-                {(payment.status === "pending" || payment.status === "overdue") && (
-                  <UploadReceipt paymentId={payment.id} hasReceipt={!!payment.receipt_url} />
-                )}
+                  {(payment.status === "pending" || payment.status === "overdue") && (
+                    <UploadReceipt paymentId={payment.id} hasReceipt={!!payment.receipt_url} />
+                  )}
 
-                {payment.status === "upcoming" && (
-                  <div className="bg-[#F3F4F6] rounded-xl p-3">
-                    <p className="text-sm text-[#666666]">Este pago aún no vence. Te avisaremos cuando sea momento.</p>
-                  </div>
-                )}
+                  {payment.status === "upcoming" && (
+                    <div className="bg-[#F3F4F6] rounded-xl p-3">
+                      <p className="text-sm text-[#666666]">Este pago aún no vence. Te avisaremos cuando sea momento.</p>
+                    </div>
+                  )}
 
-                {payment.admin_note && payment.status === "validated" && (
+                  {/* Invoice download — shown for ANY payment that has an invoice */}
+                  {payment.invoice_url && (
+                    <a href={payment.invoice_url} target="_blank" rel="noreferrer"
+                      download={`${payment.invoice_number ?? "factura"}.pdf`}
+                      className="flex items-center gap-3 p-3 rounded-xl border border-[#1B4FFF] bg-[#F5F8FF] hover:bg-[#EEF2FF] transition-colors">
+                      <div className="w-10 h-10 bg-[#1B4FFF]/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <span className="text-lg">📄</span>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-700 text-[#18191F]">Descargar factura</p>
+                        <p className="text-xs text-[#666666]">{payment.invoice_number}</p>
+                      </div>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1B4FFF" strokeWidth="2.5">
+                        <path d="M12 4v16m0 0l-6-6m6 6l6-6"/>
+                      </svg>
+                    </a>
+                  )}
+                </div>
+
+                {payment.admin_note && (
                   <p className="text-xs text-[#999999] mt-2">Nota: {payment.admin_note}</p>
                 )}
               </div>
