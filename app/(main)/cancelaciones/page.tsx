@@ -20,7 +20,7 @@ export default function CancelacionesPage() {
           <h2 className="text-xl font-700 text-[#18191F] mb-3">1. Introducción</h2>
           <p>
             Tika Services S.A.C. (en adelante, <strong>FLUX</strong>), con RUC 20605702512, domiciliada en
-            Av. Primavera 543, Oficina 502, Surco, Lima, Perú, establece la presente política para regular las
+            Av. Primavera 543, Piso 4, San Borja, Lima, Perú, establece la presente política para regular las
             cancelaciones de suscripciones y los reembolsos asociados al servicio de alquiler de MacBooks.
           </p>
         </section>
@@ -112,7 +112,7 @@ export default function CancelacionesPage() {
 
       <div className="mt-12 pt-8 border-t border-[#E5E5E5] text-xs text-[#999]">
         <p>Tika Services S.A.C. — RUC 20605702512</p>
-        <p>Av. Primavera 543, Oficina 502, Surco, Lima, Perú</p>
+        <p>Av. Primavera 543, Piso 4, San Borja, Lima, Perú</p>
       </div>
     </div>
   );

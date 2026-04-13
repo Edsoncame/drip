@@ -16,10 +16,10 @@ export function OrganizationJsonLd() {
     taxID: "20605702512",
     address: {
       "@type": "PostalAddress",
-      streetAddress: "Av. Primavera 543, Oficina 502",
-      addressLocality: "Surco",
+      streetAddress: "Av. Primavera 543, Piso 4",
+      addressLocality: "San Borja",
       addressRegion: "Lima",
-      postalCode: "15023",
+      postalCode: "15037",
       addressCountry: "PE",
     },
     contactPoint: {
@@ -53,10 +53,10 @@ export function LocalBusinessJsonLd() {
     email: "hola@fluxperu.com",
     address: {
       "@type": "PostalAddress",
-      streetAddress: "Av. Primavera 543, Oficina 502",
-      addressLocality: "Surco",
+      streetAddress: "Av. Primavera 543, Piso 4",
+      addressLocality: "San Borja",
       addressRegion: "Lima",
-      postalCode: "15023",
+      postalCode: "15037",
       addressCountry: "PE",
     },
     geo: {

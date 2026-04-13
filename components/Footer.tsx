@@ -103,7 +103,7 @@ export default function Footer() {
             <div>
               <p className="text-white font-700 mb-1">Tika Services S.A.C.</p>
               <p>RUC: 20605702512</p>
-              <p>Av. Primavera 543, Oficina 502 — Surco, Lima, Perú</p>
+              <p>Av. Primavera 543, Piso 4 — San Borja, Lima, Perú</p>
             </div>
             <div className="md:text-right">
               <p className="text-white font-700 mb-1">Contacto</p>
