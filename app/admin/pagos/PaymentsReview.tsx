@@ -96,9 +96,36 @@ export default function PaymentsReview({ payments }: { payments: Payment[] }) {
     }
   };
 
+  const handleInvoiceAmountEdit = async (paymentId: string, invoiceId: string, invoiceNum: string) => {
+    const current = prompt(`Monto en USD de la factura ${invoiceNum}:`);
+    if (current === null) return;
+    const amount = parseFloat(current);
+    if (isNaN(amount) || amount < 0) {
+      showToast("error", "Monto inválido");
+      return;
+    }
+    try {
+      const res = await fetch(`/api/admin/payments/${paymentId}/invoice/${invoiceId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Error");
+      showToast("success", `Monto actualizado: $${amount.toFixed(2)}`);
+      startTransition(() => router.refresh());
+    } catch (e) {
+      showToast("error", e instanceof Error ? e.message : "Error");
+    }
+  };
+
   const handleInvoiceUpload = async (paymentId: string, file: File) => {
     if (!invoiceNumber.trim()) {
       showToast("error", "Ingresa el N° de factura primero");
+      return;
+    }
+    if (!invoiceAmount || isNaN(parseFloat(invoiceAmount)) || parseFloat(invoiceAmount) <= 0) {
+      showToast("error", "Ingresa el monto de la factura primero");
       return;
     }
     setProcessing(paymentId);
@@ -396,8 +423,20 @@ export default function PaymentsReview({ payments }: { payments: Payment[] }) {
                               </div>
                               <div className="p-3 border-t border-green-100">
                                 <p className="text-xs font-700 text-[#18191F] truncate">{inv.invoice_number}</p>
-                                <p className="text-[10px] text-[#666] mt-0.5">
-                                  {inv.amount ? `$${parseFloat(inv.amount).toFixed(2)} · ` : ""}
+                                {inv.amount ? (
+                                  <p className="text-base font-800 text-green-700 mt-0.5">
+                                    ${parseFloat(inv.amount).toFixed(2)}
+                                  </p>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleInvoiceAmountEdit(p.id, inv.id, inv.invoice_number); }}
+                                    className="text-xs font-700 text-orange-600 mt-0.5 hover:underline cursor-pointer"
+                                  >
+                                    ⚠ Agregar monto
+                                  </button>
+                                )}
+                                <p className="text-[10px] text-[#999] mt-0.5">
                                   {new Date(inv.uploaded_at).toLocaleDateString("es-PE", { day: "2-digit", month: "short" })}
                                 </p>
                               </div>
@@ -412,6 +451,13 @@ export default function PaymentsReview({ payments }: { payments: Payment[] }) {
                               >
                                 Ver
                               </a>
+                              <button
+                                type="button"
+                                onClick={() => handleInvoiceAmountEdit(p.id, inv.id, inv.invoice_number)}
+                                className="flex-1 py-2 text-xs font-700 text-[#1B4FFF] hover:bg-blue-50 text-center transition-colors cursor-pointer"
+                              >
+                                Editar monto
+                              </button>
                               <button
                                 type="button"
                                 onClick={() => handleInvoiceDelete(p.id, inv.id, inv.invoice_number)}
@@ -449,8 +495,9 @@ export default function PaymentsReview({ payments }: { payments: Payment[] }) {
                             type="number"
                             value={expanded === p.id ? invoiceAmount : ""}
                             onChange={(e) => setInvoiceAmount(e.target.value)}
-                            placeholder="Monto"
+                            placeholder="Monto USD *"
                             step="0.01"
+                            required
                             className="w-full px-2 py-1.5 text-xs border border-[#E5E5E5] rounded-lg outline-none focus:border-[#1B4FFF]"
                           />
                           <label className="flex items-center justify-center gap-1 w-full px-2 py-1.5 bg-[#1B4FFF] text-white rounded-lg cursor-pointer hover:bg-[#1340CC]">

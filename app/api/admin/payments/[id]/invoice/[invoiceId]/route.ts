@@ -3,6 +3,25 @@ import { del } from "@vercel/blob";
 import { requireAdmin } from "@/lib/auth";
 import { query } from "@/lib/db";
 
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string; invoiceId: string }> }
+) {
+  const session = await requireAdmin();
+  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  const { id, invoiceId } = await params;
+  const body = await req.json() as { amount?: number };
+  if (body.amount == null || isNaN(body.amount) || body.amount < 0) {
+    return NextResponse.json({ error: "Monto inválido" }, { status: 400 });
+  }
+  await query(
+    `UPDATE payment_invoices SET amount = $1 WHERE id = $2 AND payment_id = $3`,
+    [body.amount, invoiceId, id]
+  );
+  console.log(`[admin/invoice/patch] ${session.email} updated amount for invoice ${invoiceId}`);
+  return NextResponse.json({ ok: true });
+}
+
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string; invoiceId: string }> }
