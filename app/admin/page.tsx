@@ -63,7 +63,7 @@ export default async function AdminPage() {
         COUNT(*) FILTER (WHERE status = 'active')    AS active_count,
         COUNT(*) FILTER (WHERE status = 'delivered') AS pending_delivery,
         COALESCE(SUM(monthly_price::numeric) FILTER (WHERE status IN ('active','delivered')), 0) AS monthly_revenue,
-        (SELECT COUNT(*) FROM users)                 AS total_users,
+        (SELECT COUNT(*) FROM users WHERE COALESCE(is_admin, false) = false) AS total_users,
         COUNT(*)                                     AS total_subs
       FROM subscriptions
     `),

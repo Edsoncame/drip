@@ -82,6 +82,7 @@ export default async function ClientesPage() {
              (SELECT s2.delivery_distrito FROM subscriptions s2 WHERE s2.user_id = u.id ORDER BY s2.started_at DESC LIMIT 1) AS delivery_distrito
       FROM users u
       LEFT JOIN subscriptions s ON s.user_id = u.id
+      WHERE COALESCE(u.is_admin, false) = false
       GROUP BY u.id
       ORDER BY u.created_at DESC
     `),
