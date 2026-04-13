@@ -10,6 +10,7 @@ interface Client {
   phone: string | null;
   company: string | null;
   ruc: string | null;
+  legal_representative: string | null;
   google_id: string | null;
   referral_code: string | null;
   identity_verified: boolean | null;
@@ -222,6 +223,8 @@ export default function ClientsTable({ clients, allSubs }: { clients: Client[]; 
                       <td colSpan={7} className="px-6 pb-5 pt-2">
                         {/* Contact info */}
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                          <InfoCard label="Contacto operativo" value={client.name} />
+                          <InfoCard label="Representante legal" value={client.legal_representative ?? "—"} />
                           <InfoCard label="Email" value={client.email} copy />
                           <InfoCard label="Teléfono" value={client.phone ?? "—"} copy />
                           <InfoCard label="Empresa" value={client.company ?? "—"} />

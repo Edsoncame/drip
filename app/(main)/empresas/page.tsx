@@ -9,7 +9,7 @@ const fadeUp = { hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0 } };
 const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.06 } } };
 
 function B2BForm() {
-  const [form, setForm] = useState({ name: "", email: "", company: "", phone: "", quantity: "1-5", message: "" });
+  const [form, setForm] = useState({ name: "", legal_representative: "", email: "", company: "", phone: "", quantity: "1-5", message: "" });
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,9 +47,15 @@ function B2BForm() {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-600 text-white/80 mb-1">Nombre completo</label>
+          <label className="block text-sm font-600 text-white/80 mb-1">Tu nombre (contacto operativo)</label>
           <input type="text" required value={form.name} onChange={e => set("name", e.target.value)}
-            placeholder="Juan García"
+            placeholder="Quién usará el panel"
+            className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/40 text-sm outline-none focus:border-white/60 transition-all" />
+        </div>
+        <div>
+          <label className="block text-sm font-600 text-white/80 mb-1">Representante legal</label>
+          <input type="text" value={form.legal_representative} onChange={e => set("legal_representative", e.target.value)}
+            placeholder="Para contrato y factura"
             className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/40 text-sm outline-none focus:border-white/60 transition-all" />
         </div>
         <div>

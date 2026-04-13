@@ -19,6 +19,7 @@ interface Client {
   phone: string | null;
   company: string | null;
   ruc: string | null;
+  legal_representative: string | null;
   google_id: string | null;
   referral_code: string | null;
   identity_verified: boolean | null;
@@ -55,8 +56,8 @@ export default async function ClientesPage() {
 
   const [clientsResult, subsResult] = await Promise.all([
     query<Client>(`
-      SELECT u.id, u.name, u.email, u.phone, u.company, u.ruc, u.google_id,
-             u.referral_code, u.identity_verified, u.created_at,
+      SELECT u.id, u.name, u.email, u.phone, u.company, u.ruc, u.legal_representative,
+             u.google_id, u.referral_code, u.identity_verified, u.created_at,
              COUNT(s.id) AS total_subs,
              COUNT(s.id) FILTER (WHERE s.status IN ('active','shipped','delivered')) AS active_subs,
              COALESCE(SUM(s.monthly_price::numeric * s.months) FILTER (WHERE s.status != 'cancelled'), 0) AS total_spent,
