@@ -254,8 +254,11 @@ export default function EquipmentTable({ equipment }: { equipment: Equipment[] }
                       <p className="text-xs text-[#999]">S/ {eq.valor_soles ? Number(eq.valor_soles).toLocaleString() : "—"}</p>
                     </td>
                     <td className="px-4 py-3 text-xs text-[#666666]">
-                      <p className="truncate max-w-[110px]">{eq.tipo_financiamiento ?? "—"}</p>
+                      <p className="truncate max-w-[130px]">{eq.tipo_financiamiento ?? "—"}</p>
                       <p className="text-[#999]">{derivedTasaForRow(eq)}</p>
+                      {eq.cuota_credito_soles && Number(eq.cuota_credito_soles) > 0 && (
+                        <p className="font-700 text-[#18191F]">S/ {Number(eq.cuota_credito_soles).toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}<span className="font-400 text-[#999]">/m</span></p>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-xs">
                       {eq.mantenimiento_proximo && days !== null ? (
