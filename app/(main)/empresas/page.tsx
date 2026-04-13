@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
-import { products } from "@/lib/products";
+import { useProducts } from "@/lib/use-products";
 import { motion } from "framer-motion";
 import { trackGenerateLead } from "@/lib/analytics";
 
@@ -141,6 +141,7 @@ function B2BForm() {
 }
 
 export default function Empresas() {
+  const { products } = useProducts();
   return (
     <div>
       {/* Hero */}

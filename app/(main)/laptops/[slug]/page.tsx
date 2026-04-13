@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getProduct, products } from "@/lib/products";
+import { getProduct, getProducts } from "@/lib/products";
 import { getAppleImageSets } from "@/lib/appleImages";
 import { notFound } from "next/navigation";
 import ProductDetail from "@/components/ProductDetail";
@@ -9,12 +9,13 @@ import { query } from "@/lib/db";
 export const revalidate = 86400;
 
 export async function generateStaticParams() {
+  const products = await getProducts();
   return products.map(p => ({ slug: p.slug }));
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const product = getProduct(slug);
+  const product = await getProduct(slug);
   if (!product) return {};
   const price = product.pricing[product.pricing.length - 1].price;
   return {
@@ -49,7 +50,7 @@ async function getLiveStock(slug: string): Promise<number | null> {
 
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const product = getProduct(slug);
+  const product = await getProduct(slug);
   if (!product) notFound();
 
   const [imageSets, liveStock] = await Promise.all([

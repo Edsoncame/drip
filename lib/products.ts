@@ -1,3 +1,5 @@
+import { query } from "./db";
+
 export interface Product {
   slug: string;
   name: string;
@@ -18,93 +20,60 @@ export interface Product {
   includes: string[];
 }
 
-export const products: Product[] = [
-  {
-    slug: "macbook-air-13-m4",
-    name: "MacBook Air 13\" — Apple M4",
-    shortName: "MacBook Air 13\"",
-    chip: "Apple M4",
-    ram: "16 GB",
-    ssd: "256 GB SSD",
-    color: "Gris Espacial",
-    image: "/images/macbook-air-13.png",
-    isNew: true,
-    stock: 5,
-    pricing: [
-      { months: 8,  price: 115 },
-      { months: 16, price: 95  },
-      { months: 24, price: 85  },
-    ],
-    specs: [
-      { label: "Chip",    value: "Apple M4" },
-      { label: "CPU",     value: "8 núcleos" },
-      { label: "GPU",     value: "8 núcleos" },
-      { label: "RAM",     value: "16 GB" },
-      { label: "SSD",     value: "256 GB" },
-      { label: "Pantalla",value: "13.6\" Liquid Retina" },
-      { label: "Batería", value: "Hasta 18 horas" },
-      { label: "Peso",    value: "1.24 kg" },
-    ],
-    includes: ["Cable USB-C", "Adaptador de corriente 30W", "Guía de inicio rápido"],
-  },
-  {
-    slug: "macbook-pro-14-m4",
-    name: "MacBook Pro 14\" — Apple M4",
-    shortName: "MacBook Pro 14\"",
-    chip: "Apple M4",
-    ram: "16 GB",
-    ssd: "512 GB SSD",
-    color: "Plata",
-    image: "/images/macbook-pro-14-m4.png",
-    stock: 3,
-    pricing: [
-      { months: 8,  price: 165 },
-      { months: 16, price: 130 },
-      { months: 24, price: 110 },
-    ],
-    specs: [
-      { label: "Chip",    value: "Apple M4" },
-      { label: "CPU",     value: "10 núcleos" },
-      { label: "GPU",     value: "10 núcleos" },
-      { label: "RAM",     value: "16 GB" },
-      { label: "SSD",     value: "512 GB" },
-      { label: "Pantalla",value: "14.2\" Liquid Retina XDR" },
-      { label: "Batería", value: "Hasta 24 horas" },
-      { label: "Peso",    value: "1.60 kg" },
-    ],
-    includes: ["Cable USB-C a MagSafe 3", "Adaptador de corriente 70W", "Guía de inicio rápido"],
-  },
-  {
-    slug: "macbook-pro-14-m5",
-    name: "MacBook Pro 14\" — Apple M5",
-    shortName: "MacBook Pro 14\" M5",
-    chip: "Apple M5",
-    ram: "16 GB",
-    ssd: "256 GB SSD",
-    color: "Negro Sideral",
-    image: "/images/macbook-pro-14-m5.png",
-    badge: "Nuevo 2025",
-    isNew: true,
-    stock: 2,
-    pricing: [
-      { months: 8,  price: 175 },
-      { months: 16, price: 140 },
-      { months: 24, price: 125 },
-    ],
-    specs: [
-      { label: "Chip",    value: "Apple M5" },
-      { label: "CPU",     value: "10 núcleos" },
-      { label: "GPU",     value: "14 núcleos" },
-      { label: "RAM",     value: "16 GB" },
-      { label: "SSD",     value: "256 GB" },
-      { label: "Pantalla",value: "14.2\" Liquid Retina XDR" },
-      { label: "Batería", value: "Hasta 24 horas" },
-      { label: "Peso",    value: "1.60 kg" },
-    ],
-    includes: ["Cable USB-C a MagSafe 3", "Adaptador de corriente 70W", "Guía de inicio rápido"],
-  },
-];
+interface DbRow {
+  slug: string;
+  name: string;
+  short_name: string;
+  chip: string;
+  ram: string;
+  ssd: string;
+  color: string;
+  image_url: string;
+  badge: string | null;
+  is_new: boolean;
+  stock: number;
+  pricing: { months: number; price: number }[];
+  specs: { label: string; value: string }[];
+  includes: string[];
+}
 
-export function getProduct(slug: string) {
-  return products.find(p => p.slug === slug);
+function rowToProduct(r: DbRow): Product {
+  return {
+    slug: r.slug,
+    name: r.name,
+    shortName: r.short_name,
+    chip: r.chip,
+    ram: r.ram,
+    ssd: r.ssd,
+    color: r.color,
+    image: r.image_url,
+    badge: r.badge ?? undefined,
+    isNew: r.is_new,
+    stock: r.stock,
+    pricing: r.pricing,
+    specs: r.specs,
+    includes: r.includes,
+  };
+}
+
+export async function getProducts(): Promise<Product[]> {
+  const res = await query<DbRow>(
+    `SELECT slug, name, short_name, chip, ram, ssd, color, image_url, badge, is_new, stock, pricing, specs, includes
+     FROM products
+     WHERE active = true
+     ORDER BY display_order ASC, created_at ASC`
+  );
+  return res.rows.map(rowToProduct);
+}
+
+export async function getProduct(slug: string): Promise<Product | null> {
+  const res = await query<DbRow>(
+    `SELECT slug, name, short_name, chip, ram, ssd, color, image_url, badge, is_new, stock, pricing, specs, includes
+     FROM products
+     WHERE slug = $1 AND active = true
+     LIMIT 1`,
+    [slug]
+  );
+  const row = res.rows[0];
+  return row ? rowToProduct(row) : null;
 }

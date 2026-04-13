@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { getProduct } from "@/lib/products";
+import { useProduct } from "@/lib/use-products";
 
 function SuccessContent() {
   const searchParams = useSearchParams();
@@ -16,7 +16,7 @@ function SuccessContent() {
   const total = parseInt(searchParams.get("total") ?? "0", 10);
   const qty = parseInt(searchParams.get("qty") ?? "1", 10);
 
-  const product = getProduct(slug);
+  const { product } = useProduct(slug);
   const plan = product?.pricing.find(p => p.months === months);
   const displayTotal = total > 0 ? total : (plan?.price ?? 0);
 

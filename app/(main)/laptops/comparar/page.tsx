@@ -4,20 +4,22 @@ import { useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { products } from "@/lib/products";
+import { useProducts } from "@/lib/use-products";
+import type { Product } from "@/lib/products";
 
 const ALL_SPEC_LABELS = ["Chip", "CPU", "GPU", "RAM", "SSD", "Pantalla", "Batería", "Peso"];
 
-function getSpec(product: (typeof products)[0], label: string) {
+function getSpec(product: Product, label: string) {
   return product.specs.find(s => s.label === label)?.value ?? "—";
 }
 
 function ComparePage() {
+  const { products } = useProducts();
   const searchParams = useSearchParams();
   const slugs = (searchParams.get("slugs") ?? "").split(",").filter(Boolean).slice(0, 3);
   const items = useMemo(
-    () => slugs.map(s => products.find(p => p.slug === s)).filter(Boolean) as typeof products,
-    [slugs]
+    () => slugs.map(s => products.find(p => p.slug === s)).filter(Boolean) as Product[],
+    [slugs, products]
   );
 
   if (items.length < 2) {

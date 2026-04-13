@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { query } from "@/lib/db";
-import { getProduct } from "@/lib/products";
 import Link from "next/link";
 import CancelSubscriptionButton from "@/components/CancelSubscriptionButton";
 import EndOfContractActions from "@/components/EndOfContractActions";

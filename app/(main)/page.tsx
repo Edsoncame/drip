@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import Hero from "@/components/Hero";
 import ProductCard from "@/components/ProductCard";
 import HowItWorks from "@/components/HowItWorks";
-import { products } from "@/lib/products";
+import { useProducts } from "@/lib/use-products";
 import Link from "next/link";
 import { motion } from "framer-motion";
 
@@ -24,6 +24,7 @@ const benefits = [
 ];
 
 export default function Home() {
+  const { products } = useProducts();
   const [imageSets, setImageSets] = useState<Record<string, { open: string }>>({});
 
   useEffect(() => {

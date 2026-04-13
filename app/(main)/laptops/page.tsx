@@ -4,11 +4,12 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import ProductCard from "@/components/ProductCard";
-import { products } from "@/lib/products";
+import { useProducts } from "@/lib/use-products";
+import type { Product } from "@/lib/products";
 
 const FILTERS = ["Todos", "MacBook Air", "MacBook Pro", "Chip M4", "Chip M5", "16 GB", "Novedades"];
 
-function searchProducts(q: string) {
+function searchProducts(products: Product[], q: string) {
   const lower = q.toLowerCase();
   return products.filter(p =>
     p.name.toLowerCase().includes(lower) ||
@@ -19,7 +20,7 @@ function searchProducts(q: string) {
   );
 }
 
-function filterProducts(active: string) {
+function filterProducts(products: Product[], active: string) {
   if (active === "Todos") return products;
   if (active === "MacBook Air") return products.filter(p => p.name.includes("Air"));
   if (active === "MacBook Pro") return products.filter(p => p.name.includes("Pro"));
@@ -31,6 +32,7 @@ function filterProducts(active: string) {
 }
 
 function LaptopsContent() {
+  const { products } = useProducts();
   const searchParams = useSearchParams();
   const urlFilter = searchParams.get("filter");
   const urlQuery = searchParams.get("q") ?? "";
@@ -66,8 +68,8 @@ function LaptopsContent() {
   }, []);
 
   const filtered = urlQuery
-    ? searchProducts(urlQuery)
-    : filterProducts(active);
+    ? searchProducts(products, urlQuery)
+    : filterProducts(products, active);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">

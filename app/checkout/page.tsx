@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { getProduct } from "@/lib/products";
+import { useProduct } from "@/lib/use-products";
 import type { Product } from "@/lib/products";
 import { trackBeginCheckout, trackPurchase } from "@/lib/analytics";
 
@@ -931,7 +931,7 @@ function CheckoutContent() {
 
   const slug = searchParams.get("slug") ?? "";
   const months = parseInt(searchParams.get("months") ?? "8", 10);
-  const product = getProduct(slug);
+  const { product } = useProduct(slug);
 
   const [step, setStep] = useState(1);
   const [appleCare, setAppleCare] = useState(false);

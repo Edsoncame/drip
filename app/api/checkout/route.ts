@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Token de tarjeta requerido" }, { status: 400 });
     }
 
-    const product = getProduct(slug);
+    const product = await getProduct(slug);
     if (!product) {
       return NextResponse.json({ error: "Producto no encontrado" }, { status: 404 });
     }

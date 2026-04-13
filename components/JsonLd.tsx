@@ -1,4 +1,4 @@
-import { products } from "@/lib/products";
+import { getProduct } from "@/lib/products";
 
 const BASE = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.fluxperu.com";
 
@@ -87,8 +87,8 @@ export function LocalBusinessJsonLd() {
   );
 }
 
-export function ProductJsonLd({ slug }: { slug: string }) {
-  const product = products.find((p) => p.slug === slug);
+export async function ProductJsonLd({ slug }: { slug: string }) {
+  const product = await getProduct(slug);
   if (!product) return null;
 
   const lowestPrice = Math.min(...product.pricing.map((p) => p.price));
