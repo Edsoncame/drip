@@ -7,7 +7,7 @@ import { sendWelcomeEmail } from "@/lib/email";
 
 export async function POST(req: NextRequest) {
   try {
-    const { name, email, password, company, ruc, phone, referralCode } = await req.json();
+    const { name, email, password, company, ruc, phone, referralCode, dniNumber, dniPhoto, selfiePhoto } = await req.json();
 
     // Validate
     if (!name?.trim() || !email?.trim() || !password) {
@@ -31,10 +31,10 @@ export async function POST(req: NextRequest) {
     const myReferralCode = await generateUniqueReferralCode();
 
     const result = await query<{ id: string; name: string; email: string }>(
-      `INSERT INTO users (name, email, password_hash, company, ruc, phone, referral_code)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO users (name, email, password_hash, company, ruc, phone, referral_code, dni_number, dni_photo_url, selfie_url)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING id, name, email`,
-      [name.trim(), email.toLowerCase(), passwordHash, company?.trim() || null, ruc?.trim() || null, phone?.trim() || null, myReferralCode]
+      [name.trim(), email.toLowerCase(), passwordHash, company?.trim() || null, ruc?.trim() || null, phone?.trim() || null, myReferralCode, dniNumber?.trim() || null, dniPhoto || null, selfiePhoto || null]
     );
 
     const user = result.rows[0];
