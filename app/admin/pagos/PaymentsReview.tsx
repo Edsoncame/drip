@@ -40,6 +40,12 @@ export default function PaymentsReview({ payments }: { payments: Payment[] }) {
   const [noteValue, setNoteValue] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [invoiceAmount, setInvoiceAmount] = useState("");
+  const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+
+  const showToast = (type: "success" | "error", msg: string) => {
+    setToast({ type, msg });
+    setTimeout(() => setToast(null), 4000);
+  };
 
   const filtered = payments.filter(p =>
     filter === "all" ||
@@ -78,33 +84,42 @@ export default function PaymentsReview({ payments }: { payments: Payment[] }) {
 
   const handleInvoiceUpload = async (paymentId: string, file: File) => {
     if (!invoiceNumber.trim()) {
-      alert("Ingresa el N° de factura primero");
+      showToast("error", "Ingresa el N° de factura primero");
       return;
     }
     setProcessing(paymentId);
-    const fd = new FormData();
-    fd.append("file", file);
-    const up = await fetch("/api/upload", { method: "POST", body: fd });
-    const upData = await up.json();
-    if (upData.dataUrl) {
-      await fetch(`/api/admin/payments/${paymentId}/invoice`, {
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("invoiceNumber", invoiceNumber.trim());
+      if (invoiceAmount) fd.append("amount", invoiceAmount);
+      const res = await fetch(`/api/admin/payments/${paymentId}/invoice`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          invoiceUrl: upData.dataUrl,
-          invoiceNumber: invoiceNumber.trim(),
-          amount: invoiceAmount ? parseFloat(invoiceAmount) : undefined,
-        }),
+        body: fd,
       });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Error al subir factura");
+      showToast("success", `Factura ${json.invoiceNumber} subida correctamente`);
       setInvoiceNumber("");
       setInvoiceAmount("");
       startTransition(() => router.refresh());
+    } catch (e) {
+      showToast("error", e instanceof Error ? e.message : "Error");
+    } finally {
+      setProcessing(null);
     }
-    setProcessing(null);
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-[#E5E5E5] overflow-hidden">
+    <div className="bg-white rounded-2xl border border-[#E5E5E5] overflow-hidden relative">
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed top-4 right-4 z-50 px-5 py-3 rounded-xl shadow-lg text-sm font-700 ${
+          toast.type === "success" ? "bg-green-600 text-white" : "bg-red-600 text-white"
+        }`}>
+          {toast.type === "success" ? "✓ " : "✕ "}{toast.msg}
+        </div>
+      )}
       {/* Filter tabs */}
       <div className="flex gap-1 px-5 pt-4 pb-0 border-b border-[#E5E5E5] overflow-x-auto">
         {[
