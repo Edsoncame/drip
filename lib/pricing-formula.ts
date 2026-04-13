@@ -32,21 +32,24 @@ export const PLAN_INFO: Record<PlanKey, { label: string; months: number; residua
 };
 
 /**
- * Ratios derivados del promedio de 3 modelos de referencia usando
- * los costos REALES de compra:
- *   - Air M4 13": ~$1,124
- *   - Pro M4 14": ~$1,721
- *   - Pro M5 14": ~$2,065
+ * FÓRMULA LINEAL: total_pagado = a × cost + b
+ *                price_mensual = total_pagado / months
  *
- * ratio = (precio_mensual × meses_total) / costo_equipo
+ * Coeficientes calculados por REGRESIÓN LINEAL con los precios reales:
+ *   - Air M4 13": cost $1,124 → 8m=$110, 16m=$90, 24m=$80
+ *   - Pro M4 14": cost $1,721 → 8m=$155, 16m=$120, 24m=$105
+ *   - Pro M5 14": cost $2,065 → 8m=$165, 16m=$130, 24m=$115
+ *
+ * Re-alquiler:
+ *   - Pro M4: 100/85/95 — Air M4: 75/65/70 — Pro M5: 110/90/100
  */
-const PLAN_RATIO: Record<PlanKey, number> = {
-  estreno_8m:              0.714,
-  estreno_16m:             1.135,
-  estreno_24m:             1.503,
-  realquiler_8m_usado_8m:  0.475,
-  realquiler_8m_usado_16m: 0.402,
-  realquiler_16m_usado_8m: 0.885,
+const PLAN_COEFFS: Record<PlanKey, { a: number; b: number }> = {
+  estreno_8m:              { a: 0.4826, b: 356.81 },
+  estreno_16m:             { a: 0.6938, b: 677.81 },
+  estreno_24m:             { a: 0.9052, b: 918.49 },
+  realquiler_8m_usado_8m:  { a: 0.3017, b: 266.22 },
+  realquiler_8m_usado_16m: { a: 0.2187, b: 282.06 },
+  realquiler_16m_usado_8m: { a: 0.5278, b: 549.50 },
 };
 
 /**
@@ -80,7 +83,7 @@ function roundUpTo5(n: number): number {
 /**
  * Precio offline (empresas, sin comisión) para cualquier equipo.
  * Si el slug existe en referencia, usa el precio exacto.
- * Si no, calcula con la fórmula.
+ * Si no, calcula con la fórmula: total = a × cost + b, precio = total / months
  */
 export function calcOfflinePrice(cost: number, plan: PlanKey, slug?: string): number {
   // 1. Try reference lookup first
@@ -88,10 +91,11 @@ export function calcOfflinePrice(cost: number, plan: PlanKey, slug?: string): nu
     return REFERENCE_PRICES[slug][plan];
   }
 
-  // 2. Use formula
+  // 2. Use linear formula
   const info = PLAN_INFO[plan];
-  const ratio = PLAN_RATIO[plan];
-  const raw = (cost * ratio) / info.months;
+  const coeffs = PLAN_COEFFS[plan];
+  const totalPaid = coeffs.a * cost + coeffs.b;
+  const raw = totalPaid / info.months;
   return roundUpTo5(raw);
 }
 
