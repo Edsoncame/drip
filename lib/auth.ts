@@ -72,19 +72,24 @@ export interface AdminSession extends SessionPayload {
 export async function requireAdmin(): Promise<AdminSession | null> {
   const session = await getSession();
   if (!session) return null;
-  const email = session.email.toLowerCase();
 
-  const result = await query<{ is_admin: boolean; is_super_admin: boolean }>(
-    `SELECT is_admin, is_super_admin FROM users WHERE LOWER(email) = $1`,
-    [email]
+  // Query by userId (JWT may have stale email if user renamed since login)
+  const result = await query<{ email: string; is_admin: boolean; is_super_admin: boolean }>(
+    `SELECT email, is_admin, is_super_admin FROM users WHERE id = $1`,
+    [session.userId]
   );
   const row = result.rows[0];
 
   if (row?.is_admin) {
-    return { ...session, isAdmin: true, isSuperAdmin: row.is_super_admin };
+    return {
+      ...session,
+      email: row.email, // fresh email from DB
+      isAdmin: true,
+      isSuperAdmin: row.is_super_admin,
+    };
   }
-  // Legacy bootstrap
-  if (LEGACY_ADMIN_EMAILS.includes(email)) {
+  // Legacy bootstrap via env var (before is_admin column existed)
+  if (LEGACY_ADMIN_EMAILS.includes(session.email.toLowerCase())) {
     return { ...session, isAdmin: true, isSuperAdmin: true };
   }
   return null;
