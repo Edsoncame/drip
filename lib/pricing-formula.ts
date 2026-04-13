@@ -32,24 +32,25 @@ export const PLAN_INFO: Record<PlanKey, { label: string; months: number; residua
 };
 
 /**
- * FÓRMULA LINEAL: total_pagado = a × cost + b
- *                price_mensual = total_pagado / months
+ * FÓRMULA DE POTENCIA: price_mensual = a × cost^b
  *
- * Coeficientes calculados por REGRESIÓN LINEAL con los precios reales:
+ * Calibrada con log-log regression en los 3 modelos de referencia:
  *   - Air M4 13": cost $1,124 → 8m=$110, 16m=$90, 24m=$80
  *   - Pro M4 14": cost $1,721 → 8m=$155, 16m=$120, 24m=$105
  *   - Pro M5 14": cost $2,065 → 8m=$165, 16m=$130, 24m=$115
  *
- * Re-alquiler:
- *   - Pro M4: 100/85/95 — Air M4: 75/65/70 — Pro M5: 110/90/100
+ * Esta fórmula es más SUAVE que la lineal:
+ *   - Para equipos baratos (<$1,000): da precios proporcionalmente menores
+ *   - Para equipos caros (>$2,500): mantiene el curva razonable
+ *   - Rango útil: $500 - $5,000 aprox
  */
 const PLAN_COEFFS: Record<PlanKey, { a: number; b: number }> = {
-  estreno_8m:              { a: 0.4826, b: 356.81 },
-  estreno_16m:             { a: 0.6938, b: 677.81 },
-  estreno_24m:             { a: 0.9052, b: 918.49 },
-  realquiler_8m_usado_8m:  { a: 0.3017, b: 266.22 },
-  realquiler_8m_usado_16m: { a: 0.2187, b: 282.06 },
-  realquiler_16m_usado_8m: { a: 0.5278, b: 549.50 },
+  estreno_8m:              { a: 0.7857, b: 0.7044 },
+  estreno_16m:             { a: 0.9653, b: 0.6451 },
+  estreno_24m:             { a: 0.7877, b: 0.6557 },
+  realquiler_8m_usado_8m:  { a: 1.3522, b: 0.5753 },
+  realquiler_8m_usado_16m: { a: 2.2697, b: 0.4821 },
+  realquiler_16m_usado_8m: { a: 1.3118, b: 0.5697 },
 };
 
 /**
@@ -98,12 +99,10 @@ export function calcOfflinePrice(cost: number, plan: PlanKey, slug?: string): nu
     return REFERENCE_PRICES[slug][plan];
   }
 
-  // 2. Use linear formula
-  const info = PLAN_INFO[plan];
+  // 2. Use power formula: price = a × cost^b
   const coeffs = PLAN_COEFFS[plan];
-  const totalPaid = coeffs.a * cost + coeffs.b;
-  const raw = totalPaid / info.months;
-  return roundTo5(raw);  // Offline: nearest $5 (not always up)
+  const raw = coeffs.a * Math.pow(cost, coeffs.b);
+  return roundTo5(raw);  // Offline: nearest $5
 }
 
 /**
