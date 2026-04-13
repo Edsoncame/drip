@@ -16,6 +16,7 @@ interface PaymentRow {
   user_id: string;
   user_name: string;
   user_email: string;
+  user_phone: string | null;
   company: string | null;
   amount: string;
   period_label: string;
@@ -37,7 +38,7 @@ export default async function AdminPagosPage() {
   if (!session) redirect("/");
 
   const result = await query<PaymentRow>(`
-    SELECT p.id, p.user_id, u.name AS user_name, u.email AS user_email,
+    SELECT p.id, p.user_id, u.name AS user_name, u.email AS user_email, u.phone AS user_phone,
            u.company, p.amount, p.period_label, p.due_date, p.status,
            p.payment_method, p.receipt_url, p.receipt_uploaded_at, p.validated_at, p.admin_note,
            p.invoice_url, p.invoice_number,

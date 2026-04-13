@@ -7,6 +7,7 @@ interface Payment {
   id: string;
   user_name: string;
   user_email: string;
+  user_phone: string | null;
   company: string | null;
   amount: string;
   period_label: string;
@@ -342,13 +343,38 @@ export default function PaymentsReview({ payments }: { payments: Payment[] }) {
                           >
                             ✓ Marcar como pagado
                           </button>
-                          <a
-                            href={`https://wa.me/51${(p.user_email || "").replace(/\D/g, "")}?text=${encodeURIComponent(`Hola, te recordamos tu pago de ${p.period_label} por $${p.amount} USD en FLUX.`)}`}
-                            target="_blank" rel="noreferrer"
-                            className="px-3 py-2.5 bg-[#25D366] text-white text-xs font-700 rounded-xl text-center hover:opacity-90 transition-opacity"
-                          >
-                            WhatsApp recordatorio
-                          </a>
+                          {(() => {
+                            const rawPhone = (p.user_phone ?? "").replace(/\D/g, "");
+                            // Normalize: if 9 digits, prepend 51; if starts with 51, keep as-is
+                            const phone = rawPhone.startsWith("51")
+                              ? rawPhone
+                              : rawPhone.length === 9
+                                ? `51${rawPhone}`
+                                : rawPhone;
+                            const waText = `Hola ${p.user_name.split(" ")[0]}, te recordamos tu pago de ${p.period_label} por $${p.amount} USD en FLUX. Gracias.`;
+                            const waUrl = phone
+                              ? `https://wa.me/${phone}?text=${encodeURIComponent(waText)}`
+                              : null;
+                            return waUrl ? (
+                              <a
+                                href={waUrl}
+                                target="_blank" rel="noreferrer"
+                                className="px-3 py-2.5 bg-[#25D366] text-white text-xs font-700 rounded-xl text-center hover:opacity-90 transition-opacity"
+                                title={`Enviar WhatsApp a +${phone}`}
+                              >
+                                WhatsApp recordatorio
+                              </a>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled
+                                title="Este cliente no tiene teléfono registrado"
+                                className="px-3 py-2.5 bg-gray-200 text-gray-500 text-xs font-700 rounded-xl text-center cursor-not-allowed"
+                              >
+                                Sin teléfono
+                              </button>
+                            );
+                          })()}
                         </div>
                       </div>
                     )}
