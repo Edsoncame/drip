@@ -1,5 +1,6 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
+import { query } from "./db";
 
 const jwtSecret = process.env.JWT_SECRET;
 if (!jwtSecret && process.env.NODE_ENV === "production") {
@@ -50,6 +51,43 @@ export function sessionCookieOptions(token: string) {
     maxAge: MAX_AGE,
     path: "/",
   };
+}
+
+/**
+ * Returns admin session if current user is admin, otherwise null.
+ * Admin status is stored in users.is_admin (DB). Legacy ADMIN_EMAILS env var
+ * is used as bootstrap fallback (so the first super admin can sign in before
+ * the DB column was added).
+ */
+const LEGACY_ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "")
+  .split(",")
+  .map(e => e.trim().toLowerCase())
+  .filter(Boolean);
+
+export interface AdminSession extends SessionPayload {
+  isAdmin: true;
+  isSuperAdmin: boolean;
+}
+
+export async function requireAdmin(): Promise<AdminSession | null> {
+  const session = await getSession();
+  if (!session) return null;
+  const email = session.email.toLowerCase();
+
+  const result = await query<{ is_admin: boolean; is_super_admin: boolean }>(
+    `SELECT is_admin, is_super_admin FROM users WHERE LOWER(email) = $1`,
+    [email]
+  );
+  const row = result.rows[0];
+
+  if (row?.is_admin) {
+    return { ...session, isAdmin: true, isSuperAdmin: row.is_super_admin };
+  }
+  // Legacy bootstrap
+  if (LEGACY_ADMIN_EMAILS.includes(email)) {
+    return { ...session, isAdmin: true, isSuperAdmin: true };
+  }
+  return null;
 }
 
 export function clearCookieOptions() {

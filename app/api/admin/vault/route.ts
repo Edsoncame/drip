@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { encrypt, decrypt } from "@/lib/vault";
 
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "").split(",").map(e => e.trim().toLowerCase());
-
 async function assertAdmin() {
-  const session = await getSession();
-  if (!session || !ADMIN_EMAILS.includes(session.email.toLowerCase())) return false;
-  return true;
+  return !!(await requireAdmin());
 }
 
 export async function GET(req: NextRequest) {

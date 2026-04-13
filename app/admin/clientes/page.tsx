@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { query } from "@/lib/db";
 import type { Metadata } from "next";
 import AdminNav from "../AdminNav";
@@ -10,7 +10,6 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "").split(",").map(e => e.trim().toLowerCase());
 
 interface Client {
   id: string;
@@ -67,8 +66,8 @@ interface PaymentDetail {
 }
 
 export default async function ClientesPage() {
-  const session = await getSession();
-  if (!session || !ADMIN_EMAILS.includes(session.email.toLowerCase())) redirect("/");
+  const session = await requireAdmin();
+  if (!session) redirect("/");
 
   const [clientsResult, subsResult, paymentsResult] = await Promise.all([
     query<Client>(`

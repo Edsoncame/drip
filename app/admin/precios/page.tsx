@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { query } from "@/lib/db";
 import type { Metadata } from "next";
 import AdminNav from "../AdminNav";
@@ -11,8 +11,6 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "").split(",").map(e => e.trim().toLowerCase());
-
 interface PricingRow {
   id: string;
   modelo: string;
@@ -23,8 +21,8 @@ interface PricingRow {
 }
 
 export default async function PreciosPage() {
-  const session = await getSession();
-  if (!session || !ADMIN_EMAILS.includes(session.email.toLowerCase())) redirect("/");
+  const session = await requireAdmin();
+  if (!session) redirect("/");
 
   const result = await query<PricingRow>(`SELECT * FROM pricing ORDER BY channel, modelo, plan`);
 

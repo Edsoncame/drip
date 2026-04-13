@@ -1,16 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { put } from "@vercel/blob";
-import { getSession } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "").split(",").map(e => e.trim().toLowerCase());
 const MAX_SIZE = 15 * 1024 * 1024; // 15MB
 const ALLOWED = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 
 export async function POST(req: NextRequest) {
-  const session = await getSession();
-  if (!session || !ADMIN_EMAILS.includes(session.email.toLowerCase())) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
+  const session = await requireAdmin();
+  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
   const formData = await req.formData();
   const file = formData.get("file") as File | null;

@@ -1,13 +1,11 @@
 import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { query } from "@/lib/db";
 import type { Metadata } from "next";
 import AdminTable from "./AdminTable";
 import AdminNav from "./AdminNav";
 
 export const metadata: Metadata = { title: "Admin | FLUX", robots: { index: false, follow: false } };
-
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "").split(",").map(e => e.trim().toLowerCase());
 
 interface Sub {
   id: string;
@@ -56,10 +54,8 @@ interface Referral {
 }
 
 export default async function AdminPage() {
-  const session = await getSession();
-  if (!session || !ADMIN_EMAILS.includes(session.email.toLowerCase())) {
-    redirect("/");
-  }
+  const session = await requireAdmin();
+  if (!session) redirect("/");
 
   const [statsResult, subsResult, referralsResult] = await Promise.all([
     query<Stat>(`

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import type { Metadata } from "next";
 import AdminNav from "../AdminNav";
 import VaultClient from "./VaultClient";
@@ -9,11 +9,9 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "").split(",").map(e => e.trim().toLowerCase());
-
 export default async function VaultPage() {
-  const session = await getSession();
-  if (!session || !ADMIN_EMAILS.includes(session.email.toLowerCase())) redirect("/");
+  const session = await requireAdmin();
+  if (!session) redirect("/");
 
   return (
     <div className="min-h-screen bg-[#F7F7F7]">

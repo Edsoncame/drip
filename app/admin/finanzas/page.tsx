@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { query } from "@/lib/db";
 import type { Metadata } from "next";
 import AdminNav from "../AdminNav";
@@ -12,7 +12,6 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "").split(",").map(e => e.trim().toLowerCase());
 
 interface Row {
   id: string;
@@ -57,8 +56,8 @@ function nextDueDate(fechaCompra: string | null, plazo: number): string | null {
 }
 
 export default async function FinanzasPage() {
-  const session = await getSession();
-  if (!session || !ADMIN_EMAILS.includes(session.email.toLowerCase())) redirect("/");
+  const session = await requireAdmin();
+  if (!session) redirect("/");
 
   const result = await query<Row>(
     `SELECT id, codigo_interno, modelo_completo, tipo_financiamiento, cuota_credito_soles,

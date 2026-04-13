@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { query } from "@/lib/db";
 
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "").split(",").map(e => e.trim().toLowerCase());
 const tag = "[admin/export]";
 
 export async function GET() {
-  const session = await getSession();
-  if (!session || !ADMIN_EMAILS.includes(session.email.toLowerCase())) {
-    console.warn(`${tag} unauthorized access attempt email=${session?.email ?? "anonymous"}`);
+  const session = await requireAdmin();
+  if (!session) {
+    console.warn(`${tag} unauthorized access attempt`);
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 

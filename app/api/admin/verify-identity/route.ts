@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { query } from "@/lib/db";
 
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "").split(",").map(e => e.trim().toLowerCase());
-
 export async function POST(req: NextRequest) {
-  const session = await getSession();
-  if (!session || !ADMIN_EMAILS.includes(session.email.toLowerCase())) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
+  const session = await requireAdmin();
+  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
   const { userId, verified } = await req.json() as { userId: string; verified: boolean };
 

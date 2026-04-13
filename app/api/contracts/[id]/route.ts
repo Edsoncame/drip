@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { getSession, requireAdmin } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { generateContractPdf } from "@/lib/contract-pdf";
-
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "").split(",").map(e => e.trim().toLowerCase());
 
 export async function GET(
   _req: NextRequest,
@@ -13,7 +11,7 @@ export async function GET(
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
   const { id } = await params;
-  const isAdmin = ADMIN_EMAILS.includes(session.email.toLowerCase());
+  const isAdmin = !!(await requireAdmin());
 
   // Users can only download their own contracts; admins can download any
   const result = await query<{
