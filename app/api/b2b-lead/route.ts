@@ -5,7 +5,7 @@ const tag = "[b2b-lead]";
 
 export async function POST(req: NextRequest) {
   try {
-    const { name, legal_representative, email, company, phone, quantity, message } = await req.json();
+    const { name, legal_representative, email, company, ruc, phone, quantity, message } = await req.json();
 
     if (!name?.trim() || !company?.trim()) {
       return NextResponse.json({ error: "Nombre y empresa son requeridos." }, { status: 400 });
@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
       telefono: phone?.trim() ?? "",
       cantidad: quantity ?? "1-5",
       modelo: "Por definir",
-      mensaje: `${legal_representative ? `Representante legal: ${legal_representative}\n\n` : ""}${message?.trim() ?? ""}`,
+      mensaje: `${legal_representative ? `Representante legal: ${legal_representative}\n` : ""}${ruc ? `RUC: ${ruc}\n` : ""}\n${message?.trim() ?? ""}`,
     });
 
     console.log(`${tag} lead from ${email} — ${company} (${quantity ?? "1-5"} units)`);

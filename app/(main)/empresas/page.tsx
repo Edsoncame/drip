@@ -9,7 +9,23 @@ const fadeUp = { hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0 } };
 const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.06 } } };
 
 function B2BForm() {
-  const [form, setForm] = useState({ name: "", legal_representative: "", email: "", company: "", phone: "", quantity: "1-5", message: "" });
+  const [form, setForm] = useState({ name: "", legal_representative: "", email: "", company: "", ruc: "", phone: "", quantity: "1-5", message: "" });
+  const [rucStatus, setRucStatus] = useState<{ valid?: boolean; razonSocial?: string; loading?: boolean }>({});
+
+  const verifyRuc = async (ruc: string) => {
+    if (ruc.length !== 11) return;
+    setRucStatus({ loading: true });
+    try {
+      const res = await fetch(`/api/verify-ruc?ruc=${ruc}`);
+      const data = await res.json();
+      setRucStatus({ valid: data.valid, razonSocial: data.razonSocial });
+      if (data.valid && data.razonSocial && !form.company) {
+        setForm(f => ({ ...f, company: data.razonSocial }));
+      }
+    } catch {
+      setRucStatus({});
+    }
+  };
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,6 +79,24 @@ function B2BForm() {
           <input type="email" required value={form.email} onChange={e => set("email", e.target.value)}
             placeholder="juan@empresa.com"
             className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/40 text-sm outline-none focus:border-white/60 transition-all" />
+        </div>
+        <div>
+          <label className="block text-sm font-600 text-white/80 mb-1">RUC <span className="text-white/50">*</span></label>
+          <input type="text" required value={form.ruc}
+            onChange={e => {
+              const v = e.target.value.replace(/\D/g, "").slice(0, 11);
+              set("ruc", v);
+              if (v.length === 11) verifyRuc(v);
+              else setRucStatus({});
+            }}
+            placeholder="20123456789"
+            className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/40 text-sm outline-none focus:border-white/60 transition-all" />
+          {rucStatus.valid === true && (
+            <p className="text-xs text-green-300 mt-1 font-600">✓ {rucStatus.razonSocial}</p>
+          )}
+          {rucStatus.valid === false && form.ruc.length === 11 && (
+            <p className="text-xs text-red-300 mt-1">✕ RUC no válido en SUNAT</p>
+          )}
         </div>
         <div>
           <label className="block text-sm font-600 text-white/80 mb-1">Empresa</label>

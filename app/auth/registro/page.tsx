@@ -34,7 +34,6 @@ function RegisterForm() {
     if (!form.name.trim()) e.name = "Requerido";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = "Email inválido";
     if (form.password.length < 8) e.password = "Mínimo 8 caracteres";
-    if (!form.company.trim()) e.company = "Requerido";
     if (!form.phone.trim()) e.phone = "Requerido";
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -157,14 +156,14 @@ function RegisterForm() {
               </div>
             </Field>
 
-            {/* Company */}
-            <Field label="Empresa" required error={errors.company}>
+            {/* Company - optional */}
+            <Field label="Empresa" optional>
               <input
                 type="text"
                 value={form.company}
                 onChange={set("company")}
-                placeholder="Mi Empresa S.A.C."
-                className={inputClass(!!errors.company)}
+                placeholder="Si rentas a nombre de tu empresa"
+                className={inputClass(false)}
               />
             </Field>
 
