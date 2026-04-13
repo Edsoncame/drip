@@ -19,13 +19,14 @@ interface PricingRow {
   plan: string;
   precio_usd: string;
   residual_pct: string | null;
+  channel: string;
 }
 
 export default async function PreciosPage() {
   const session = await getSession();
   if (!session || !ADMIN_EMAILS.includes(session.email.toLowerCase())) redirect("/");
 
-  const result = await query<PricingRow>(`SELECT * FROM pricing ORDER BY modelo, plan`);
+  const result = await query<PricingRow>(`SELECT * FROM pricing ORDER BY channel, modelo, plan`);
 
   return (
     <div className="min-h-screen bg-[#F7F7F7]">

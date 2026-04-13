@@ -89,7 +89,7 @@ export const products: Product[] = [
     pricing: [
       { months: 8,  price: 175 },
       { months: 16, price: 140 },
-      { months: 24, price: 120 },
+      { months: 24, price: 125 },
     ],
     specs: [
       { label: "Chip",    value: "Apple M5" },
