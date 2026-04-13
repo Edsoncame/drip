@@ -17,6 +17,7 @@ const empresa = [
 const legal = [
   { label: "Términos y condiciones", href: "/terminos" },
   { label: "Política de privacidad", href: "/privacidad" },
+  { label: "Cancelaciones y devoluciones", href: "/cancelaciones" },
 ];
 
 export default function Footer() {
@@ -97,9 +98,27 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="border-t border-white/10 pt-6 flex flex-col md:flex-row items-center justify-between gap-2 text-xs">
-          <span>© 2026 FLUX — Tika Services S.A.C. · Lima, Perú · RUC 20608888888</span>
-          <span>Hecho con 💙 para equipos que merecen Mac</span>
+        <div className="border-t border-white/10 pt-6 space-y-3 text-xs">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <p className="text-white font-700 mb-1">Tika Services S.A.C.</p>
+              <p>RUC: 20605702512</p>
+              <p>Av. Primavera 543, Oficina 502 — Surco, Lima, Perú</p>
+            </div>
+            <div className="md:text-right">
+              <p className="text-white font-700 mb-1">Contacto</p>
+              <p>
+                <a href="mailto:hola@fluxperu.com" className="hover:text-white transition-colors">hola@fluxperu.com</a>
+              </p>
+              <p>
+                <a href="https://wa.me/51932648703" target="_blank" rel="noreferrer" className="hover:text-white transition-colors">+51 932 648 703</a>
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col md:flex-row items-center justify-between gap-2 pt-3 border-t border-white/5">
+            <span>© 2026 FLUX — Tika Services S.A.C. · Todos los derechos reservados</span>
+            <span>Empresa inscrita en SUNAT y SUNARP · Lima, Perú</span>
+          </div>
         </div>
       </div>
     </footer>

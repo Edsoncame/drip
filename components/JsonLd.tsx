@@ -13,9 +13,13 @@ export function OrganizationJsonLd() {
     description:
       "Servicio de alquiler mensual de MacBook para empresas y profesionales en Lima, Perú.",
     foundingDate: "2025",
+    taxID: "20605702512",
     address: {
       "@type": "PostalAddress",
-      addressLocality: "Lima",
+      streetAddress: "Av. Primavera 543, Oficina 502",
+      addressLocality: "Surco",
+      addressRegion: "Lima",
+      postalCode: "15023",
       addressCountry: "PE",
     },
     contactPoint: {
@@ -45,12 +49,14 @@ export function LocalBusinessJsonLd() {
     url: BASE,
     logo: `${BASE}/images/logoflux.svg`,
     image: `${BASE}/og-image.png`,
-    telephone: "+51932648702",
+    telephone: "+51932648703",
     email: "hola@fluxperu.com",
     address: {
       "@type": "PostalAddress",
-      addressLocality: "Lima",
+      streetAddress: "Av. Primavera 543, Oficina 502",
+      addressLocality: "Surco",
       addressRegion: "Lima",
+      postalCode: "15023",
       addressCountry: "PE",
     },
     geo: {
