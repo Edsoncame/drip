@@ -21,12 +21,12 @@ interface Payment {
   invoice_number: string | null;
 }
 
-const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  reviewing: { label: "Por revisar", color: "bg-blue-100 text-blue-700" },
-  pending:   { label: "Pendiente",   color: "bg-yellow-100 text-yellow-700" },
-  overdue:   { label: "Vencido",     color: "bg-red-100 text-red-600" },
-  validated: { label: "Validado",    color: "bg-green-100 text-green-700" },
-  upcoming:  { label: "Próximo",     color: "bg-gray-100 text-gray-500" },
+const STATUS_CONFIG: Record<string, { label: string; color: string; icon: string }> = {
+  reviewing: { label: "Por revisar", color: "bg-blue-100 text-blue-700 border-blue-200", icon: "⏳" },
+  pending:   { label: "Pendiente",   color: "bg-yellow-100 text-yellow-700 border-yellow-200", icon: "⚠️" },
+  overdue:   { label: "Vencido",     color: "bg-red-100 text-red-600 border-red-200", icon: "⚠️" },
+  validated: { label: "Pagado",      color: "bg-green-100 text-green-700 border-green-200", icon: "✓" },
+  upcoming:  { label: "Próximo",     color: "bg-gray-100 text-gray-500 border-gray-200", icon: "○" },
 };
 
 export default function PaymentsReview({ payments }: { payments: Payment[] }) {
@@ -36,9 +36,12 @@ export default function PaymentsReview({ payments }: { payments: Payment[] }) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [processing, setProcessing] = useState<string | null>(null);
   const [noteValue, setNoteValue] = useState("");
+  const [invoiceNumber, setInvoiceNumber] = useState("");
 
   const filtered = payments.filter(p =>
-    filter === "all" || p.status === filter
+    filter === "all" ||
+    (filter === "pending" && (p.status === "pending" || p.status === "overdue")) ||
+    filter === p.status
   );
 
   const handleAction = async (paymentId: string, action: "validate" | "reject") => {
@@ -49,27 +52,37 @@ export default function PaymentsReview({ payments }: { payments: Payment[] }) {
       body: JSON.stringify({ paymentId, action, note: noteValue || undefined }),
     });
     setProcessing(null);
-    setExpanded(null);
     setNoteValue("");
     startTransition(() => router.refresh());
   };
 
-  const [invoiceNumber, setInvoiceNumber] = useState("");
-  const [uploadingInvoice, setUploadingInvoice] = useState<string | null>(null);
+  const handleReceiptUpload = async (paymentId: string, file: File) => {
+    setProcessing(paymentId);
+    const fd = new FormData();
+    fd.append("file", file);
+    const up = await fetch("/api/upload", { method: "POST", body: fd });
+    const upData = await up.json();
+    if (upData.dataUrl) {
+      await fetch(`/api/payments/${paymentId}/receipt`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ receiptUrl: upData.dataUrl }),
+      });
+      startTransition(() => router.refresh());
+    }
+    setProcessing(null);
+  };
 
   const handleInvoiceUpload = async (paymentId: string, file: File) => {
     if (!invoiceNumber.trim()) {
-      alert("Ingresa el N° de factura primero (ej: F001-0001)");
+      alert("Ingresa el N° de factura primero");
       return;
     }
-    setUploadingInvoice(paymentId);
-
-    // Upload file
+    setProcessing(paymentId);
     const fd = new FormData();
     fd.append("file", file);
-    const upRes = await fetch("/api/upload", { method: "POST", body: fd });
-    const upData = await upRes.json();
-
+    const up = await fetch("/api/upload", { method: "POST", body: fd });
+    const upData = await up.json();
     if (upData.dataUrl) {
       await fetch(`/api/admin/payments/${paymentId}/invoice`, {
         method: "POST",
@@ -79,196 +92,262 @@ export default function PaymentsReview({ payments }: { payments: Payment[] }) {
       setInvoiceNumber("");
       startTransition(() => router.refresh());
     }
-    setUploadingInvoice(null);
+    setProcessing(null);
   };
 
   return (
     <div className="bg-white rounded-2xl border border-[#E5E5E5] overflow-hidden">
       {/* Filter tabs */}
-      <div className="flex gap-1 px-4 pt-3 pb-0 border-b border-[#E5E5E5]">
+      <div className="flex gap-1 px-5 pt-4 pb-0 border-b border-[#E5E5E5] overflow-x-auto">
         {[
-          { key: "all", label: "Todos", count: payments.length },
-          { key: "reviewing", label: "Por revisar", count: payments.filter(p => p.status === "reviewing").length },
-          { key: "pending", label: "Pendientes", count: payments.filter(p => p.status === "pending" || p.status === "overdue").length },
-          { key: "validated", label: "Validados", count: payments.filter(p => p.status === "validated").length },
+          { key: "all", label: "Todos" },
+          { key: "reviewing", label: "⏳ Por revisar", count: payments.filter(p => p.status === "reviewing").length },
+          { key: "pending", label: "⚠️ Pendientes", count: payments.filter(p => p.status === "pending" || p.status === "overdue").length },
+          { key: "validated", label: "✓ Pagados", count: payments.filter(p => p.status === "validated").length },
+          { key: "upcoming", label: "Próximos", count: payments.filter(p => p.status === "upcoming").length },
         ].map(f => (
           <button
             key={f.key}
             onClick={() => setFilter(f.key)}
-            className={`px-3 py-2 text-xs font-600 border-b-2 transition-colors cursor-pointer ${
+            className={`flex-shrink-0 px-4 py-2.5 text-sm font-600 border-b-2 transition-colors cursor-pointer whitespace-nowrap ${
               filter === f.key ? "border-[#1B4FFF] text-[#1B4FFF]" : "border-transparent text-[#666666] hover:text-[#333333]"
             }`}
           >
-            {f.label} {f.count > 0 && <span className="ml-1 opacity-70">{f.count}</span>}
+            {f.label} {f.count !== undefined && f.count > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-[#F5F5F7] text-[#666]">{f.count}</span>
+            )}
           </button>
         ))}
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-[#F7F7F7]">
-            <tr>
-              {["Cliente", "Período", "Monto", "Estado", "Comprobante", "Acciones"].map(h => (
-                <th key={h} className="text-left px-4 py-3 text-xs font-700 text-[#666666] whitespace-nowrap">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[#F0F0F0]">
-            {filtered.length === 0 ? (
-              <tr><td colSpan={6} className="text-center py-12 text-[#999999]">Sin pagos en esta categoría</td></tr>
-            ) : filtered.map(p => {
-              const st = STATUS_LABELS[p.status] ?? STATUS_LABELS.pending;
-              const isExpanded = expanded === p.id;
+      {/* Payments list */}
+      <div className="divide-y divide-[#F0F0F0]">
+        {filtered.length === 0 ? (
+          <div className="text-center py-16 text-[#999999]">
+            <p className="text-sm">Sin pagos en esta categoría</p>
+          </div>
+        ) : filtered.map(p => {
+          const st = STATUS_CONFIG[p.status] ?? STATUS_CONFIG.pending;
+          const isExpanded = expanded === p.id;
+          const dueDate = new Date(p.due_date);
+          const isOverdue = p.status === "pending" && dueDate < new Date();
 
-              return (
-                <tbody key={p.id}>
-                  <tr
-                    className={`hover:bg-[#FAFAFA] cursor-pointer ${isExpanded ? "bg-[#F5F8FF]" : ""} ${p.status === "reviewing" ? "bg-blue-50/50" : ""}`}
-                    onClick={() => setExpanded(isExpanded ? null : p.id)}
-                  >
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5">
-                        <p className="font-600 text-[#18191F]">{p.user_name}</p>
-                        {p.payment_method === "culqi" ? (
-                          <span className="text-[10px] font-700 px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700">💳 Tarjeta</span>
-                        ) : (
-                          <span className="text-[10px] font-700 px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700">🏦 Transf.</span>
-                        )}
-                      </div>
-                      <p className="text-xs text-[#999999]">{p.company ?? p.user_email}</p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="font-600 text-[#18191F]">{p.period_label}</p>
-                      <p className="text-xs text-[#999999]">{new Date(p.due_date).toLocaleDateString("es-PE")}</p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="font-700 text-[#18191F]">${parseFloat(p.amount).toFixed(2)}</p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-700 ${st.color}`}>{st.label}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {p.receipt_url ? (
-                        <span className="text-xs text-[#1B4FFF] font-600">Adjunto ✓</span>
-                      ) : (
-                        <span className="text-xs text-[#999999]">Sin comprobante</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                      {p.status === "reviewing" && (
-                        <div className="flex gap-1.5">
-                          <button
-                            onClick={() => handleAction(p.id, "validate")}
-                            disabled={processing === p.id}
-                            className="px-2.5 py-1 rounded-full text-xs font-700 bg-green-100 text-green-700 hover:bg-green-200 cursor-pointer disabled:opacity-50"
-                          >
-                            {processing === p.id ? "..." : "✓ Validar"}
-                          </button>
-                          <button
-                            onClick={() => { setExpanded(p.id); setNoteValue(""); }}
-                            className="px-2.5 py-1 rounded-full text-xs font-700 bg-red-100 text-red-600 hover:bg-red-200 cursor-pointer"
-                          >
-                            ✕ Rechazar
-                          </button>
-                        </div>
-                      )}
-                      {p.status === "validated" && p.validated_at && (
-                        <span className="text-xs text-[#999999]">{new Date(p.validated_at).toLocaleDateString("es-PE")}</span>
-                      )}
-                    </td>
-                  </tr>
+          return (
+            <div key={p.id} className={`${isExpanded ? "bg-[#F5F8FF]" : "hover:bg-[#FAFAFA]"} transition-colors`}>
+              {/* Main row */}
+              <div
+                className="px-5 py-4 flex items-center gap-4 cursor-pointer"
+                onClick={() => setExpanded(isExpanded ? null : p.id)}
+              >
+                {/* Client info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="font-700 text-[#18191F] truncate">{p.user_name}</p>
+                    {p.payment_method === "culqi" ? (
+                      <span className="text-[10px] font-700 px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 flex-shrink-0">💳 Tarjeta</span>
+                    ) : (
+                      <span className="text-[10px] font-700 px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700 flex-shrink-0">🏦 Transf.</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-[#999999] truncate">{p.company ?? p.user_email}</p>
+                </div>
 
-                  {/* Expanded: receipt preview + reject form */}
-                  {isExpanded && (
-                    <tr className="bg-[#F5F8FF]">
-                      <td colSpan={6} className="px-6 pb-5 pt-3">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          {/* Receipt preview */}
-                          {p.receipt_url && (
-                            <div>
-                              <p className="text-xs font-700 text-[#666666] uppercase tracking-wider mb-2">Comprobante</p>
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={p.receipt_url} alt="Comprobante" className="w-full max-h-64 object-contain rounded-xl border border-[#E5E5E5] bg-white" />
-                              {p.receipt_uploaded_at && (
-                                <p className="text-xs text-[#999999] mt-1">
-                                  Subido: {new Date(p.receipt_uploaded_at).toLocaleDateString("es-PE", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
-                                </p>
-                              )}
-                            </div>
+                {/* Period */}
+                <div className="text-sm hidden sm:block flex-shrink-0">
+                  <p className="font-600 text-[#333333]">{p.period_label}</p>
+                  <p className="text-xs text-[#999999]">
+                    {dueDate.toLocaleDateString("es-PE", { day: "2-digit", month: "short" })}
+                  </p>
+                </div>
+
+                {/* Amount */}
+                <div className="text-right flex-shrink-0">
+                  <p className="text-lg font-800 text-[#18191F]">${parseFloat(p.amount).toFixed(2)}</p>
+                </div>
+
+                {/* Status */}
+                <div className="flex-shrink-0 w-28 text-right">
+                  <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-700 border ${st.color}`}>
+                    <span>{st.icon}</span> {st.label}
+                  </span>
+                </div>
+
+                {/* Expand icon */}
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  className={`text-[#999] transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                >
+                  <path d="M6 9l6 6 6-6" />
+                </svg>
+              </div>
+
+              {/* Expanded detail */}
+              {isExpanded && (
+                <div className="px-5 pb-5 pt-0" onClick={(e) => e.stopPropagation()}>
+                  {/* Quick info grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                    <InfoBlock label="Cliente" value={p.user_name} />
+                    <InfoBlock label="Email" value={p.user_email} />
+                    <InfoBlock label="Período" value={p.period_label} />
+                    <InfoBlock label="Vence" value={dueDate.toLocaleDateString("es-PE", { day: "2-digit", month: "long", year: "numeric" })} />
+                  </div>
+
+                  {isOverdue && (
+                    <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4">
+                      <p className="text-sm font-700 text-red-700">⚠️ Pago vencido — handle urgente</p>
+                    </div>
+                  )}
+
+                  {/* === RECEIPT SECTION === */}
+                  <div className="mb-4">
+                    <p className="text-xs font-700 text-[#666] uppercase tracking-wider mb-2">Comprobante de transferencia</p>
+
+                    {p.receipt_url ? (
+                      /* Already has receipt */
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={p.receipt_url} alt="Comprobante" className="w-full max-h-64 object-contain rounded-xl border border-[#E5E5E5] bg-white" />
+                          {p.receipt_uploaded_at && (
+                            <p className="text-xs text-[#999999] mt-2">
+                              Subido: {new Date(p.receipt_uploaded_at).toLocaleDateString("es-PE", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                            </p>
                           )}
-
-                          {/* Reject form */}
-                          {p.status === "reviewing" && (
+                        </div>
+                        {p.status === "reviewing" && (
+                          <div className="space-y-3">
                             <div>
-                              <p className="text-xs font-700 text-[#666666] uppercase tracking-wider mb-2">Rechazar con motivo</p>
+                              <p className="text-sm font-700 text-[#333333] mb-2">Acciones</p>
+                              <button
+                                onClick={() => handleAction(p.id, "validate")}
+                                disabled={processing === p.id}
+                                className="w-full px-4 py-3 mb-2 bg-green-600 text-white text-sm font-700 rounded-xl cursor-pointer hover:bg-green-700 disabled:opacity-50 transition-colors"
+                              >
+                                {processing === p.id ? "Procesando..." : "✓ Validar pago"}
+                              </button>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-600 text-[#666] mb-1">Rechazar con motivo</label>
                               <textarea
                                 value={noteValue}
                                 onChange={e => setNoteValue(e.target.value)}
-                                placeholder="Ej: El monto no coincide / Imagen borrosa / Transferencia a cuenta incorrecta"
-                                className="w-full px-3 py-2 text-sm border border-[#E5E5E5] rounded-xl outline-none focus:border-[#1B4FFF] resize-none h-24"
+                                placeholder="Ej: Monto no coincide / Imagen borrosa"
+                                className="w-full px-3 py-2 text-sm border border-[#E5E5E5] rounded-xl outline-none focus:border-[#1B4FFF] resize-none h-16"
                               />
                               <button
                                 onClick={() => handleAction(p.id, "reject")}
-                                disabled={processing === p.id}
-                                className="mt-2 px-4 py-2 bg-red-500 text-white text-xs font-700 rounded-full cursor-pointer hover:bg-red-600 disabled:opacity-50"
+                                disabled={processing === p.id || !noteValue.trim()}
+                                className="w-full mt-2 px-4 py-2.5 bg-red-500 text-white text-sm font-700 rounded-xl cursor-pointer hover:bg-red-600 disabled:opacity-50"
                               >
-                                {processing === p.id ? "Procesando..." : "Rechazar y notificar al cliente"}
+                                ✕ Rechazar comprobante
                               </button>
                             </div>
-                          )}
-                        </div>
-
-                        {p.admin_note && (
-                          <p className="text-xs text-[#999999] mt-3">Nota: {p.admin_note}</p>
-                        )}
-
-                        {/* Invoice section — only for validated payments */}
-                        {p.status === "validated" && (
-                          <div className="mt-4 pt-4 border-t border-[#E5E5E5]">
-                            <p className="text-xs font-700 text-[#666666] uppercase tracking-wider mb-2">📄 Factura SUNAT</p>
-                            {p.invoice_url ? (
-                              <div className="bg-green-50 rounded-xl p-3 flex items-center justify-between">
-                                <div>
-                                  <p className="text-sm font-700 text-green-700">{p.invoice_number}</p>
-                                  <p className="text-xs text-[#666666]">Disponible para el cliente</p>
-                                </div>
-                                <a href={p.invoice_url} target="_blank" rel="noreferrer"
-                                  className="px-3 py-1.5 bg-white border border-green-300 text-green-700 text-xs font-700 rounded-full hover:bg-green-100">
-                                  Ver PDF
-                                </a>
-                              </div>
-                            ) : (
-                              <div className="bg-[#FFFBEB] rounded-xl p-3">
-                                <p className="text-xs text-[#92400E] mb-2">📌 Emite la factura en SUNAT SOL (gratis), descarga el PDF y súbelo aquí.</p>
-                                <input
-                                  type="text"
-                                  value={invoiceNumber}
-                                  onChange={(e) => setInvoiceNumber(e.target.value)}
-                                  placeholder="N° factura (ej: F001-0001)"
-                                  className="w-full px-3 py-2 text-xs border border-[#E5E5E5] rounded-lg outline-none mb-2"
-                                />
-                                <label className="flex items-center gap-2 px-3 py-2 bg-white border-2 border-dashed border-[#CCCCCC] rounded-lg cursor-pointer hover:border-[#1B4FFF] hover:bg-[#F5F8FF]">
-                                  <input type="file" accept="application/pdf,image/*" className="sr-only"
-                                    disabled={uploadingInvoice === p.id}
-                                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleInvoiceUpload(p.id, f); }} />
-                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
-                                  <span className="text-xs font-600 text-[#333333]">{uploadingInvoice === p.id ? "Subiendo..." : "Subir factura PDF"}</span>
-                                </label>
-                              </div>
-                            )}
                           </div>
                         )}
-                      </td>
-                    </tr>
+                      </div>
+                    ) : p.payment_method === "culqi" ? (
+                      /* Culqi — no receipt needed */
+                      <div className="bg-purple-50 rounded-xl p-4 flex items-center gap-3">
+                        <span className="text-2xl">💳</span>
+                        <p className="text-sm text-purple-700">Pago automático con tarjeta (Culqi). No requiere comprobante.</p>
+                      </div>
+                    ) : (
+                      /* No receipt yet — admin can upload or mark paid */
+                      <div className="bg-[#FFFBEB] border border-yellow-200 rounded-xl p-4">
+                        <p className="text-sm font-700 text-yellow-800 mb-3">El cliente aún no subió comprobante</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <label className="flex items-center justify-center gap-2 px-3 py-2.5 bg-white border-2 border-dashed border-[#CCCCCC] rounded-xl cursor-pointer hover:border-[#1B4FFF] hover:bg-[#F5F8FF] transition-colors">
+                            <input type="file" accept="image/*,.pdf" className="sr-only" disabled={processing === p.id}
+                              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleReceiptUpload(p.id, f); }} />
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                            <span className="text-xs font-600">Subir comprobante</span>
+                          </label>
+                          <button
+                            onClick={() => handleAction(p.id, "validate")}
+                            disabled={processing === p.id}
+                            className="px-3 py-2.5 bg-green-600 text-white text-xs font-700 rounded-xl cursor-pointer hover:bg-green-700 disabled:opacity-50"
+                          >
+                            ✓ Marcar como pagado
+                          </button>
+                          <a
+                            href={`https://wa.me/51${(p.user_email || "").replace(/\D/g, "")}?text=${encodeURIComponent(`Hola, te recordamos tu pago de ${p.period_label} por $${p.amount} USD en FLUX.`)}`}
+                            target="_blank" rel="noreferrer"
+                            className="px-3 py-2.5 bg-[#25D366] text-white text-xs font-700 rounded-xl text-center hover:opacity-90 transition-opacity"
+                          >
+                            WhatsApp recordatorio
+                          </a>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {p.admin_note && (
+                    <div className="bg-[#F7F7F7] rounded-xl p-3 mb-4">
+                      <p className="text-xs text-[#666]"><strong>Nota:</strong> {p.admin_note}</p>
+                    </div>
                   )}
-                </tbody>
-              );
-            })}
-          </tbody>
-        </table>
+
+                  {/* === INVOICE SECTION === */}
+                  {p.status === "validated" && (
+                    <div className="pt-4 border-t border-[#E5E5E5]">
+                      <p className="text-xs font-700 text-[#666] uppercase tracking-wider mb-2">📄 Factura SUNAT</p>
+                      {p.invoice_url ? (
+                        <div className="bg-green-50 rounded-xl p-4 flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-700 text-green-700">{p.invoice_number}</p>
+                            <p className="text-xs text-[#666666]">Factura disponible para el cliente</p>
+                          </div>
+                          <a href={p.invoice_url} target="_blank" rel="noreferrer"
+                            className="px-4 py-2 bg-white border border-green-300 text-green-700 text-sm font-700 rounded-xl hover:bg-green-100">
+                            Ver PDF
+                          </a>
+                        </div>
+                      ) : (
+                        <div className="bg-[#FFFBEB] border border-yellow-200 rounded-xl p-4">
+                          <p className="text-xs text-yellow-800 mb-3">
+                            Emite la factura en <strong>SUNAT SOL</strong> (gratis), descarga el PDF y súbelo aquí. El cliente la verá automáticamente.
+                          </p>
+                          <div className="flex gap-2 flex-wrap">
+                            <input
+                              type="text"
+                              value={invoiceNumber}
+                              onChange={(e) => setInvoiceNumber(e.target.value)}
+                              placeholder="F001-0001"
+                              className="flex-1 min-w-[140px] px-3 py-2 text-sm border border-[#E5E5E5] rounded-xl outline-none focus:border-[#1B4FFF]"
+                            />
+                            <label className="flex items-center gap-2 px-4 py-2 bg-[#1B4FFF] text-white rounded-xl cursor-pointer hover:bg-[#1340CC]">
+                              <input type="file" accept="application/pdf,image/*" className="sr-only"
+                                disabled={processing === p.id}
+                                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleInvoiceUpload(p.id, f); }} />
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                              <span className="text-xs font-700">{processing === p.id ? "Subiendo..." : "Subir factura"}</span>
+                            </label>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
-      {isPending && <div className="px-6 py-2 bg-[#EEF2FF] text-xs text-[#1B4FFF] font-600">Actualizando...</div>}
+      {isPending && <div className="px-5 py-3 bg-[#EEF2FF] text-xs text-[#1B4FFF] font-600">Actualizando...</div>}
+    </div>
+  );
+}
+
+function InfoBlock({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-[11px] text-[#999999] uppercase tracking-wider mb-0.5">{label}</p>
+      <p className="text-sm font-600 text-[#18191F] truncate">{value}</p>
     </div>
   );
 }
