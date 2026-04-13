@@ -150,7 +150,7 @@ export default function PaymentsReview({ payments }: { payments: Payment[] }) {
                 {/* Client info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-700 text-[#18191F] truncate">{p.user_name}</p>
+                    <p className="font-700 text-[#18191F] truncate">{p.company ?? p.user_name}</p>
                     {p.payment_method === "culqi" ? (
                       <span className="text-[10px] font-700 px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 flex-shrink-0">💳</span>
                     ) : (
@@ -159,7 +159,7 @@ export default function PaymentsReview({ payments }: { payments: Payment[] }) {
                   </div>
                   <p className="text-xs text-[#999999] truncate">
                     <span className="sm:hidden">{p.period_label} · </span>
-                    {p.company ?? p.user_email}
+                    {p.company ? `Contacto: ${p.user_name}` : p.user_email}
                   </p>
                 </div>
 
