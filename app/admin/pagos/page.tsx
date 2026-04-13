@@ -27,6 +27,8 @@ interface PaymentRow {
   receipt_uploaded_at: string | null;
   validated_at: string | null;
   admin_note: string | null;
+  invoice_url: string | null;
+  invoice_number: string | null;
 }
 
 export default async function AdminPagosPage() {
@@ -36,7 +38,8 @@ export default async function AdminPagosPage() {
   const result = await query<PaymentRow>(`
     SELECT p.id, p.user_id, u.name AS user_name, u.email AS user_email,
            u.company, p.amount, p.period_label, p.due_date, p.status,
-           p.payment_method, p.receipt_url, p.receipt_uploaded_at, p.validated_at, p.admin_note
+           p.payment_method, p.receipt_url, p.receipt_uploaded_at, p.validated_at, p.admin_note,
+           p.invoice_url, p.invoice_number
     FROM payments p
     JOIN users u ON u.id = p.user_id
     ORDER BY

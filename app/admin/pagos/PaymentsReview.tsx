@@ -17,6 +17,8 @@ interface Payment {
   receipt_uploaded_at: string | null;
   validated_at: string | null;
   admin_note: string | null;
+  invoice_url: string | null;
+  invoice_number: string | null;
 }
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
@@ -50,6 +52,34 @@ export default function PaymentsReview({ payments }: { payments: Payment[] }) {
     setExpanded(null);
     setNoteValue("");
     startTransition(() => router.refresh());
+  };
+
+  const [invoiceNumber, setInvoiceNumber] = useState("");
+  const [uploadingInvoice, setUploadingInvoice] = useState<string | null>(null);
+
+  const handleInvoiceUpload = async (paymentId: string, file: File) => {
+    if (!invoiceNumber.trim()) {
+      alert("Ingresa el N° de factura primero (ej: F001-0001)");
+      return;
+    }
+    setUploadingInvoice(paymentId);
+
+    // Upload file
+    const fd = new FormData();
+    fd.append("file", file);
+    const upRes = await fetch("/api/upload", { method: "POST", body: fd });
+    const upData = await upRes.json();
+
+    if (upData.dataUrl) {
+      await fetch(`/api/admin/payments/${paymentId}/invoice`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ invoiceUrl: upData.dataUrl, invoiceNumber: invoiceNumber.trim() }),
+      });
+      setInvoiceNumber("");
+      startTransition(() => router.refresh());
+    }
+    setUploadingInvoice(null);
   };
 
   return (
@@ -191,6 +221,43 @@ export default function PaymentsReview({ payments }: { payments: Payment[] }) {
 
                         {p.admin_note && (
                           <p className="text-xs text-[#999999] mt-3">Nota: {p.admin_note}</p>
+                        )}
+
+                        {/* Invoice section — only for validated payments */}
+                        {p.status === "validated" && (
+                          <div className="mt-4 pt-4 border-t border-[#E5E5E5]">
+                            <p className="text-xs font-700 text-[#666666] uppercase tracking-wider mb-2">📄 Factura SUNAT</p>
+                            {p.invoice_url ? (
+                              <div className="bg-green-50 rounded-xl p-3 flex items-center justify-between">
+                                <div>
+                                  <p className="text-sm font-700 text-green-700">{p.invoice_number}</p>
+                                  <p className="text-xs text-[#666666]">Disponible para el cliente</p>
+                                </div>
+                                <a href={p.invoice_url} target="_blank" rel="noreferrer"
+                                  className="px-3 py-1.5 bg-white border border-green-300 text-green-700 text-xs font-700 rounded-full hover:bg-green-100">
+                                  Ver PDF
+                                </a>
+                              </div>
+                            ) : (
+                              <div className="bg-[#FFFBEB] rounded-xl p-3">
+                                <p className="text-xs text-[#92400E] mb-2">📌 Emite la factura en SUNAT SOL (gratis), descarga el PDF y súbelo aquí.</p>
+                                <input
+                                  type="text"
+                                  value={invoiceNumber}
+                                  onChange={(e) => setInvoiceNumber(e.target.value)}
+                                  placeholder="N° factura (ej: F001-0001)"
+                                  className="w-full px-3 py-2 text-xs border border-[#E5E5E5] rounded-lg outline-none mb-2"
+                                />
+                                <label className="flex items-center gap-2 px-3 py-2 bg-white border-2 border-dashed border-[#CCCCCC] rounded-lg cursor-pointer hover:border-[#1B4FFF] hover:bg-[#F5F8FF]">
+                                  <input type="file" accept="application/pdf,image/*" className="sr-only"
+                                    disabled={uploadingInvoice === p.id}
+                                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleInvoiceUpload(p.id, f); }} />
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                                  <span className="text-xs font-600 text-[#333333]">{uploadingInvoice === p.id ? "Subiendo..." : "Subir factura PDF"}</span>
+                                </label>
+                              </div>
+                            )}
+                          </div>
                         )}
                       </td>
                     </tr>

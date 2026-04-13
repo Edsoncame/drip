@@ -14,6 +14,8 @@ interface Payment {
   receipt_url: string | null;
   validated_at: string | null;
   admin_note: string | null;
+  invoice_url: string | null;
+  invoice_number: string | null;
 }
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string; icon: string }> = {
@@ -30,7 +32,7 @@ export default async function PagosPage() {
 
   const result = await query<Payment>(
     `SELECT id, amount, currency, period_label, due_date, status,
-            receipt_url, validated_at, admin_note
+            receipt_url, validated_at, admin_note, invoice_url, invoice_number
      FROM payments
      WHERE user_id = $1
      ORDER BY due_date DESC`,
@@ -132,12 +134,30 @@ export default async function PagosPage() {
 
                 {/* Actions based on status */}
                 {payment.status === "validated" && (
-                  <div className="bg-[#E5F3DF] rounded-xl p-3 flex items-center gap-2">
-                    <span className="text-green-600">✓</span>
-                    <p className="text-sm text-[#2D7D46] font-600">
-                      Pago validado
-                      {payment.validated_at && ` el ${new Date(payment.validated_at).toLocaleDateString("es-PE", { day: "2-digit", month: "short" })}`}
-                    </p>
+                  <div className="space-y-2">
+                    <div className="bg-[#E5F3DF] rounded-xl p-3 flex items-center gap-2">
+                      <span className="text-green-600">✓</span>
+                      <p className="text-sm text-[#2D7D46] font-600">
+                        Pago validado
+                        {payment.validated_at && ` el ${new Date(payment.validated_at).toLocaleDateString("es-PE", { day: "2-digit", month: "short" })}`}
+                      </p>
+                    </div>
+                    {payment.invoice_url && (
+                      <a href={payment.invoice_url} target="_blank" rel="noreferrer"
+                        download={`${payment.invoice_number ?? "factura"}.pdf`}
+                        className="flex items-center gap-3 p-3 rounded-xl border border-[#1B4FFF] bg-[#F5F8FF] hover:bg-[#EEF2FF] transition-colors">
+                        <div className="w-10 h-10 bg-[#1B4FFF]/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <span className="text-lg">📄</span>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-700 text-[#18191F]">Descargar factura</p>
+                          <p className="text-xs text-[#666666]">{payment.invoice_number}</p>
+                        </div>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1B4FFF" strokeWidth="2.5">
+                          <path d="M12 4v16m0 0l-6-6m6 6l6-6"/>
+                        </svg>
+                      </a>
+                    )}
                   </div>
                 )}
 
