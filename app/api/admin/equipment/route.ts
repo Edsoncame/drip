@@ -28,7 +28,8 @@ export async function POST(req: NextRequest) {
     tipo_arriendo_meses, inicio_alquiler, fin_alquiler, tarifa_usd, opex_usd,
     ingreso_neto_mensual_usd, valor_residual_usd, ingreso_total_proyectado_usd,
     rentabilidad_pct, seguro, garantia_anos, ubicacion_fisica, responsable,
-    usuario_dispositivo, clave_dispositivo, clave_vault, observaciones,
+    usuario_dispositivo, clave_dispositivo, clave_vault, clave_vault_url, observaciones,
+    colaborador, compra_status, compra_notas, compra_inicio, tipo_renta, meses_uso_previo, area,
   } = body;
 
   if (!codigo_interno || !modelo_completo) {
@@ -44,9 +45,11 @@ export async function POST(req: NextRequest) {
       tipo_arriendo_meses, inicio_alquiler, fin_alquiler, tarifa_usd, opex_usd,
       ingreso_neto_mensual_usd, valor_residual_usd, ingreso_total_proyectado_usd,
       rentabilidad_pct, seguro, garantia_anos, ubicacion_fisica, responsable,
-      usuario_dispositivo, clave_dispositivo, clave_vault, observaciones
+      usuario_dispositivo, clave_dispositivo, clave_vault, clave_vault_url, observaciones,
+      colaborador, compra_status, compra_notas, compra_inicio, tipo_renta, meses_uso_previo, area
     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
-              $21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40)
+              $21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,
+              $41,$42,$43,$44,$45,$46,$47)
     RETURNING *`,
     [
       codigo_interno, marca || 'Apple', modelo_completo, chip, ram, ssd, color, teclado,
@@ -59,8 +62,10 @@ export async function POST(req: NextRequest) {
       tarifa_usd || null, opex_usd || null, ingreso_neto_mensual_usd || null,
       valor_residual_usd || null, ingreso_total_proyectado_usd || null, rentabilidad_pct || null,
       seguro || null, garantia_anos || null, ubicacion_fisica || null, responsable || null,
-      usuario_dispositivo || null, clave_dispositivo || null, clave_vault || null,
+      usuario_dispositivo || null, clave_dispositivo || null, clave_vault || null, clave_vault_url || null,
       observaciones || null,
+      colaborador || null, compra_status || 'no_desea', compra_notas || null, compra_inicio || null,
+      tipo_renta || 'estreno', meses_uso_previo || 0, area || null,
     ]
   );
 
@@ -82,7 +87,8 @@ export async function PATCH(req: NextRequest) {
     'tipo_arriendo_meses','inicio_alquiler','fin_alquiler','tarifa_usd','opex_usd',
     'ingreso_neto_mensual_usd','valor_residual_usd','ingreso_total_proyectado_usd',
     'rentabilidad_pct','seguro','garantia_anos','ubicacion_fisica','responsable',
-    'usuario_dispositivo','clave_dispositivo','clave_vault','observaciones',
+    'usuario_dispositivo','clave_dispositivo','clave_vault','clave_vault_url','observaciones',
+    'colaborador','compra_status','compra_notas','compra_inicio','tipo_renta','meses_uso_previo','area',
   ];
 
   const updates: string[] = [];

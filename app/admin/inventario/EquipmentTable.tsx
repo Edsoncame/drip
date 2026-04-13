@@ -56,6 +56,7 @@ export interface Equipment {
   compra_inicio: string | null;
   tipo_renta: string | null;
   meses_uso_previo: number | null;
+  area: string | null;
 }
 
 const ESTADO_STYLES: Record<string, string> = {
@@ -164,9 +165,11 @@ export default function EquipmentTable({ equipment }: { equipment: Equipment[] }
     const valorSoles = Number(eq.valor_soles) || (precio * tc);
     if (cuotaSoles > 0 && plazo > 0 && valorSoles > 0) {
       const r = solveMonthlyRate(valorSoles, cuotaSoles, plazo);
-      return `${monthlyToAnnualPct(r).toFixed(2)}% × ${plazo}m`;
+      const pct = monthlyToAnnualPct(r);
+      if (pct < 0.5) return `Sin intereses · ${plazo}m`;
+      return `${pct.toFixed(1)}% · ${plazo}m`;
     }
-    return plazo > 0 ? `— × ${plazo}m` : "—";
+    return plazo > 0 ? `— · ${plazo}m` : "—";
   }
 
   return (
@@ -206,14 +209,14 @@ export default function EquipmentTable({ equipment }: { equipment: Equipment[] }
         <table className="w-full text-sm">
           <thead className="bg-[#F7F7F7]">
             <tr>
-              {["Código / Modelo","Spec","N° Serie","Estado / Cliente","Colaborador / Compra","Alquiler","Tarifa / OPEX","Costo compra","Financiamiento","ROI",""].map(h => (
+              {["Código / Modelo","Spec","N° Serie","Estado / Cliente","Colaborador / Compra","Alquiler","Tarifa / OPEX","Costo compra","Financiamiento","Mantenimiento","ROI",""].map(h => (
                 <th key={h} className="text-left px-4 py-3 text-xs font-700 text-[#666666] whitespace-nowrap">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-[#F0F0F0]">
             {filtered.length === 0 ? (
-              <tr><td colSpan={11} className="text-center py-12 text-[#999999]">Sin resultados</td></tr>
+              <tr><td colSpan={12} className="text-center py-12 text-[#999999]">Sin resultados</td></tr>
             ) : filtered.map(eq => {
               const stStyle = ESTADO_STYLES[eq.estado_actual.split(" / ")[0]] ?? "bg-gray-100 text-gray-500";
               const days = daysUntil(eq.mantenimiento_proximo);
@@ -270,9 +273,20 @@ export default function EquipmentTable({ equipment }: { equipment: Equipment[] }
                       <p className="truncate max-w-[110px]">{eq.tipo_financiamiento ?? "—"}</p>
                       <p className="text-[#999]">{derivedTasaForRow(eq)}</p>
                     </td>
+                    <td className="px-4 py-3 text-xs">
+                      {eq.mantenimiento_proximo && days !== null ? (
+                        <>
+                          <p className={maintAlert ? "font-700 text-orange-600" : "text-[#666666]"}>
+                            {fmtDate(eq.mantenimiento_proximo)}
+                          </p>
+                          <p className={maintAlert ? "text-[10px] text-orange-600" : "text-[10px] text-[#999]"}>
+                            {days > 0 ? `en ${days}d` : `hace ${Math.abs(days)}d`}
+                          </p>
+                        </>
+                      ) : <span className="text-[#999]">—</span>}
+                    </td>
                     <td className="px-4 py-3">
                       {rent !== null ? <RentBadge pct={rent} /> : <span className="text-xs text-[#999]">—</span>}
-                      {maintAlert && <p className="text-[10px] text-orange-600 mt-1">⚠ mant. {days}d</p>}
                     </td>
                     <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                       <div className="flex gap-1">
@@ -287,7 +301,7 @@ export default function EquipmentTable({ equipment }: { equipment: Equipment[] }
 
                   {isExp && (
                     <tr key={`${eq.id}-exp`} className="bg-[#F5F8FF]">
-                      <td colSpan={11} className="px-6 pb-5 pt-3">
+                      <td colSpan={12} className="px-6 pb-5 pt-3">
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
                           <InfoCell label="Proveedor" value={eq.proveedor ?? "—"} />
                           <InfoCell label="Fecha compra" value={fmtDate(eq.fecha_compra)} />
@@ -614,12 +628,21 @@ function EquipmentModal({ data, onChange, onSave, onClose, saving }: ModalProps)
               <SelectField label="Meses de uso previo" value={String(data.meses_uso_previo ?? 0)} onChange={set("meses_uso_previo")}
                 options={["0", "8", "16"]} />
               <Field label="Colaborador" value={f("colaborador")} onChange={set("colaborador")} placeholder="JEFRY" />
+              <Field label="Área / Dpto" value={f("area")} onChange={set("area")} placeholder="Marketing" />
             </Row>
             <Row>
               <SelectField label="Opción de compra" value={f("compra_status") ?? "no_desea"} onChange={set("compra_status")}
                 options={["no_desea", "contrato_firmado", "en_proceso", "desestimado", "completada"]} />
               <Field label="Notas compra" value={f("compra_notas")} onChange={set("compra_notas")} placeholder="Firmó contrato..." />
               <Field label="Inicio compra" type="date" value={f("compra_inicio")?.split("T")[0]} onChange={set("compra_inicio")} />
+            </Row>
+          </Section>
+
+          {/* Credenciales del dispositivo */}
+          <Section title="Credenciales del dispositivo (visibles para el cliente)">
+            <Row>
+              <Field label="Usuario" value={f("usuario_dispositivo")} onChange={set("usuario_dispositivo")} placeholder="Securex01" mono />
+              <Field label="Contraseña" value={f("clave_dispositivo")} onChange={set("clave_dispositivo")} placeholder="securex123" mono />
             </Row>
           </Section>
 
