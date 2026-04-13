@@ -19,6 +19,8 @@ interface Payment {
   admin_note: string | null;
   invoice_url: string | null;
   invoice_number: string | null;
+  invoices: Array<{ id: string; invoice_number: string; invoice_url: string; amount: string | null; uploaded_at: string }>;
+  invoices_total: string;
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: string }> = {
@@ -37,6 +39,7 @@ export default function PaymentsReview({ payments }: { payments: Payment[] }) {
   const [processing, setProcessing] = useState<string | null>(null);
   const [noteValue, setNoteValue] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
+  const [invoiceAmount, setInvoiceAmount] = useState("");
 
   const filtered = payments.filter(p =>
     filter === "all" ||
@@ -87,9 +90,14 @@ export default function PaymentsReview({ payments }: { payments: Payment[] }) {
       await fetch(`/api/admin/payments/${paymentId}/invoice`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ invoiceUrl: upData.dataUrl, invoiceNumber: invoiceNumber.trim() }),
+        body: JSON.stringify({
+          invoiceUrl: upData.dataUrl,
+          invoiceNumber: invoiceNumber.trim(),
+          amount: invoiceAmount ? parseFloat(invoiceAmount) : undefined,
+        }),
       });
       setInvoiceNumber("");
+      setInvoiceAmount("");
       startTransition(() => router.refresh());
     }
     setProcessing(null);
@@ -297,45 +305,77 @@ export default function PaymentsReview({ payments }: { payments: Payment[] }) {
                   )}
 
                   {/* === INVOICE SECTION === */}
-                  {p.status === "validated" && (
-                    <div className="pt-4 border-t border-[#E5E5E5]">
-                      <p className="text-xs font-700 text-[#666] uppercase tracking-wider mb-2">📄 Factura SUNAT</p>
-                      {p.invoice_url ? (
-                        <div className="bg-green-50 rounded-xl p-4 flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-700 text-green-700">{p.invoice_number}</p>
-                            <p className="text-xs text-[#666666]">Factura disponible para el cliente</p>
-                          </div>
-                          <a href={p.invoice_url} target="_blank" rel="noreferrer"
-                            className="px-4 py-2 bg-white border border-green-300 text-green-700 text-sm font-700 rounded-xl hover:bg-green-100">
-                            Ver PDF
-                          </a>
-                        </div>
-                      ) : (
-                        <div className="bg-[#FFFBEB] border border-yellow-200 rounded-xl p-4">
-                          <p className="text-xs text-yellow-800 mb-3">
-                            Emite la factura en <strong>SUNAT SOL</strong> (gratis), descarga el PDF y súbelo aquí. El cliente la verá automáticamente.
-                          </p>
-                          <div className="flex gap-2 flex-wrap">
-                            <input
-                              type="text"
-                              value={invoiceNumber}
-                              onChange={(e) => setInvoiceNumber(e.target.value)}
-                              placeholder="F001-0001"
-                              className="flex-1 min-w-[140px] px-3 py-2 text-sm border border-[#E5E5E5] rounded-xl outline-none focus:border-[#1B4FFF]"
-                            />
-                            <label className="flex items-center gap-2 px-4 py-2 bg-[#1B4FFF] text-white rounded-xl cursor-pointer hover:bg-[#1340CC]">
-                              <input type="file" accept="application/pdf,image/*" className="sr-only"
-                                disabled={processing === p.id}
-                                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleInvoiceUpload(p.id, f); }} />
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
-                              <span className="text-xs font-700">{processing === p.id ? "Subiendo..." : "Subir factura"}</span>
-                            </label>
-                          </div>
-                        </div>
+                  <div className="pt-4 border-t border-[#E5E5E5]">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs font-700 text-[#666] uppercase tracking-wider">📄 Facturas SUNAT ({p.invoices.length})</p>
+                      {p.invoices.length > 0 && parseFloat(p.invoices_total ?? "0") > 0 && (
+                        <p className="text-xs text-[#666]">
+                          Total facturado: <strong className="text-[#18191F]">${parseFloat(p.invoices_total).toFixed(2)}</strong>
+                          {" / "}
+                          <span className={parseFloat(p.invoices_total) < parseFloat(p.amount) ? "text-orange-600" : "text-green-600"}>
+                            ${parseFloat(p.amount).toFixed(2)} del pago
+                          </span>
+                        </p>
                       )}
                     </div>
-                  )}
+
+                    {/* List of existing invoices */}
+                    {p.invoices.length > 0 && (
+                      <div className="space-y-2 mb-3">
+                        {p.invoices.map(inv => (
+                          <div key={inv.id} className="bg-green-50 rounded-xl p-3 flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <span className="text-lg">📄</span>
+                              <div className="min-w-0">
+                                <p className="text-sm font-700 text-green-700 truncate">{inv.invoice_number}</p>
+                                <p className="text-xs text-[#666666]">
+                                  {inv.amount && `$${parseFloat(inv.amount).toFixed(2)} · `}
+                                  {new Date(inv.uploaded_at).toLocaleDateString("es-PE", { day: "2-digit", month: "short", year: "2-digit" })}
+                                </p>
+                              </div>
+                            </div>
+                            <a href={inv.invoice_url} target="_blank" rel="noreferrer"
+                              className="flex-shrink-0 px-3 py-1.5 bg-white border border-green-300 text-green-700 text-xs font-700 rounded-full hover:bg-green-100">
+                              Ver PDF
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Upload form — always visible */}
+                    <div className="bg-[#FFFBEB] border border-yellow-200 rounded-xl p-4">
+                      <p className="text-xs text-yellow-800 mb-3">
+                        {p.invoices.length === 0
+                          ? "Emite la factura en SUNAT SOL (gratis), descarga el PDF y súbelo aquí."
+                          : "Agregar otra factura (puedes subir varias que sumen el monto total)."}
+                      </p>
+                      <div className="flex gap-2 flex-wrap">
+                        <input
+                          type="text"
+                          value={invoiceNumber}
+                          onChange={(e) => setInvoiceNumber(e.target.value)}
+                          placeholder="F001-0001"
+                          className="flex-1 min-w-[140px] px-3 py-2 text-sm border border-[#E5E5E5] rounded-xl outline-none focus:border-[#1B4FFF]"
+                        />
+                        <input
+                          type="number"
+                          value={invoiceAmount}
+                          onChange={(e) => setInvoiceAmount(e.target.value)}
+                          placeholder="Monto (opcional)"
+                          step="0.01"
+                          className="w-32 px-3 py-2 text-sm border border-[#E5E5E5] rounded-xl outline-none focus:border-[#1B4FFF]"
+                        />
+                        <label className="flex items-center gap-2 px-4 py-2 bg-[#1B4FFF] text-white rounded-xl cursor-pointer hover:bg-[#1340CC]">
+                          <input type="file" accept="application/pdf,image/*" className="sr-only"
+                            disabled={processing === p.id}
+                            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleInvoiceUpload(p.id, f); }} />
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                          <span className="text-xs font-700">{processing === p.id ? "Subiendo..." : "Subir PDF"}</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

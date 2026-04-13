@@ -29,6 +29,8 @@ interface PaymentRow {
   admin_note: string | null;
   invoice_url: string | null;
   invoice_number: string | null;
+  invoices: Array<{ id: string; invoice_number: string; invoice_url: string; amount: string | null; uploaded_at: string }>;
+  invoices_total: string;
 }
 
 export default async function AdminPagosPage() {
@@ -39,7 +41,22 @@ export default async function AdminPagosPage() {
     SELECT p.id, p.user_id, u.name AS user_name, u.email AS user_email,
            u.company, p.amount, p.period_label, p.due_date, p.status,
            p.payment_method, p.receipt_url, p.receipt_uploaded_at, p.validated_at, p.admin_note,
-           p.invoice_url, p.invoice_number
+           p.invoice_url, p.invoice_number,
+           COALESCE(
+             (SELECT json_agg(json_build_object(
+               'id', pi.id,
+               'invoice_number', pi.invoice_number,
+               'invoice_url', pi.invoice_url,
+               'amount', pi.amount,
+               'uploaded_at', pi.uploaded_at
+             ) ORDER BY pi.uploaded_at)
+             FROM payment_invoices pi WHERE pi.payment_id = p.id),
+             '[]'::json
+           ) AS invoices,
+           COALESCE(
+             (SELECT SUM(pi.amount) FROM payment_invoices pi WHERE pi.payment_id = p.id),
+             0
+           ) AS invoices_total
     FROM payments p
     JOIN users u ON u.id = p.user_id
     ORDER BY

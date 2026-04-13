@@ -16,6 +16,7 @@ interface Payment {
   admin_note: string | null;
   invoice_url: string | null;
   invoice_number: string | null;
+  invoices: Array<{ id: string; invoice_number: string; invoice_url: string; amount: string | null; uploaded_at: string }>;
 }
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string; icon: string }> = {
@@ -31,11 +32,22 @@ export default async function PagosPage() {
   if (!session) redirect("/auth/login?redirect=/cuenta/pagos");
 
   const result = await query<Payment>(
-    `SELECT id, amount, currency, period_label, due_date, status,
-            receipt_url, validated_at, admin_note, invoice_url, invoice_number
-     FROM payments
-     WHERE user_id = $1
-     ORDER BY due_date DESC`,
+    `SELECT p.id, p.amount, p.currency, p.period_label, p.due_date, p.status,
+            p.receipt_url, p.validated_at, p.admin_note, p.invoice_url, p.invoice_number,
+            COALESCE(
+              (SELECT json_agg(json_build_object(
+                'id', pi.id,
+                'invoice_number', pi.invoice_number,
+                'invoice_url', pi.invoice_url,
+                'amount', pi.amount,
+                'uploaded_at', pi.uploaded_at
+              ) ORDER BY pi.uploaded_at)
+              FROM payment_invoices pi WHERE pi.payment_id = p.id),
+              '[]'::json
+            ) AS invoices
+     FROM payments p
+     WHERE p.user_id = $1
+     ORDER BY p.due_date DESC`,
     [session.userId]
   );
   const payments = result.rows;
@@ -161,22 +173,31 @@ export default async function PagosPage() {
                     </div>
                   )}
 
-                  {/* Invoice — always visible, disabled if not yet uploaded */}
-                  {payment.invoice_url ? (
-                    <a href={payment.invoice_url} target="_blank" rel="noreferrer"
-                      download={`${payment.invoice_number ?? "factura"}.pdf`}
-                      className="flex items-center gap-3 p-3 rounded-xl border border-[#1B4FFF] bg-[#F5F8FF] hover:bg-[#EEF2FF] transition-colors">
-                      <div className="w-10 h-10 bg-[#1B4FFF]/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <span className="text-lg">📄</span>
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-700 text-[#18191F]">Descargar factura</p>
-                        <p className="text-xs text-[#666666]">{payment.invoice_number}</p>
-                      </div>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1B4FFF" strokeWidth="2.5">
-                        <path d="M12 4v16m0 0l-6-6m6 6l6-6"/>
-                      </svg>
-                    </a>
+                  {/* Invoices — show all or locked state */}
+                  {payment.invoices && payment.invoices.length > 0 ? (
+                    <div className="space-y-2">
+                      <p className="text-xs font-700 text-[#666] uppercase tracking-wider">
+                        {payment.invoices.length === 1 ? "Factura" : `${payment.invoices.length} facturas`}
+                      </p>
+                      {payment.invoices.map(inv => (
+                        <a key={inv.id} href={inv.invoice_url} target="_blank" rel="noreferrer"
+                          download={`${inv.invoice_number}.pdf`}
+                          className="flex items-center gap-3 p-3 rounded-xl border border-[#1B4FFF] bg-[#F5F8FF] hover:bg-[#EEF2FF] transition-colors">
+                          <div className="w-10 h-10 bg-[#1B4FFF]/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <span className="text-lg">📄</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-700 text-[#18191F]">{inv.invoice_number}</p>
+                            {inv.amount && (
+                              <p className="text-xs text-[#666666]">${parseFloat(inv.amount).toFixed(2)}</p>
+                            )}
+                          </div>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1B4FFF" strokeWidth="2.5">
+                            <path d="M12 4v16m0 0l-6-6m6 6l6-6"/>
+                          </svg>
+                        </a>
+                      ))}
+                    </div>
                   ) : (
                     <div className="flex items-center gap-3 p-3 rounded-xl border border-[#E5E5E5] bg-[#F7F7F7] cursor-not-allowed">
                       <div className="w-10 h-10 bg-[#E5E5E5] rounded-lg flex items-center justify-center flex-shrink-0">

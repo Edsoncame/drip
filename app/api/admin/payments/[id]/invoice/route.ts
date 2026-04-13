@@ -15,11 +15,20 @@ export async function POST(
   }
 
   const { id } = await params;
-  const { invoiceUrl, invoiceNumber } = await req.json() as {
+  const { invoiceUrl, invoiceNumber, amount } = await req.json() as {
     invoiceUrl: string;
     invoiceNumber: string;
+    amount?: number;
   };
 
+  // Insert into payment_invoices table (supports multiple per payment)
+  await query(
+    `INSERT INTO payment_invoices (payment_id, invoice_number, invoice_url, amount, uploaded_by)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [id, invoiceNumber, invoiceUrl, amount ?? null, session.email]
+  );
+
+  // Also update main payment record (for backward compat + quick access)
   await query(
     `UPDATE payments SET
       invoice_url = $2,
