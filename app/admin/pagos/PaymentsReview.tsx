@@ -136,24 +136,27 @@ export default function PaymentsReview({ payments }: { payments: Payment[] }) {
             <div key={p.id} className={`${isExpanded ? "bg-[#F5F8FF]" : "hover:bg-[#FAFAFA]"} transition-colors`}>
               {/* Main row */}
               <div
-                className="px-5 py-4 flex items-center gap-4 cursor-pointer"
+                className="px-4 sm:px-5 py-4 flex items-center gap-3 sm:gap-4 cursor-pointer"
                 onClick={() => setExpanded(isExpanded ? null : p.id)}
               >
                 {/* Client info */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-700 text-[#18191F] truncate">{p.user_name}</p>
                     {p.payment_method === "culqi" ? (
-                      <span className="text-[10px] font-700 px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 flex-shrink-0">💳 Tarjeta</span>
+                      <span className="text-[10px] font-700 px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 flex-shrink-0">💳</span>
                     ) : (
-                      <span className="text-[10px] font-700 px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700 flex-shrink-0">🏦 Transf.</span>
+                      <span className="text-[10px] font-700 px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700 flex-shrink-0">🏦</span>
                     )}
                   </div>
-                  <p className="text-xs text-[#999999] truncate">{p.company ?? p.user_email}</p>
+                  <p className="text-xs text-[#999999] truncate">
+                    <span className="sm:hidden">{p.period_label} · </span>
+                    {p.company ?? p.user_email}
+                  </p>
                 </div>
 
-                {/* Period */}
-                <div className="text-sm hidden sm:block flex-shrink-0">
+                {/* Period — desktop only */}
+                <div className="text-sm hidden sm:block flex-shrink-0 w-24">
                   <p className="font-600 text-[#333333]">{p.period_label}</p>
                   <p className="text-xs text-[#999999]">
                     {dueDate.toLocaleDateString("es-PE", { day: "2-digit", month: "short" })}
@@ -162,13 +165,14 @@ export default function PaymentsReview({ payments }: { payments: Payment[] }) {
 
                 {/* Amount */}
                 <div className="text-right flex-shrink-0">
-                  <p className="text-lg font-800 text-[#18191F]">${parseFloat(p.amount).toFixed(2)}</p>
+                  <p className="text-base sm:text-lg font-800 text-[#18191F]">${parseFloat(p.amount).toFixed(0)}</p>
                 </div>
 
                 {/* Status */}
-                <div className="flex-shrink-0 w-28 text-right">
-                  <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-700 border ${st.color}`}>
-                    <span>{st.icon}</span> {st.label}
+                <div className="flex-shrink-0">
+                  <span className={`inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-700 border ${st.color}`}>
+                    <span>{st.icon}</span>
+                    <span className="hidden sm:inline">{st.label}</span>
                   </span>
                 </div>
 
@@ -180,7 +184,7 @@ export default function PaymentsReview({ payments }: { payments: Payment[] }) {
                   fill="none"
                   stroke="currentColor"
                   strokeWidth="2"
-                  className={`text-[#999] transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                  className={`text-[#999] transition-transform flex-shrink-0 ${isExpanded ? "rotate-180" : ""}`}
                 >
                   <path d="M6 9l6 6 6-6" />
                 </svg>

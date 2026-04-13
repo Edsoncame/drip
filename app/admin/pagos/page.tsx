@@ -63,7 +63,7 @@ export default async function AdminPagosPage() {
 
   return (
     <div className="min-h-screen bg-[#F7F7F7]">
-      <div className="bg-white border-b border-[#E5E5E5] px-6 py-4 flex items-center justify-between sticky top-0 z-10">
+      <div className="bg-white border-b border-[#E5E5E5] px-4 sm:px-6 py-4 flex items-center justify-between sticky top-0 z-10">
         <div className="flex items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/images/isotipoflux.svg" alt="Flux" className="h-7 w-auto" />
