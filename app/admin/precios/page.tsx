@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import AdminNav from "../AdminNav";
 import PricingTable from "./PricingTable";
 import PriceCalculator from "./PriceCalculator";
+import ResaleCalculator from "./ResaleCalculator";
 
 export const metadata: Metadata = {
   title: "Precios | Admin FLUX",
@@ -55,6 +56,8 @@ export default async function PreciosPage() {
         <PricingTable pricing={result.rows} />
 
         <PriceCalculator />
+
+        <ResaleCalculator />
 
         <div className="mt-6 bg-white rounded-2xl border border-[#E5E5E5] p-5">
           <h3 className="font-700 text-[#18191F] mb-3 text-sm">Referencia de planes</h3>
