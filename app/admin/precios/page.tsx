@@ -4,6 +4,7 @@ import { query } from "@/lib/db";
 import type { Metadata } from "next";
 import AdminNav from "../AdminNav";
 import PricingTable from "./PricingTable";
+import PriceCalculator from "./PriceCalculator";
 
 export const metadata: Metadata = {
   title: "Precios | Admin FLUX",
@@ -54,14 +55,17 @@ export default async function PreciosPage() {
 
         <PricingTable pricing={result.rows} />
 
+        <PriceCalculator />
+
         <div className="mt-6 bg-white rounded-2xl border border-[#E5E5E5] p-5">
           <h3 className="font-700 text-[#18191F] mb-3 text-sm">Referencia de planes</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-[#666]">
             <div><span className="font-700 text-[#333]">Estreno 8m</span> — Equipo nuevo, contrato 8 meses. Residual 77.5%</div>
             <div><span className="font-700 text-[#333]">Estreno 16m</span> — Equipo nuevo, contrato 16 meses. Residual 55%</div>
             <div><span className="font-700 text-[#333]">Estreno 24m</span> — Equipo nuevo, contrato 24 meses. Residual 32.5%</div>
-            <div><span className="font-700 text-[#333]">Re-alquiler (usado 8m)</span> — Equipo con 8 meses de uso. Residual 55%</div>
-            <div><span className="font-700 text-[#333]">Re-alquiler (usado 16m)</span> — Equipo con 16 meses de uso. Residual 32.5%</div>
+            <div><span className="font-700 text-[#333]">Re-alquiler 8m (usado 8m)</span> — Después de un contrato de 8m, otro de 8m. Residual 55%</div>
+            <div><span className="font-700 text-[#333]">Re-alquiler 8m (usado 16m)</span> — Después de un contrato de 16m, otro de 8m. Residual 32.5%</div>
+            <div><span className="font-700 text-[#333]">Re-alquiler 16m (usado 8m)</span> — Después de un contrato de 8m, otro de 16m. Residual 32.5%</div>
           </div>
         </div>
       </div>

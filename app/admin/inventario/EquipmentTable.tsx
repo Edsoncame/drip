@@ -54,6 +54,8 @@ export interface Equipment {
   compra_status: string | null;
   compra_notas: string | null;
   compra_inicio: string | null;
+  tipo_renta: string | null;
+  meses_uso_previo: number | null;
 }
 
 const ESTADO_STYLES: Record<string, string> = {
@@ -607,7 +609,13 @@ function EquipmentModal({ data, onChange, onSave, onClose, saving }: ModalProps)
               <Field label="OPEX (USD/mes)" type="number" value={f("opex_usd")} onChange={set("opex_usd")} placeholder="32.50" />
             </Row>
             <Row>
+              <SelectField label="Tipo de renta" value={f("tipo_renta") ?? "estreno"} onChange={set("tipo_renta")}
+                options={["estreno", "re_alquiler"]} />
+              <SelectField label="Meses de uso previo" value={String(data.meses_uso_previo ?? 0)} onChange={set("meses_uso_previo")}
+                options={["0", "8", "16"]} />
               <Field label="Colaborador" value={f("colaborador")} onChange={set("colaborador")} placeholder="JEFRY" />
+            </Row>
+            <Row>
               <SelectField label="Opción de compra" value={f("compra_status") ?? "no_desea"} onChange={set("compra_status")}
                 options={["no_desea", "contrato_firmado", "en_proceso", "desestimado", "completada"]} />
               <Field label="Notas compra" value={f("compra_notas")} onChange={set("compra_notas")} placeholder="Firmó contrato..." />
