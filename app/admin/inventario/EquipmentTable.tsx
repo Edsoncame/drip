@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect, useCallback } from "react";
+import { useState, useTransition, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   calcPlan, solveMonthlyRate, monthlyToAnnualPct, calcCuota,
@@ -570,8 +570,8 @@ function EquipmentModal({ data, onChange, onSave, onClose, saving }: ModalProps)
             <Row>
               <Field label="Proveedor" value={f("proveedor")} onChange={set("proveedor")} placeholder="CASESWORLD" />
               <Field label="Fecha compra" type="date" value={f("fecha_compra")?.split("T")[0]} onChange={set("fecha_compra")} />
-              <Field label="URL Factura" value={f("factura_url")} onChange={set("factura_url")} placeholder="https://drive.google.com/…" />
-              <Field label="Foto clave vault" value={f("clave_vault_url")} onChange={set("clave_vault_url")} placeholder="https://drive.google.com/…" />
+              <FileUpload label="Factura (PDF/imagen)" value={f("factura_url")} onUrl={(url) => onChange({ factura_url: url })} kind="factura" codigo={f("codigo_interno") || "nuevo"} />
+              <FileUpload label="Foto clave vault" value={f("clave_vault_url")} onUrl={(url) => onChange({ clave_vault_url: url })} kind="vault" codigo={f("codigo_interno") || "nuevo"} />
               <Field label="URL Marketplace" value={f("web_url")} onChange={set("web_url")} placeholder="https://mercadolibre.com/…" />
             </Row>
             <Row>
@@ -702,6 +702,65 @@ function Field({ label, value, onChange, type = "text", placeholder, mono }: {
       <input type={type} value={value} onChange={onChange} placeholder={placeholder}
         className={`w-full px-3 py-2 text-sm border border-[#E5E5E5] rounded-xl outline-none focus:border-[#1B4FFF] ${mono ? "font-mono" : ""}`}
         step={type === "number" ? "any" : undefined} />
+    </div>
+  );
+}
+
+function FileUpload({ label, value, onUrl, kind, codigo }: {
+  label: string; value: string; onUrl: (url: string) => void;
+  kind: "factura" | "vault"; codigo: string;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = async (file: File) => {
+    setError(null);
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("kind", kind);
+      fd.append("codigo", codigo);
+      const res = await fetch("/api/admin/equipment/upload", { method: "POST", body: fd });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Error al subir");
+      onUrl(json.url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div>
+      <label className="block text-xs text-[#666] mb-1">{label}</label>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,application/pdf"
+        onChange={(e) => { const file = e.target.files?.[0]; if (file) handleFile(file); }}
+        className="hidden"
+      />
+      {value ? (
+        <div className="flex items-center gap-2">
+          <a href={value} target="_blank" rel="noreferrer" className="flex-1 px-3 py-2 text-xs text-[#1B4FFF] bg-[#EEF2FF] rounded-xl truncate hover:underline">
+            ✓ Archivo subido — ver
+          </a>
+          <button type="button" onClick={() => inputRef.current?.click()} disabled={uploading}
+            className="px-3 py-2 text-xs text-[#666] border border-[#E5E5E5] rounded-xl hover:bg-[#F7F7F7] disabled:opacity-60">
+            {uploading ? "..." : "Cambiar"}
+          </button>
+          <button type="button" onClick={() => onUrl("")} className="px-2 py-2 text-xs text-[#DC2626] hover:underline">✕</button>
+        </div>
+      ) : (
+        <button type="button" onClick={() => inputRef.current?.click()} disabled={uploading}
+          className="w-full px-3 py-2 text-sm border border-dashed border-[#E5E5E5] rounded-xl text-[#666] hover:border-[#1B4FFF] hover:text-[#1B4FFF] disabled:opacity-60">
+          {uploading ? "Subiendo..." : "📎 Subir archivo"}
+        </button>
+      )}
+      {error && <p className="text-[10px] text-red-600 mt-1">{error}</p>}
     </div>
   );
 }
