@@ -22,6 +22,7 @@ interface PaymentRow {
   period_label: string;
   due_date: string;
   status: string;
+  payment_method: string | null;
   receipt_url: string | null;
   receipt_uploaded_at: string | null;
   validated_at: string | null;
@@ -35,7 +36,7 @@ export default async function AdminPagosPage() {
   const result = await query<PaymentRow>(`
     SELECT p.id, p.user_id, u.name AS user_name, u.email AS user_email,
            u.company, p.amount, p.period_label, p.due_date, p.status,
-           p.receipt_url, p.receipt_uploaded_at, p.validated_at, p.admin_note
+           p.payment_method, p.receipt_url, p.receipt_uploaded_at, p.validated_at, p.admin_note
     FROM payments p
     JOIN users u ON u.id = p.user_id
     ORDER BY
@@ -78,8 +79,8 @@ export default async function AdminPagosPage() {
 
       <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-8">
         <div className="mb-6">
-          <h1 className="text-2xl font-800 text-[#18191F]">Pagos por transferencia</h1>
-          <p className="text-sm text-[#999999] mt-0.5">Revisa comprobantes y valida pagos de clientes empresa</p>
+          <h1 className="text-2xl font-800 text-[#18191F]">Pagos</h1>
+          <p className="text-sm text-[#999999] mt-0.5">Todos los pagos: transferencia y tarjeta (Culqi)</p>
         </div>
 
         {/* Stats */}

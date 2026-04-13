@@ -135,7 +135,22 @@ export async function POST(req: NextRequest) {
                 WHERE id = $1`,
                 [sub.id]
               );
-              console.log(`${tag} recurring charge succeeded for ${email} sub=${sub.id} (${monthsUsed}/${maxAllowed}m) — extended +1 month`);
+
+              // Create payment record for this charge (visible in /admin/pagos)
+              const userIdRow = (await query<{ user_id: string }>(
+                `SELECT user_id FROM subscriptions WHERE id = $1`, [sub.id]
+              )).rows[0];
+              if (userIdRow?.user_id) {
+                const monthLabel = new Date().toLocaleDateString("es-PE", { month: "long", year: "numeric" });
+                const periodLabel = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
+                await query(
+                  `INSERT INTO payments (subscription_id, user_id, amount, currency, period_label, due_date, status, payment_method, validated_at)
+                   VALUES ($1, $2, $3, 'USD', $4, NOW(), 'validated', 'culqi', NOW())`,
+                  [sub.id, userIdRow.user_id, sub.monthly_price, periodLabel]
+                );
+              }
+
+              console.log(`${tag} recurring charge succeeded for ${email} sub=${sub.id} (${monthsUsed}/${maxAllowed}m) — extended +1 month + payment recorded`);
             }
           }
         }

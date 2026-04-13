@@ -12,6 +12,7 @@ interface Payment {
   period_label: string;
   due_date: string;
   status: string;
+  payment_method: string | null;
   receipt_url: string | null;
   receipt_uploaded_at: string | null;
   validated_at: string | null;
@@ -97,7 +98,14 @@ export default function PaymentsReview({ payments }: { payments: Payment[] }) {
                     onClick={() => setExpanded(isExpanded ? null : p.id)}
                   >
                     <td className="px-4 py-3">
-                      <p className="font-600 text-[#18191F]">{p.user_name}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="font-600 text-[#18191F]">{p.user_name}</p>
+                        {p.payment_method === "culqi" ? (
+                          <span className="text-[10px] font-700 px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700">💳 Tarjeta</span>
+                        ) : (
+                          <span className="text-[10px] font-700 px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700">🏦 Transf.</span>
+                        )}
+                      </div>
                       <p className="text-xs text-[#999999]">{p.company ?? p.user_email}</p>
                     </td>
                     <td className="px-4 py-3">

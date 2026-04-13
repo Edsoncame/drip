@@ -240,7 +240,18 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 7 — Send confirmation email
+    // 7 — Create payment record for first month (already paid via Culqi)
+    if (userId) {
+      const monthLabel = new Date().toLocaleDateString("es-PE", { month: "long", year: "numeric" });
+      const periodLabel = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
+      await query(
+        `INSERT INTO payments (user_id, amount, currency, period_label, due_date, status, payment_method, validated_at)
+         VALUES ($1, $2, 'USD', $3, NOW(), 'validated', 'culqi', NOW())`,
+        [userId, totalMonthly, periodLabel]
+      );
+    }
+
+    // 8 — Send confirmation email
     sendConfirmationEmail({
       to: customer.email,
       name: customer.name,
