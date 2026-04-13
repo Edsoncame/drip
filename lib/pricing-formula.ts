@@ -74,7 +74,14 @@ export const REFERENCE_PRICES: Record<string, Record<PlanKey, number>> = {
 const CULQI_FEE_PCT = 4.5; // 3.99% + S/0.30 ≈ ~4.5%
 
 /**
- * Redondear al siguiente múltiplo de 5.
+ * Redondear al múltiplo de 5 más cercano (para offline).
+ */
+function roundTo5(n: number): number {
+  return Math.round(n / 5) * 5;
+}
+
+/**
+ * Redondear al siguiente múltiplo de 5 (para online, siempre hacia arriba).
  */
 function roundUpTo5(n: number): number {
   return Math.ceil(n / 5) * 5;
@@ -96,7 +103,7 @@ export function calcOfflinePrice(cost: number, plan: PlanKey, slug?: string): nu
   const coeffs = PLAN_COEFFS[plan];
   const totalPaid = coeffs.a * cost + coeffs.b;
   const raw = totalPaid / info.months;
-  return roundUpTo5(raw);
+  return roundTo5(raw);  // Offline: nearest $5 (not always up)
 }
 
 /**
