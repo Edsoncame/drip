@@ -26,22 +26,31 @@ function fmtSoles(n: number) {
   return `S/ ${n.toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function monthsElapsed(fechaCompra: string | null): number {
-  if (!fechaCompra) return 0;
+// First cuota is due one month after purchase date.
+// Count how many due dates have already passed (i.e. cuotas pagadas).
+function cuotasPagadas(fechaCompra: string | null, plazo: number): number {
+  if (!fechaCompra || plazo <= 0) return 0;
   const start = new Date(fechaCompra);
   const now = new Date();
-  const months = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
-  return Math.max(0, months);
+  let count = 0;
+  for (let i = 1; i <= plazo; i++) {
+    const due = new Date(start);
+    due.setMonth(due.getMonth() + i);
+    if (due <= now) count++;
+  }
+  return count;
 }
 
-function nextDueDate(fechaCompra: string | null): string | null {
-  if (!fechaCompra) return null;
+function nextDueDate(fechaCompra: string | null, plazo: number): string | null {
+  if (!fechaCompra || plazo <= 0) return null;
   const start = new Date(fechaCompra);
   const now = new Date();
-  const next = new Date(start);
-  // same day of month, next occurrence
-  while (next <= now) next.setMonth(next.getMonth() + 1);
-  return next.toLocaleDateString("es-PE", { day: "2-digit", month: "short", year: "numeric" });
+  for (let i = 1; i <= plazo; i++) {
+    const due = new Date(start);
+    due.setMonth(due.getMonth() + i);
+    if (due > now) return due.toLocaleDateString("es-PE", { day: "2-digit", month: "short", year: "numeric" });
+  }
+  return null; // all paid
 }
 
 export default async function FinanzasPage() {
@@ -75,7 +84,7 @@ export default async function FinanzasPage() {
     const enriched = rows.map(r => {
       const cuota = Number(r.cuota_credito_soles) || 0;
       const plazo = r.plazo_credito_meses || 0;
-      const pagados = Math.min(plazo, monthsElapsed(r.fecha_compra));
+      const pagados = cuotasPagadas(r.fecha_compra, plazo);
       const restantes = Math.max(0, plazo - pagados);
       const pendiente = cuota * restantes;
       if (restantes > 0) {
@@ -85,7 +94,7 @@ export default async function FinanzasPage() {
       }
       totalMensual += restantes > 0 ? cuota : 0;
       totalPendiente += pendiente;
-      return { ...r, cuota, plazo, pagados, restantes, pendiente, proximo: nextDueDate(r.fecha_compra) };
+      return { ...r, cuota, plazo, pagados, restantes, pendiente, proximo: nextDueDate(r.fecha_compra, plazo) };
     });
     return { banco, rows: enriched, mensualGrupo, pendienteGrupo };
   });
