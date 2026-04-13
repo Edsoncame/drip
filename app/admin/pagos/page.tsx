@@ -58,15 +58,7 @@ export default async function AdminPagosPage() {
            ) AS invoices_total
     FROM payments p
     JOIN users u ON u.id = p.user_id
-    ORDER BY
-      CASE p.status
-        WHEN 'reviewing' THEN 0
-        WHEN 'pending' THEN 1
-        WHEN 'overdue' THEN 2
-        WHEN 'upcoming' THEN 3
-        WHEN 'validated' THEN 4
-      END,
-      p.due_date DESC
+    ORDER BY p.due_date DESC
   `);
 
   const payments = result.rows;
