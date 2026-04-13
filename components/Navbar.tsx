@@ -55,8 +55,7 @@ export default function Navbar() {
             {/* Logo */}
             <Link href="/" className="flex items-center gap-2 flex-shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/images/isotipoflux.svg" alt="Flux" className="h-8 w-auto" />
-              <span className="font-black text-xl tracking-tight" style={{ color: "var(--dark-text)" }}>flux</span>
+              <img src="/images/logoflux.svg" alt="FLUX" className="h-7 w-auto" />
             </Link>
 
             {/* Search */}
@@ -230,8 +229,7 @@ export default function Navbar() {
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/images/isotipoflux.svg" alt="Flux" className="h-7 w-auto" />
-                <span className="font-black text-xl tracking-tight" style={{ color: "var(--dark-text)" }}>flux</span>
+                <img src="/images/logoflux.svg" alt="FLUX" className="h-7 w-auto" />
               </div>
               <button onClick={() => setMenuOpen(false)} className="p-2 rounded-full hover:bg-gray-100 cursor-pointer" aria-label="Cerrar menú">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

@@ -28,10 +28,9 @@ export default function Footer() {
 
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
-            <Link href="/" className="flex items-center gap-2 mb-4">
+            <Link href="/" className="inline-flex items-center mb-4">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/images/isotipoflux.svg" alt="Flux" className="h-8 w-auto" />
-              <span className="text-white font-black text-xl tracking-tight">flux</span>
+              <img src="/images/logoflux-white.svg" alt="FLUX" className="h-8 w-auto" />
             </Link>
             <p className="text-sm leading-relaxed mb-4">
               Accede a las mejores Macs sin comprarlas. Planes mensuales para empresas en Lima.

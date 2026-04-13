@@ -102,11 +102,8 @@ export default async function AdminPage() {
       <div className="bg-white border-b border-[#E5E5E5] px-4 sm:px-6 py-4 flex items-center justify-between sticky top-0 z-10">
         <div className="flex items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/images/isotipoflux.svg" alt="Flux" className="h-7 w-auto" />
-          <div className="flex items-center gap-2">
-            <span className="font-800 text-[#18191F]">flux</span>
-            <span className="text-xs font-600 px-2 py-0.5 bg-[#1B4FFF] text-white rounded-full">Admin</span>
-          </div>
+          <img src="/images/logoflux.svg" alt="FLUX" className="h-7 w-auto" />
+          <span className="text-xs font-600 px-2 py-0.5 bg-[#1B4FFF] text-white rounded-full">Admin</span>
         </div>
         <div className="flex items-center gap-4">
           <span className="text-xs text-[#999999] hidden sm:block">{session.email}</span>
