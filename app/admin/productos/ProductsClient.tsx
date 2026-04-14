@@ -4,6 +4,21 @@ import { useState, useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { calcAllPrices } from "@/lib/pricing-formula";
 
+/**
+ * Convierte un nombre de producto en un slug URL-friendly.
+ * Ej: "MacBook Air 13\" — Apple M4" -> "macbook-air-13-apple-m4"
+ */
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")  // quita acentos
+    .replace(/["']/g, "")              // quita comillas
+    .replace(/[^a-z0-9]+/g, "-")       // todo lo demás a guión
+    .replace(/^-+|-+$/g, "")           // quita guiones de los extremos
+    .replace(/-{2,}/g, "-");           // colapsa múltiples guiones
+}
+
 export interface ProductRow {
   id: string;
   slug: string;
@@ -211,7 +226,61 @@ function ProductModal({
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const aiFileRef = useRef<HTMLInputElement>(null);
   const isNew = !data.id;
+
+  // AI extraction state
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  const [aiText, setAiText] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+
+  /**
+   * Llama al endpoint de extracción AI con texto y/o imagen.
+   * Rellena los campos del formulario con la respuesta.
+   */
+  const handleAiExtract = async (file?: File) => {
+    if (!aiText.trim() && !file) {
+      onError("Pega un texto o sube una imagen primero");
+      return;
+    }
+    setAiLoading(true);
+    try {
+      const fd = new FormData();
+      if (aiText.trim()) fd.append("text", aiText.trim());
+      if (file) fd.append("file", file);
+      const res = await fetch("/api/admin/products/extract", {
+        method: "POST",
+        body: fd,
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Error al extraer datos");
+
+      // Aplica los datos al formulario, manteniendo lo que el usuario ya escribió
+      const ai = json.data;
+      setForm((f) => ({
+        ...f,
+        name: ai.name || f.name,
+        short_name: ai.short_name || f.short_name,
+        chip: ai.chip || f.chip,
+        ram: ai.ram || f.ram,
+        ssd: ai.ssd || f.ssd,
+        color: ai.color || f.color,
+        badge: ai.badge ?? f.badge,
+        is_new: ai.is_new ?? f.is_new,
+        cost_usd: ai.cost_usd ?? f.cost_usd,
+        specs: Array.isArray(ai.specs) && ai.specs.length > 0 ? ai.specs : f.specs,
+        includes: Array.isArray(ai.includes) && ai.includes.length > 0 ? ai.includes : f.includes,
+        // Auto-genera slug si no había uno
+        slug: f.slug || slugify(ai.name || ""),
+      }));
+      setAiPanelOpen(false);
+      setAiText("");
+    } catch (e) {
+      onError(e instanceof Error ? e.message : "Error");
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const handleFileUpload = async (file: File) => {
     setUploading(true);
@@ -298,8 +367,77 @@ function ProductModal({
       <div className="bg-white rounded-2xl max-w-3xl w-full my-8" onClick={(e) => e.stopPropagation()}>
         <div className="sticky top-0 bg-white border-b border-[#E5E5E5] px-6 py-4 flex items-center justify-between rounded-t-2xl z-10">
           <h2 className="text-xl font-800 text-[#18191F]">{isNew ? "Nuevo producto" : "Editar producto"}</h2>
-          <button onClick={onClose} className="text-[#999] hover:text-[#18191F] text-2xl cursor-pointer">✕</button>
+          <div className="flex items-center gap-3">
+            {isNew && (
+              <button
+                type="button"
+                onClick={() => setAiPanelOpen(!aiPanelOpen)}
+                className="px-3 py-1.5 rounded-full bg-gradient-to-r from-purple-600 to-[#1B4FFF] text-white text-xs font-700 hover:opacity-90 cursor-pointer flex items-center gap-1.5"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M12 2l3 7 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z"/>
+                </svg>
+                Rellenar con IA
+              </button>
+            )}
+            <button onClick={onClose} className="text-[#999] hover:text-[#18191F] text-2xl cursor-pointer">✕</button>
+          </div>
         </div>
+
+        {/* AI panel — pasted text or uploaded image triggers Claude extraction */}
+        {aiPanelOpen && (
+          <div className="bg-gradient-to-br from-purple-50 to-blue-50 border-b border-[#E5E5E5] p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1B4FFF" strokeWidth="2.5">
+                <path d="M12 2l3 7 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z"/>
+              </svg>
+              <p className="font-700 text-sm text-[#18191F]">Rellena el formulario con IA</p>
+            </div>
+            <p className="text-xs text-[#666] mb-3">
+              Pega el copy de Apple o cualquier descripción del producto, o sube una foto.
+              La IA extraerá nombre, chip, RAM, SSD, color, specs y todo lo demás automáticamente.
+            </p>
+            <textarea
+              value={aiText}
+              onChange={(e) => setAiText(e.target.value)}
+              placeholder="Pega aquí la descripción del producto. Ejemplo: 'MacBook Pro de 14 pulgadas con chip Apple M5, 24 GB de memoria unificada, 512 GB SSD, color Negro Sideral, hasta 24 horas de batería...'"
+              rows={5}
+              className="w-full px-3 py-2 text-sm border border-[#E5E5E5] rounded-xl outline-none focus:border-[#1B4FFF] bg-white resize-none"
+            />
+            <input
+              ref={aiFileRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleAiExtract(f); }}
+            />
+            <div className="flex gap-2 mt-3">
+              <button
+                type="button"
+                onClick={() => handleAiExtract()}
+                disabled={aiLoading || !aiText.trim()}
+                className="flex-1 px-4 py-2 bg-[#1B4FFF] text-white text-xs font-700 rounded-full hover:bg-[#1340CC] disabled:opacity-50 cursor-pointer"
+              >
+                {aiLoading ? "Analizando con IA..." : "Extraer datos del texto"}
+              </button>
+              <button
+                type="button"
+                onClick={() => aiFileRef.current?.click()}
+                disabled={aiLoading}
+                className="px-4 py-2 bg-white border border-[#E5E5E5] text-[#333] text-xs font-700 rounded-full hover:bg-[#F7F7F7] disabled:opacity-50 cursor-pointer"
+              >
+                📷 O subir imagen
+              </button>
+              <button
+                type="button"
+                onClick={() => { setAiPanelOpen(false); setAiText(""); }}
+                className="px-4 py-2 text-xs font-600 text-[#666] cursor-pointer"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="p-6 space-y-6">
           {/* Image upload */}
@@ -340,8 +478,52 @@ function ProductModal({
           {/* Basic info */}
           <Section title="Información básica">
             <Row>
-              <Field label="Slug (URL) *" help="ej: macbook-air-13-m4" value={form.slug} onChange={(v) => setForm({ ...form, slug: v })} mono />
-              <Field label="Nombre completo *" value={form.name} onChange={(v) => setForm({ ...form, name: v })} placeholder="MacBook Air 13&quot; — Apple M4" />
+              <div>
+                <label className="block text-xs text-[#666] mb-1">Nombre completo *</label>
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={(e) => {
+                    const newName = e.target.value;
+                    // Auto-genera slug solo si está vacío o si coincide con el slug
+                    // que se generaría del nombre anterior (es decir, el usuario no
+                    // lo ha tocado manualmente)
+                    const wasAutoSlug = !form.slug || form.slug === slugify(form.name);
+                    setForm({
+                      ...form,
+                      name: newName,
+                      slug: wasAutoSlug ? slugify(newName) : form.slug,
+                    });
+                  }}
+                  placeholder="MacBook Air 13&quot; — Apple M4"
+                  className="w-full px-3 py-2 text-sm border border-[#E5E5E5] rounded-xl outline-none focus:border-[#1B4FFF]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-[#666] mb-1">
+                  Slug (URL) *
+                </label>
+                <div className="flex gap-1">
+                  <input
+                    type="text"
+                    value={form.slug}
+                    onChange={(e) => setForm({ ...form, slug: e.target.value })}
+                    placeholder="macbook-air-13-m4"
+                    className="flex-1 px-3 py-2 text-sm border border-[#E5E5E5] rounded-xl outline-none focus:border-[#1B4FFF] font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, slug: slugify(form.name) })}
+                    title="Generar desde el nombre"
+                    className="px-3 py-2 border border-[#E5E5E5] rounded-xl text-xs text-[#666] hover:border-[#1B4FFF] hover:text-[#1B4FFF] cursor-pointer"
+                  >
+                    ↻
+                  </button>
+                </div>
+                <p className="text-[10px] text-[#999] mt-1">
+                  Es la URL del producto: fluxperu.com/laptops/<strong>{form.slug || "tu-slug"}</strong>
+                </p>
+              </div>
             </Row>
             <Row>
               <Field label="Nombre corto *" value={form.short_name} onChange={(v) => setForm({ ...form, short_name: v })} placeholder="MacBook Air 13&quot;" />
