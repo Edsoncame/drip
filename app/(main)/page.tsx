@@ -57,7 +57,7 @@ export default function Home() {
               <ProductCard
                 key={p.slug}
                 product={p}
-                imageUrl={imageSets[p.slug]?.open}
+                imageUrl={imageSets[p.slug]?.open ?? p.image}
               />
             ))}
           </div>

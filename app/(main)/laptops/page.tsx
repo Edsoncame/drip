@@ -135,7 +135,7 @@ function LaptopsContent() {
             <ProductCard
               key={p.slug}
               product={p.slug in stockMap ? { ...p, stock: stockMap[p.slug] } : p}
-              imageUrl={imageSets[p.slug]?.open}
+              imageUrl={imageSets[p.slug]?.open ?? p.image}
             />
           ))}
         </div>
