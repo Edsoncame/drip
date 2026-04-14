@@ -29,7 +29,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE}/alquiler-macbook-miraflores`, lastModified: now, changeFrequency: "weekly", priority: 0.85 },
     { url: `${BASE}/alquiler-macbook-surco`, lastModified: now, changeFrequency: "weekly", priority: 0.85 },
     { url: `${BASE}/alquiler-macbook-san-borja`, lastModified: now, changeFrequency: "weekly", priority: 0.85 },
-    { url: `${BASE}/flux-vs-leasein`, lastModified: now, changeFrequency: "monthly", priority: 0.75 },
     { url: `${BASE}/ayuda`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
     { url: `${BASE}/blog`, lastModified: now, changeFrequency: "weekly", priority: 0.85 },
     { url: `${BASE}/cancelaciones`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
