@@ -35,8 +35,10 @@ export default function ProductDetail({ product, images }: { product: Product; i
   const selected = product.pricing.find(p => p.months === selectedMonths)!;
   const total = selected.price * selected.months;
 
-  const galleryImgs = images?.gallery ?? [];
-  const currentImg = galleryImgs[activeImg] ?? images?.open ?? null;
+  // Fallback: si el producto no está en el mapa de Apple CDN (getAppleImageSets),
+  // usa la imagen que el admin subió a DB (product.image).
+  const galleryImgs = images?.gallery ?? (product.image ? [product.image] : []);
+  const currentImg = galleryImgs[activeImg] ?? images?.open ?? product.image ?? null;
 
   useEffect(() => {
     trackViewItem({ name: product.name, slug: product.slug, price: selected.price, months: selectedMonths });
