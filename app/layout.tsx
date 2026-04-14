@@ -99,6 +99,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es" className={`${inter.variable} h-full`}>
       <head>
+        {/* Impide que Google auto-traduzca "FLUX" -> "FLUJO" en los resultados.
+            La página ya está en español; el único término en inglés es la
+            marca, y no queremos que se traduzca como si fuera un sustantivo. */}
+        <meta name="google" content="notranslate" />
+        <meta httpEquiv="Content-Language" content="es-PE" />
+        {/* Favicon explícito con cache-buster para forzar a Google a re-scrapear */}
+        <link rel="icon" href="/icon.png?v=2" type="image/png" sizes="32x32" />
+        <link rel="apple-touch-icon" href="/apple-icon.png?v=2" />
         {GTM_ID && (
           <Script id="gtm-head" strategy="afterInteractive">
             {`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
