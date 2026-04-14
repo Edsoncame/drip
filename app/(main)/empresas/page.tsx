@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useProducts } from "@/lib/use-products";
+import BuyVsRentCalculator from "@/components/BuyVsRentCalculator";
 import { motion } from "framer-motion";
 import { trackGenerateLead } from "@/lib/analytics";
 
@@ -250,6 +251,13 @@ export default function Empresas() {
       </section>
 
       {/* Contact form */}
+      {/* Calculadora interactiva — comparar comprar vs alquilar */}
+      <section className="py-16 bg-[#F7F7F7]">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6">
+          <BuyVsRentCalculator />
+        </div>
+      </section>
+
       <section id="cotizar" className="py-16" style={{ background: "var(--primary)" }}>
         <div className="max-w-2xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-8">

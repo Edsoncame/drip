@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import Hero from "@/components/Hero";
 import ProductCard from "@/components/ProductCard";
 import HowItWorks from "@/components/HowItWorks";
+import HomeFAQ from "@/components/HomeFAQ";
 import { useProducts } from "@/lib/use-products";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -91,6 +92,8 @@ export default function Home() {
       </section>
 
       <HowItWorks />
+
+      <HomeFAQ />
 
       {/* Pricing table */}
       <motion.section

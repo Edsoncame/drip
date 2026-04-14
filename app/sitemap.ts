@@ -14,6 +14,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE}/como-funciona`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
     { url: `${BASE}/contacto`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },
     { url: `${BASE}/laptops/comparar`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${BASE}/alquiler-macbook-empresas-lima`, lastModified: now, changeFrequency: "weekly", priority: 0.85 },
+    { url: `${BASE}/alquiler-macbook-air-lima`, lastModified: now, changeFrequency: "weekly", priority: 0.8 },
+    { url: `${BASE}/leasing-laptops-peru`, lastModified: now, changeFrequency: "weekly", priority: 0.8 },
+    { url: `${BASE}/cancelaciones`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
+    { url: `${BASE}/libro-de-reclamaciones`, lastModified: now, changeFrequency: "yearly", priority: 0.4 },
     { url: `${BASE}/terminos`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
     { url: `${BASE}/privacidad`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
   ];
