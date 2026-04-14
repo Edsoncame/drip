@@ -232,22 +232,49 @@ function ProductModal({
   // AI extraction state
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
   const [aiText, setAiText] = useState("");
+  const [aiFiles, setAiFiles] = useState<File[]>([]);
   const [aiLoading, setAiLoading] = useState(false);
 
+  /** Agrega una o más imágenes al panel AI, respetando el tope de 3. */
+  const handleAiAddFiles = (newFiles: FileList | null) => {
+    if (!newFiles || newFiles.length === 0) return;
+    const valid: File[] = [];
+    for (const f of Array.from(newFiles)) {
+      if (!["image/jpeg", "image/png", "image/webp"].includes(f.type)) {
+        onError(`${f.name}: solo JPG, PNG o WebP`);
+        continue;
+      }
+      if (f.size > 8 * 1024 * 1024) {
+        onError(`${f.name}: máximo 8MB`);
+        continue;
+      }
+      valid.push(f);
+    }
+    const combined = [...aiFiles, ...valid].slice(0, 3);
+    if (aiFiles.length + valid.length > 3) {
+      onError("Máximo 3 imágenes — se tomarán las primeras 3");
+    }
+    setAiFiles(combined);
+  };
+
+  const handleAiRemoveFile = (idx: number) => {
+    setAiFiles(aiFiles.filter((_, i) => i !== idx));
+  };
+
   /**
-   * Llama al endpoint de extracción AI con texto y/o imagen.
+   * Llama al endpoint de extracción AI con texto y/o imágenes.
    * Rellena los campos del formulario con la respuesta.
    */
-  const handleAiExtract = async (file?: File) => {
-    if (!aiText.trim() && !file) {
-      onError("Pega un texto o sube una imagen primero");
+  const handleAiExtract = async () => {
+    if (!aiText.trim() && aiFiles.length === 0) {
+      onError("Pega un texto o sube al menos una imagen primero");
       return;
     }
     setAiLoading(true);
     try {
       const fd = new FormData();
       if (aiText.trim()) fd.append("text", aiText.trim());
-      if (file) fd.append("file", file);
+      for (const f of aiFiles) fd.append("file", f);
       const res = await fetch("/api/admin/products/extract", {
         method: "POST",
         body: fd,
@@ -275,6 +302,7 @@ function ProductModal({
       }));
       setAiPanelOpen(false);
       setAiText("");
+      setAiFiles([]);
     } catch (e) {
       onError(e instanceof Error ? e.message : "Error");
     } finally {
@@ -384,7 +412,7 @@ function ProductModal({
           </div>
         </div>
 
-        {/* AI panel — pasted text or uploaded image triggers Claude extraction */}
+        {/* AI panel — pasted text and/or up to 3 images trigger Claude extraction */}
         {aiPanelOpen && (
           <div className="bg-gradient-to-br from-purple-50 to-blue-50 border-b border-[#E5E5E5] p-5">
             <div className="flex items-center gap-2 mb-3">
@@ -394,44 +422,93 @@ function ProductModal({
               <p className="font-700 text-sm text-[#18191F]">Rellena el formulario con IA</p>
             </div>
             <p className="text-xs text-[#666] mb-3">
-              Pega el copy de Apple o cualquier descripción del producto, o sube una foto.
-              La IA extraerá nombre, chip, RAM, SSD, color, specs y todo lo demás automáticamente.
+              Pega el copy de Apple, sube hasta 3 imágenes del producto (frente, lateral, ficha
+              técnica), o combina ambos. La IA extraerá nombre, chip, RAM, SSD, color, specs y
+              todo lo demás automáticamente.
             </p>
+
+            {/* Textarea */}
             <textarea
               value={aiText}
               onChange={(e) => setAiText(e.target.value)}
-              placeholder="Pega aquí la descripción del producto. Ejemplo: 'MacBook Pro de 14 pulgadas con chip Apple M5, 24 GB de memoria unificada, 512 GB SSD, color Negro Sideral, hasta 24 horas de batería...'"
-              rows={5}
+              placeholder="Pega aquí la descripción. Ejemplo: 'MacBook Pro de 14 pulgadas con chip Apple M5, 24 GB de memoria unificada, 512 GB SSD, color Negro Sideral...'"
+              rows={4}
               className="w-full px-3 py-2 text-sm border border-[#E5E5E5] rounded-xl outline-none focus:border-[#1B4FFF] bg-white resize-none"
             />
+
+            {/* Image preview grid */}
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              {aiFiles.map((file, idx) => (
+                <div
+                  key={idx}
+                  className="relative aspect-square rounded-xl overflow-hidden border border-[#E5E5E5] bg-white"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={URL.createObjectURL(file)}
+                    alt={file.name}
+                    className="w-full h-full object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleAiRemoveFile(idx)}
+                    className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/70 text-white text-xs font-700 flex items-center justify-center hover:bg-red-600 cursor-pointer"
+                    aria-label="Quitar imagen"
+                  >
+                    ✕
+                  </button>
+                  <div className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[9px] px-1 py-0.5 truncate">
+                    {file.name}
+                  </div>
+                </div>
+              ))}
+              {aiFiles.length < 3 && (
+                <button
+                  type="button"
+                  onClick={() => aiFileRef.current?.click()}
+                  className="aspect-square rounded-xl border-2 border-dashed border-[#CCCCCC] hover:border-[#1B4FFF] hover:bg-white/50 flex flex-col items-center justify-center gap-1 cursor-pointer text-[#666] hover:text-[#1B4FFF]"
+                >
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                  </svg>
+                  <span className="text-[10px] font-700">
+                    {aiFiles.length === 0 ? "Agregar imagen" : "Otra imagen"}
+                  </span>
+                </button>
+              )}
+            </div>
+
             <input
               ref={aiFileRef}
               type="file"
               accept="image/jpeg,image/png,image/webp"
+              multiple
               className="hidden"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleAiExtract(f); }}
+              onChange={(e) => {
+                handleAiAddFiles(e.target.files);
+                // Reset el input para poder re-seleccionar el mismo archivo
+                e.target.value = "";
+              }}
             />
+
+            <p className="text-[10px] text-[#999] mt-2">
+              {aiFiles.length}/3 imágenes seleccionadas
+            </p>
+
             <div className="flex gap-2 mt-3">
               <button
                 type="button"
-                onClick={() => handleAiExtract()}
-                disabled={aiLoading || !aiText.trim()}
-                className="flex-1 px-4 py-2 bg-[#1B4FFF] text-white text-xs font-700 rounded-full hover:bg-[#1340CC] disabled:opacity-50 cursor-pointer"
+                onClick={handleAiExtract}
+                disabled={aiLoading || (!aiText.trim() && aiFiles.length === 0)}
+                className="flex-1 px-4 py-2.5 bg-[#1B4FFF] text-white text-xs font-700 rounded-full hover:bg-[#1340CC] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
-                {aiLoading ? "Analizando con IA..." : "Extraer datos del texto"}
+                {aiLoading ? "Analizando con IA..." : "Extraer datos con IA"}
               </button>
               <button
                 type="button"
-                onClick={() => aiFileRef.current?.click()}
-                disabled={aiLoading}
-                className="px-4 py-2 bg-white border border-[#E5E5E5] text-[#333] text-xs font-700 rounded-full hover:bg-[#F7F7F7] disabled:opacity-50 cursor-pointer"
-              >
-                📷 O subir imagen
-              </button>
-              <button
-                type="button"
-                onClick={() => { setAiPanelOpen(false); setAiText(""); }}
-                className="px-4 py-2 text-xs font-600 text-[#666] cursor-pointer"
+                onClick={() => { setAiPanelOpen(false); setAiText(""); setAiFiles([]); }}
+                className="px-4 py-2.5 text-xs font-600 text-[#666] cursor-pointer"
               >
                 Cancelar
               </button>

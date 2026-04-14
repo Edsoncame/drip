@@ -85,11 +85,19 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const text = (formData.get("text") as string | null)?.trim() ?? "";
-    const file = formData.get("file") as File | null;
+    // Soporte para múltiples imágenes (máximo 3). El cliente puede enviar
+    // varios archivos bajo la misma key "file" — getAll() devuelve todos.
+    const files = formData.getAll("file").filter((f) => f instanceof File) as File[];
 
-    if (!text && !file) {
+    if (!text && files.length === 0) {
       return NextResponse.json(
         { error: "Envía al menos un texto o una imagen" },
+        { status: 400 }
+      );
+    }
+    if (files.length > 3) {
+      return NextResponse.json(
+        { error: "Máximo 3 imágenes" },
         { status: 400 }
       );
     }
@@ -102,20 +110,22 @@ export async function POST(req: NextRequest) {
 
     const instructionText = text
       ? `Extrae los datos del siguiente producto:\n\n${text}`
-      : "Extrae los datos del producto que aparece en la imagen.";
+      : files.length > 1
+        ? `Analiza las ${files.length} imágenes del producto y extrae sus datos técnicos. Úsalas como referencias complementarias (vistas distintas, ficha técnica, caja, etc.).`
+        : "Extrae los datos del producto que aparece en la imagen.";
 
     content.push({ type: "text", text: instructionText });
 
-    if (file) {
+    for (const file of files) {
       if (!ALLOWED_IMAGES.includes(file.type)) {
         return NextResponse.json(
-          { error: "Solo JPG, PNG o WebP" },
+          { error: `Archivo ${file.name}: solo JPG, PNG o WebP` },
           { status: 400 }
         );
       }
       if (file.size > MAX_IMAGE_SIZE) {
         return NextResponse.json(
-          { error: "Imagen máximo 8MB" },
+          { error: `Archivo ${file.name}: máximo 8MB` },
           { status: 400 }
         );
       }
