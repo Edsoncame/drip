@@ -9,12 +9,13 @@
  * Devuelve un JSON con los campos del producto que se pueden mapear directo
  * al formulario de `/admin/productos`. El usuario puede editarlo después.
  *
- * Modelo: `anthropic/claude-sonnet-4.6` ruteado a través de Vercel AI Gateway.
- * Auth automática vía OIDC token (configurado con `vercel env pull`).
+ * Modelo: claude-sonnet-4-6 vía @ai-sdk/anthropic (provider directo, BYOK).
+ * El provider lee la credencial de Anthropic desde las env vars del proyecto.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { generateText, Output } from "ai";
+import { anthropic } from "@ai-sdk/anthropic";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 
@@ -133,17 +134,15 @@ export async function POST(req: NextRequest) {
       content.push({ type: "image", image: buffer, mediaType: file.type });
     }
 
-    // Plain string model id -> routes through Vercel AI Gateway (OIDC auth).
+    // Provider directo (BYOK) — usa la credencial que el usuario ya tiene en
+    // Anthropic. El provider @ai-sdk/anthropic usa el formato con hyphens
+    // para los model IDs (ver AnthropicMessagesModelId en el paquete), NO el
+    // formato con dots de Vercel AI Gateway ("anthropic/claude-sonnet-4.6").
     const result = await generateText({
-      model: "anthropic/claude-sonnet-4.6",
+      model: anthropic("claude-sonnet-4-6"),
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content }],
       output: Output.object({ schema: ProductSchema }),
-      providerOptions: {
-        gateway: {
-          tags: ["feature:product-extraction", "env:production"],
-        },
-      },
     });
 
     console.log(`[admin/products/extract] ${session.email} extracted product data`);
