@@ -60,8 +60,8 @@ export default async function AdminPage() {
   const [statsResult, subsResult, referralsResult] = await Promise.all([
     query<Stat>(`
       SELECT
-        COUNT(*) FILTER (WHERE status = 'active')    AS active_count,
-        COUNT(*) FILTER (WHERE status = 'delivered') AS pending_delivery,
+        COUNT(*) FILTER (WHERE status IN ('active','delivered')) AS active_count,
+        COUNT(*) FILTER (WHERE status = 'shipped')               AS pending_delivery,
         COALESCE(SUM(monthly_price::numeric) FILTER (WHERE status IN ('active','delivered')), 0) AS monthly_revenue,
         (SELECT COUNT(*) FROM users WHERE COALESCE(is_admin, false) = false) AS total_users,
         COUNT(*)                                     AS total_subs
@@ -123,7 +123,7 @@ export default async function AdminPage() {
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-8">
           {[
             { label: "Rentas activas",    value: stats?.active_count ?? "0",       icon: "💻", highlight: false },
-            { label: "Por entregar",      value: stats?.pending_delivery ?? "0",   icon: "🚚", highlight: Number(stats?.pending_delivery) > 0 },
+            { label: "En camino",         value: stats?.pending_delivery ?? "0",   icon: "🚚", highlight: Number(stats?.pending_delivery) > 0 },
             { label: "MRR estimado",      value: `$${Number(stats?.monthly_revenue ?? 0).toFixed(0)}`, icon: "💰", highlight: false },
             { label: "Total usuarios",    value: stats?.total_users ?? "0",        icon: "👤", highlight: false },
             { label: "Total rentas",      value: stats?.total_subs ?? "0",         icon: "📋", highlight: false },
