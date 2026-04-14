@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { getProducts } from "@/lib/products";
+import { blogPosts } from "@/lib/blog";
 
 const BASE = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.fluxperu.com";
 
@@ -17,6 +18,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE}/alquiler-macbook-empresas-lima`, lastModified: now, changeFrequency: "weekly", priority: 0.85 },
     { url: `${BASE}/alquiler-macbook-air-lima`, lastModified: now, changeFrequency: "weekly", priority: 0.8 },
     { url: `${BASE}/leasing-laptops-peru`, lastModified: now, changeFrequency: "weekly", priority: 0.8 },
+    { url: `${BASE}/alquiler-macbook-pro-lima`, lastModified: now, changeFrequency: "weekly", priority: 0.8 },
+    { url: `${BASE}/renta-macbook-peru`, lastModified: now, changeFrequency: "weekly", priority: 0.8 },
+    { url: `${BASE}/alquiler-laptops-apple-empresas`, lastModified: now, changeFrequency: "weekly", priority: 0.8 },
+    { url: `${BASE}/macbook-mensual-peru`, lastModified: now, changeFrequency: "weekly", priority: 0.75 },
+    { url: `${BASE}/arrendamiento-macbook-empresas`, lastModified: now, changeFrequency: "weekly", priority: 0.75 },
+    { url: `${BASE}/alquiler-macbook-startups-lima`, lastModified: now, changeFrequency: "weekly", priority: 0.75 },
+    { url: `${BASE}/alquiler-macbook-15-pulgadas-lima`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },
+    { url: `${BASE}/blog`, lastModified: now, changeFrequency: "weekly", priority: 0.85 },
     { url: `${BASE}/cancelaciones`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
     { url: `${BASE}/libro-de-reclamaciones`, lastModified: now, changeFrequency: "yearly", priority: 0.4 },
     { url: `${BASE}/terminos`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
@@ -30,5 +39,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.85,
   }));
 
-  return [...staticRoutes, ...productRoutes];
+  const blogRoutes: MetadataRoute.Sitemap = blogPosts.map(p => ({
+    url: `${BASE}/blog/${p.slug}`,
+    lastModified: new Date(p.date),
+    changeFrequency: "monthly",
+    priority: 0.75,
+  }));
+
+  return [...staticRoutes, ...productRoutes, ...blogRoutes];
 }

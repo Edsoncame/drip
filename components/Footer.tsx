@@ -10,6 +10,7 @@ const productos = [
 const empresa = [
   { label: "¿Cómo funciona?", href: "/como-funciona" },
   { label: "Para empresas", href: "/empresas" },
+  { label: "Blog", href: "/blog" },
   { label: "Preguntas frecuentes", href: "/como-funciona#faq" },
   { label: "Contacto", href: "/contacto" },
 ];
