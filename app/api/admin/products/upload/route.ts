@@ -44,13 +44,25 @@ export async function POST(req: NextRequest) {
   try {
     const inputBuffer = Buffer.from(await file.arrayBuffer());
 
-    // Redimensiona, comprime y convierte a WebP
-    // - fit: "inside" => no recorta, mantiene proporción dentro de la caja
-    // - withoutEnlargement => si la imagen ya es más chica, no la agranda
+    // Pipeline de centrado automático:
+    //
+    // 1. trim() recorta bordes transparentes o de un solo color (típico en
+    //    imágenes de Apple con fondo blanco o alfa). Así el producto queda
+    //    "pegado" a los bordes del bounding box real.
+    //
+    // 2. resize con fit: "contain" lo vuelve a colocar dentro de un canvas
+    //    de TARGET_WIDTH x TARGET_HEIGHT, centrado, con fondo transparente
+    //    (si era PNG/WebP) o blanco.
+    //
+    // El resultado: todas las imágenes quedan perfectamente centradas sin
+    // importar cómo venían del origen, manteniendo la proporción del
+    // producto original.
     const optimized = await sharp(inputBuffer)
+      .trim({ background: "#ffffff", threshold: 10 })
       .resize(TARGET_WIDTH, TARGET_HEIGHT, {
-        fit: "inside",
-        withoutEnlargement: true,
+        fit: "contain",
+        withoutEnlargement: false,
+        background: { r: 255, g: 255, b: 255, alpha: 0 },
       })
       .webp({ quality: 82, effort: 6 })
       .toBuffer();
