@@ -85,6 +85,14 @@ export const metadata: Metadata = {
       "max-video-preview": -1,
     },
   },
+  // Verificación de propiedad para Search Console y Bing Webmaster.
+  // Los valores se leen desde env vars — si no están seteadas, no aparecen.
+  verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
+    other: {
+      "msvalidate.01": process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION ?? "",
+    },
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
