@@ -1,5 +1,25 @@
 "use client";
 
+/** Returns true if Google OAuth is enabled and properly configured. */
+export function isGoogleOAuthEnabled(): boolean {
+  return (
+    process.env.NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED === "true" &&
+    !!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+  );
+}
+
+/**
+ * Google OAuth sign-in button.
+ *
+ * Visible only when both:
+ *   1. NEXT_PUBLIC_GOOGLE_CLIENT_ID is configured
+ *   2. NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED === "true"
+ *
+ * The second flag gives us a kill switch in case the OAuth client gets
+ * revoked in Google Cloud Console — without it, users would be redirected
+ * to a Google error page ("Acceso bloqueado: invalid_client") which is a
+ * terrible first impression.
+ */
 export default function GoogleAuthButton({
   redirect = "/",
   label = "Continuar con Google",
@@ -7,21 +27,13 @@ export default function GoogleAuthButton({
   redirect?: string;
   label?: string;
 }) {
-  const configured = !!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+  const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+  const enabled = process.env.NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED === "true";
+  const configured = !!clientId && enabled;
 
-  if (!configured) {
-    return (
-      <button
-        type="button"
-        disabled
-        className="w-full py-3 rounded-xl border border-[#E5E5E5] flex items-center justify-center gap-3 text-sm font-600 text-[#BBBBBB] bg-[#FAFAFA] cursor-not-allowed"
-        title="Próximamente"
-      >
-        <GoogleIcon color="#BBBBBB" />
-        {label} <span className="text-xs font-400">(próximamente)</span>
-      </button>
-    );
-  }
+  // Until OAuth is fully verified working, hide the button entirely so
+  // we don't leak broken UX. Email/password login still works.
+  if (!configured) return null;
 
   return (
     <a

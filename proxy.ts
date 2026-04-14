@@ -1,3 +1,25 @@
+/**
+ * Edge middleware de FLUX (en Next.js 16 se llama `proxy.ts` en lugar de
+ * `middleware.ts`).
+ *
+ * Se ejecuta ANTES de que la request llegue al server component / route
+ * handler, en el **Edge Runtime** de Vercel. Eso significa:
+ *   - Sin acceso directo a Postgres (`pg` no funciona en Edge).
+ *   - Sin filesystem.
+ *   - Sin la mayoría de Node APIs.
+ *   - Latencia muy baja (corre cerca del usuario).
+ *
+ * Lo único que SÍ podemos hacer es leer cookies y verificar el JWT con `jose`,
+ * que sí es Edge-compatible.
+ *
+ * Por eso el flag `isAdmin` viaja DENTRO del JWT: así el proxy puede decidir
+ * si dejar pasar al usuario sin tocar la base de datos.
+ *
+ * Rutas protegidas:
+ *   - `/admin/*`           solo admins
+ *   - `/cuenta/*`          solo usuarios autenticados
+ *   - `/api/subscriptions` solo usuarios autenticados
+ */
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 

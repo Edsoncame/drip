@@ -4,7 +4,7 @@ import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import GoogleAuthButton from "@/components/GoogleAuthButton";
+import GoogleAuthButton, { isGoogleOAuthEnabled } from "@/components/GoogleAuthButton";
 
 function LoginForm() {
   const router = useRouter();
@@ -160,14 +160,16 @@ function LoginForm() {
             </button>
           </form>
 
-          {/* Divider */}
-          <div className="flex items-center gap-3 my-5">
-            <div className="flex-1 h-px bg-[#E5E5E5]" />
-            <span className="text-xs text-[#999999]">o continúa con</span>
-            <div className="flex-1 h-px bg-[#E5E5E5]" />
-          </div>
-
-          <GoogleAuthButton redirect={redirect} />
+          {isGoogleOAuthEnabled() && (
+            <>
+              <div className="flex items-center gap-3 my-5">
+                <div className="flex-1 h-px bg-[#E5E5E5]" />
+                <span className="text-xs text-[#999999]">o continúa con</span>
+                <div className="flex-1 h-px bg-[#E5E5E5]" />
+              </div>
+              <GoogleAuthButton redirect={redirect} />
+            </>
+          )}
         </motion.div>
 
         <p className="text-center text-xs text-[#999999] mt-6">

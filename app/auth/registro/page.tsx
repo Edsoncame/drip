@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { trackSignUp } from "@/lib/analytics";
 import Link from "next/link";
-import GoogleAuthButton from "@/components/GoogleAuthButton";
+import GoogleAuthButton, { isGoogleOAuthEnabled } from "@/components/GoogleAuthButton";
 
 function RegisterForm() {
   const router = useRouter();
@@ -306,13 +306,16 @@ function RegisterForm() {
             <Link href="/privacidad" className="text-[#1B4FFF] hover:underline">Política de privacidad</Link>.
           </p>
 
-          <div className="flex items-center gap-3 my-5">
-            <div className="flex-1 h-px bg-[#E5E5E5]" />
-            <span className="text-xs text-[#999999]">o regístrate con</span>
-            <div className="flex-1 h-px bg-[#E5E5E5]" />
-          </div>
-
-          <GoogleAuthButton redirect={redirect} label="Registrarse con Google" />
+          {isGoogleOAuthEnabled() && (
+            <>
+              <div className="flex items-center gap-3 my-5">
+                <div className="flex-1 h-px bg-[#E5E5E5]" />
+                <span className="text-xs text-[#999999]">o regístrate con</span>
+                <div className="flex-1 h-px bg-[#E5E5E5]" />
+              </div>
+              <GoogleAuthButton redirect={redirect} label="Registrarse con Google" />
+            </>
+          )}
         </motion.div>
 
         <p className="text-center text-xs text-[#999999] mt-6">© 2026 FLUX — Tika Services S.A.C.</p>
