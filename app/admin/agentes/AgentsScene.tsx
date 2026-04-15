@@ -186,6 +186,8 @@ export default function AgentsScene() {
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [delegations, setDelegations] = useState<DelegationStatus[]>([]);
   const [autopilotRunning, setAutopilotRunning] = useState(false);
+  const [autopilotContinuous, setAutopilotContinuous] = useState(false);
+  const [autopilotNextTick, setAutopilotNextTick] = useState<number | null>(null);
   const [recording, setRecording] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState("");
   const [recordStart, setRecordStart] = useState<number | null>(null);
@@ -235,6 +237,15 @@ export default function AgentsScene() {
     const id = setInterval(() => setMoodSeed((s) => s + 1), 30000);
     return () => clearInterval(id);
   }, []);
+
+  // Countdown del próximo tick cuando está en modo continuo
+  useEffect(() => {
+    if (!autopilotContinuous || !autopilotNextTick) return;
+    const id = setInterval(() => {
+      setMoodSeed((s) => s + 1); // forzar re-render del contador
+    }, 1000);
+    return () => clearInterval(id);
+  }, [autopilotContinuous, autopilotNextTick]);
 
   // Poll state every 5s
   const loadState = useCallback(async () => {
@@ -290,6 +301,7 @@ export default function AgentsScene() {
   const triggerAutopilot = useCallback(async () => {
     if (autopilotRunning) return;
     setAutopilotRunning(true);
+    setAutopilotNextTick(null);
     try {
       const res = await fetch("/api/admin/agents/autopilot", {
         method: "POST",
@@ -298,7 +310,6 @@ export default function AgentsScene() {
       });
       const json = await res.json();
       if (json.results) {
-        // Meter cada ejecución en el panel de delegaciones para verla
         for (const r of json.results) {
           if (r.status === "executed" && r.run) {
             setDelegations((prev) => [
@@ -326,6 +337,35 @@ export default function AgentsScene() {
       setAutopilotRunning(false);
     }
   }, [autopilotRunning, loadState]);
+
+  // Loop continuo: cuando está activo, dispara un tick cada 10 min
+  useEffect(() => {
+    if (!autopilotContinuous) {
+      setAutopilotNextTick(null);
+      return;
+    }
+    const TICK_INTERVAL = 10 * 60 * 1000;
+    let active = true;
+    const scheduleNext = () => {
+      const next = Date.now() + TICK_INTERVAL;
+      setAutopilotNextTick(next);
+      const t = setTimeout(async () => {
+        if (!active) return;
+        await triggerAutopilot();
+        if (active) scheduleNext();
+      }, TICK_INTERVAL);
+      return t;
+    };
+    // Primer tick inmediato al activar
+    triggerAutopilot().then(() => {
+      if (active) scheduleNext();
+    });
+    return () => {
+      active = false;
+      setAutopilotNextTick(null);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autopilotContinuous]);
 
   /**
    * Dispara la ejecución real del subagente en el server.
@@ -727,37 +767,79 @@ export default function AgentsScene() {
             ↓ descargar workspace
           </a>
 
-          {/* Autopilot button — arriba centro para que sea imposible perderlo */}
-          <motion.button
-            onClick={triggerAutopilot}
-            disabled={autopilotRunning}
-            whileHover={{ scale: 1.06, y: -2 }}
-            whileTap={{ scale: 0.96 }}
-            animate={
-              autopilotRunning
-                ? { boxShadow: ["0 0 20px #f59e0b", "0 0 40px #f59e0b", "0 0 20px #f59e0b"] }
-                : undefined
-            }
-            transition={autopilotRunning ? { duration: 1.2, repeat: Infinity } : undefined}
-            className="absolute z-30 font-bold backdrop-blur disabled:opacity-60 disabled:cursor-wait"
-            style={{
-              top: 12,
-              left: "50%",
-              transform: "translateX(-50%)",
-              padding: "10px 20px",
-              borderRadius: 999,
-              background:
-                "linear-gradient(135deg, #f59e0b 0%, #f97316 50%, #ef4444 100%)",
-              color: "#0A0A14",
-              fontSize: 13,
-              border: "2px solid rgba(255,255,255,0.25)",
-              boxShadow:
-                "0 10px 30px rgba(249, 115, 22, 0.35), 0 2px 8px rgba(0,0,0,0.4)",
-            }}
-            title="Despierta al equipo — los agentes deciden y ejecutan tareas solos"
+          {/* Autopilot controls — top-center, imposible perderlo */}
+          <div
+            className="absolute z-30 flex items-center gap-2"
+            style={{ top: 12, left: "50%", transform: "translateX(-50%)" }}
           >
-            {autopilotRunning ? "⚡ AUTOPILOT CORRIENDO…" : "🚀 ACTIVAR AUTOPILOT"}
-          </motion.button>
+            {/* Tick único */}
+            <motion.button
+              onClick={triggerAutopilot}
+              disabled={autopilotRunning}
+              whileHover={{ scale: 1.05, y: -1 }}
+              whileTap={{ scale: 0.96 }}
+              className="font-bold disabled:opacity-60 disabled:cursor-wait"
+              style={{
+                padding: "10px 18px",
+                borderRadius: 999,
+                background:
+                  "linear-gradient(135deg, #f59e0b 0%, #f97316 50%, #ef4444 100%)",
+                color: "#0A0A14",
+                fontSize: 12,
+                border: "2px solid rgba(255,255,255,0.25)",
+                boxShadow:
+                  "0 10px 30px rgba(249, 115, 22, 0.35), 0 2px 8px rgba(0,0,0,0.4)",
+              }}
+              title="Ejecuta 1 tick — 3 agentes corren en paralelo una vez y para"
+            >
+              {autopilotRunning ? "⚡ CORRIENDO…" : "🚀 1 TICK"}
+            </motion.button>
+
+            {/* Toggle continuous */}
+            <motion.button
+              onClick={() => setAutopilotContinuous((c) => !c)}
+              whileHover={{ scale: 1.05, y: -1 }}
+              whileTap={{ scale: 0.96 }}
+              animate={
+                autopilotContinuous
+                  ? { boxShadow: ["0 0 15px #10b981", "0 0 30px #10b981", "0 0 15px #10b981"] }
+                  : undefined
+              }
+              transition={autopilotContinuous ? { duration: 1.5, repeat: Infinity } : undefined}
+              className="font-bold"
+              style={{
+                padding: "10px 18px",
+                borderRadius: 999,
+                background: autopilotContinuous
+                  ? "linear-gradient(135deg, #10b981 0%, #059669 100%)"
+                  : "rgba(255,255,255,0.08)",
+                color: autopilotContinuous ? "#0A0A14" : "#fff",
+                fontSize: 12,
+                border: autopilotContinuous
+                  ? "2px solid rgba(255,255,255,0.3)"
+                  : "2px solid rgba(255,255,255,0.15)",
+                backdropFilter: "blur(12px)",
+              }}
+              title="Modo continuo: dispara un tick cada 10 min mientras la pestaña esté abierta"
+            >
+              {autopilotContinuous ? "🟢 24/7 ACTIVO" : "⚪ MODO 24/7"}
+            </motion.button>
+
+            {/* Countdown si está en continuous */}
+            {autopilotContinuous && autopilotNextTick && !autopilotRunning && (
+              <div
+                className="text-[10px] font-mono text-emerald-300 bg-black/70 backdrop-blur rounded-full px-3 py-1 border border-emerald-400/30"
+                style={{ whiteSpace: "nowrap" }}
+              >
+                próximo tick en {(() => {
+                  const ms = autopilotNextTick - Date.now();
+                  const s = Math.max(0, Math.floor(ms / 1000));
+                  const m = Math.floor(s / 60);
+                  return `${m}:${(s % 60).toString().padStart(2, "0")}`;
+                })()}
+              </div>
+            )}
+          </div>
 
           {/* Delegaciones en vivo — panel flotante top-right */}
           {delegations.length > 0 && (

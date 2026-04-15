@@ -110,19 +110,21 @@ export async function runAutopilotTick(opts?: {
   scored.sort((a, b) => a.score - b.score);
   const toRun = scored.slice(0, max);
 
-  for (const { agent } of toRun) {
-    const run = await runAgent({
-      agentId: agent,
-      task: proactivePrompt(agent),
-      actor: "autopilot",
-      maxSteps: 8,
-      depth: 0,
-    });
-    results.push({
-      agent,
-      status: "executed",
-      run,
-    });
+  // EN PARALELO — los agentes corren al mismo tiempo. Un tick con 3 agentes
+  // que antes tardaba 180s ahora tarda el tiempo del más lento (~60s).
+  const parallelRuns = await Promise.all(
+    toRun.map(({ agent }) =>
+      runAgent({
+        agentId: agent,
+        task: proactivePrompt(agent),
+        actor: "autopilot",
+        maxSteps: 8,
+        depth: 0,
+      }).then((run) => ({ agent, run })),
+    ),
+  );
+  for (const { agent, run } of parallelRuns) {
+    results.push({ agent, status: "executed", run });
   }
 
   return {
