@@ -270,14 +270,29 @@ export interface FileEntry {
   kind: "file" | "dir";
 }
 
+export interface AgentLatestRun {
+  id: number;
+  task: string;
+  status: "running" | "done" | "error";
+  startedAt: number;
+  finishedAt: number | null;
+  durationMs: number | null;
+  textSummary: string | null;
+  filesWritten: { relPath: string; size: number }[];
+  actor: string | null;
+  error: string | null;
+}
+
 export interface AgentState {
   id: AgentId;
   exists: boolean;
-  filesCount: number;
-  latestFiles: FileEntry[];
+  filesCount: number;      // cuenta SOLO archivos dinámicos (DB), no estáticos del bundle
+  latestFiles: FileEntry[]; // mezcla estáticos + DB pero priorizando DB
   memory: string | null;
-  lastActivity: number | null;
+  lastActivity: number | null; // último timestamp real desde DB (null = nunca trabajó)
   outputFolders: string[];
+  latestRun: AgentLatestRun | null;
+  isRunning: boolean;
 }
 
 const IGNORED = new Set([".DS_Store", ".git", "node_modules", ".claude", ".mcp.json"]);
@@ -328,29 +343,46 @@ export async function readAgentState(id: AgentId): Promise<AgentState> {
   const dir = path.join(AGENTS_ROOT, id);
   const st = await safeStat(dir);
 
-  // Archivos estáticos del bundle (CLAUDE.md, README.md, memory.md, etc)
+  // Archivos estáticos del bundle (CLAUDE.md, README.md, memory.md, etc) —
+  // SOLO para display en el detail panel, NO cuentan como actividad real.
   const staticFiles: FileEntry[] = st && st.isDirectory() ? await walkLimited(dir, 200) : [];
 
-  // Archivos dinámicos escritos por el agente desde la DB
-  const { listAgentFiles } = await import("./agents-db").catch(() => ({ listAgentFiles: null }));
+  // Archivos dinámicos escritos por el agente desde la DB — estos SÍ cuentan
+  // como actividad porque los escribe el runner cuando el agente ejecuta.
   let dbFiles: FileEntry[] = [];
-  if (listAgentFiles) {
-    try {
-      const rows = await listAgentFiles(id);
-      dbFiles = rows.map((r) => ({
-        path: `db://${id}/${r.rel_path}`,
-        name: r.rel_path.split("/").pop() || r.rel_path,
-        size: r.size,
-        mtime: r.updated_at.getTime(),
-        kind: "file" as const,
-      }));
-    } catch {
-      // DB puede no estar disponible (tabla recién creada, etc)
+  let latestRun: AgentLatestRun | null = null;
+  let isRunning = false;
+  try {
+    const { listAgentFiles, latestRunForAgent } = await import("./agents-db");
+    const [rows, run] = await Promise.all([listAgentFiles(id), latestRunForAgent(id)]);
+    dbFiles = rows.map((r) => ({
+      path: `db://${id}/${r.rel_path}`,
+      name: r.rel_path.split("/").pop() || r.rel_path,
+      size: r.size,
+      mtime: r.updated_at.getTime(),
+      kind: "file" as const,
+    }));
+    if (run) {
+      latestRun = {
+        id: run.id,
+        task: run.task,
+        status: run.status,
+        startedAt: run.started_at.getTime(),
+        finishedAt: run.finished_at?.getTime() ?? null,
+        durationMs: run.duration_ms,
+        textSummary: run.text_result ? run.text_result.slice(0, 800) : null,
+        filesWritten: run.files_written ?? [],
+        actor: run.actor,
+        error: run.error,
+      };
+      isRunning = run.status === "running";
     }
+  } catch {
+    // DB puede no estar disponible
   }
 
-  const allFiles = [...staticFiles, ...dbFiles];
-  allFiles.sort((a, b) => b.mtime - a.mtime);
+  // latestFiles: static + DB, pero DB arriba porque es lo importante
+  const allFiles = [...dbFiles, ...staticFiles];
 
   let memory: string | null = null;
   try {
@@ -369,16 +401,24 @@ export async function readAgentState(id: AgentId): Promise<AgentState> {
   } catch {}
 
   const exists = !!(st && st.isDirectory()) || dbFiles.length > 0;
-  const lastActivity = allFiles[0]?.mtime ?? (st ? st.mtimeMs : null);
+
+  // lastActivity = timestamp del último run (si lo hubo) o del último archivo DB,
+  // lo que sea más reciente. Si nunca corrió, es null → el mood será "normal"
+  // (standby) en vez de "sleepy".
+  const lastFromRun = latestRun?.startedAt ?? 0;
+  const lastFromDbFile = dbFiles[0]?.mtime ?? 0;
+  const lastActivity = Math.max(lastFromRun, lastFromDbFile) || null;
 
   return {
     id,
     exists,
-    filesCount: allFiles.length,
+    filesCount: dbFiles.length, // solo DB — los estáticos no son "trabajo"
     latestFiles: allFiles.slice(0, 12),
     memory,
     lastActivity,
     outputFolders: subdirs,
+    latestRun,
+    isRunning,
   };
 }
 

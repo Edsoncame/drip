@@ -22,6 +22,8 @@ import {
   readAgentFile,
   writeAgentFile,
   ensureSchema,
+  startRun,
+  finishRun,
 } from "./agents-db";
 import { webFetchTool, webSearchTool, generateImageTool } from "./agent-tools";
 import { matchHandoffs } from "./agent-handoffs";
@@ -141,6 +143,9 @@ export async function runAgent({
 
   await ensureSchema();
 
+  // Registrar el run como "running" — el panel ya lo va a ver al refrescar
+  const runRecord = await startRun(agentId, task, actor);
+
   const systemPromptBase = await loadAgentSystemPrompt(agentId);
   const existingContext = await filesContext(agentId);
 
@@ -251,10 +256,18 @@ ${existingContext}
     if (depth < 2 && filesWritten.length > 0) {
       const matches = matchHandoffs(agentId, filesWritten);
       for (const { rule, sourcePath } of matches) {
-        const task = rule.then.taskTemplate({ sourceAgent: agentId, sourcePath });
-        triggeredHandoffs.push({ agent: rule.then.agent, task });
+        const handoffTask = rule.then.taskTemplate({ sourceAgent: agentId, sourcePath });
+        triggeredHandoffs.push({ agent: rule.then.agent, task: handoffTask });
       }
     }
+
+    const durationMs = Date.now() - start;
+    await finishRun(runRecord.id, {
+      status: "done",
+      text: result.text,
+      filesWritten,
+      durationMs,
+    });
 
     return {
       agentId,
@@ -262,18 +275,26 @@ ${existingContext}
       text: result.text,
       filesWritten,
       steps: result.steps?.length ?? 1,
-      durationMs: Date.now() - start,
+      durationMs,
       handoffs: triggeredHandoffs.length > 0 ? triggeredHandoffs : undefined,
     };
   } catch (err) {
+    const durationMs = Date.now() - start;
+    const errMsg = err instanceof Error ? err.message : String(err);
+    await finishRun(runRecord.id, {
+      status: "error",
+      error: errMsg,
+      filesWritten,
+      durationMs,
+    });
     return {
       agentId,
       success: false,
       text: "",
       filesWritten,
       steps: 0,
-      error: err instanceof Error ? err.message : String(err),
-      durationMs: Date.now() - start,
+      error: errMsg,
+      durationMs,
     };
   }
 }
