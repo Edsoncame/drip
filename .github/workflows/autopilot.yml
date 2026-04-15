@@ -1,0 +1,61 @@
+name: FLUX Agents Autopilot
+
+# External cron que dispara el autopilot del equipo de marketing cada 10 min.
+# Corre aunque nadie tenga el browser abierto. Workaround a Vercel Hobby
+# que solo permite crons diarios.
+#
+# Setup requerido:
+# 1. En el repo: Settings → Secrets and variables → Actions → New repository secret
+#    Name: EXTERNAL_CRON_SECRET
+#    Value: <genera un random largo, ej: openssl rand -hex 32>
+# 2. En Vercel: Project Settings → Environment Variables
+#    Name: EXTERNAL_CRON_SECRET
+#    Value: <el mismo valor>
+#    Environments: Production
+# 3. Redeploy en Vercel para que tome la env var.
+
+on:
+  schedule:
+    # Cada 10 minutos. GitHub Actions usa UTC.
+    - cron: "*/10 * * * *"
+  # Permite disparar manualmente desde la UI de Actions para testing
+  workflow_dispatch:
+
+concurrency:
+  # Si el tick anterior todavía no terminó, cancela este (evita overlap).
+  group: autopilot-tick
+  cancel-in-progress: true
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Ping autopilot endpoint
+        env:
+          EXTERNAL_CRON_SECRET: ${{ secrets.EXTERNAL_CRON_SECRET }}
+          URL: https://fluxperu.com/api/cron/external-tick
+        run: |
+          if [ -z "$EXTERNAL_CRON_SECRET" ]; then
+            echo "⚠️  EXTERNAL_CRON_SECRET no está seteado en repo secrets"
+            exit 1
+          fi
+
+          echo "🚀 Disparando autopilot tick..."
+          response=$(curl -sS -w "\n---HTTP_CODE:%{http_code}---" \
+            --max-time 300 \
+            "${URL}?secret=${EXTERNAL_CRON_SECRET}&max=3")
+
+          body=$(echo "$response" | sed -E '/---HTTP_CODE:/,$d')
+          code=$(echo "$response" | grep -oE 'HTTP_CODE:[0-9]+' | cut -d: -f2)
+
+          echo "HTTP $code"
+          echo "Response:"
+          echo "$body" | head -100
+
+          if [ "$code" != "200" ]; then
+            echo "❌ Autopilot tick failed"
+            exit 1
+          fi
+
+          echo "✓ Tick completo"
