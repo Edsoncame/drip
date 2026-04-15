@@ -188,6 +188,7 @@ export default function AgentsScene() {
   const [autopilotRunning, setAutopilotRunning] = useState(false);
   const [autopilotContinuous, setAutopilotContinuous] = useState(false);
   const [autopilotNextTick, setAutopilotNextTick] = useState<number | null>(null);
+  const [galleryOpen, setGalleryOpen] = useState(false);
   const [recording, setRecording] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState("");
   const [recordStart, setRecordStart] = useState<number | null>(null);
@@ -759,13 +760,21 @@ export default function AgentsScene() {
             )}
           </button>
 
-          {/* Floating download button */}
-          <a
-            href="/api/admin/agents/download?all=1"
-            className="absolute bottom-4 right-4 z-20 px-3 py-2 rounded-lg bg-black/70 border border-white/15 text-[11px] text-emerald-300 hover:bg-black/90 hover:border-emerald-400/40 backdrop-blur"
-          >
-            ↓ descargar workspace
-          </a>
+          {/* Floating gallery + download buttons */}
+          <div className="absolute bottom-4 right-4 z-20 flex gap-2">
+            <button
+              onClick={() => setGalleryOpen(true)}
+              className="px-3 py-2 rounded-lg bg-black/70 border border-white/15 text-[11px] text-amber-300 hover:bg-black/90 hover:border-amber-400/40 backdrop-blur font-semibold"
+            >
+              🖼 Galería
+            </button>
+            <a
+              href="/api/admin/agents/download?all=1"
+              className="px-3 py-2 rounded-lg bg-black/70 border border-white/15 text-[11px] text-emerald-300 hover:bg-black/90 hover:border-emerald-400/40 backdrop-blur"
+            >
+              ↓ descargar workspace
+            </a>
+          </div>
 
           {/* Autopilot controls — top-center, imposible perderlo */}
           <div
@@ -1081,6 +1090,16 @@ export default function AgentsScene() {
         )}
       </AnimatePresence>
 
+      {/* Gallery modal — feed de todo lo que produjo el equipo */}
+      <AnimatePresence>
+        {galleryOpen && (
+          <GalleryModal
+            agentMap={agentMap}
+            onClose={() => setGalleryOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Lightbox for chat images */}
       <AnimatePresence>
         {lightbox && (
@@ -1235,6 +1254,253 @@ function CurrentTaskPanel({
         </div>
       )}
     </div>
+  );
+}
+
+interface GalleryFile {
+  id: number;
+  agentId: AgentId;
+  relPath: string;
+  content: string;
+  size: number;
+  createdAt: number;
+  updatedAt: number;
+  createdBy: string | null;
+}
+
+/**
+ * Galería: feed visual de TODO lo que los agentes produjeron.
+ * Cada tarjeta renderiza el markdown real + imágenes inline + thumbnail
+ * si hay una imagen en el contenido.
+ */
+function GalleryModal({
+  agentMap,
+  onClose,
+}: {
+  agentMap: Record<string, AgentMeta>;
+  onClose: () => void;
+}) {
+  const [files, setFiles] = useState<GalleryFile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<AgentId | "all">("all");
+  const [expanded, setExpanded] = useState<number | null>(null);
+  const [lightbox, setLightbox] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/admin/agents/gallery")
+      .then((r) => r.json())
+      .then((json) => {
+        if (!alive) return;
+        setFiles(json.files ?? []);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const filtered = filter === "all" ? files : files.filter((f) => f.agentId === filter);
+  const uniqueAgents = Array.from(new Set(files.map((f) => f.agentId)));
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[65] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.95, y: 20 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.95, y: 20 }}
+        className="bg-[#0A0A14] border border-white/20 rounded-2xl max-w-5xl w-full max-h-[92vh] flex flex-col overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-white/10">
+          <div>
+            <h2 className="text-lg font-bold text-white">🖼 Galería del equipo</h2>
+            <p className="text-[11px] text-white/50">
+              Todo lo que los agentes produjeron, renderizado · {filtered.length} de {files.length} archivos
+            </p>
+          </div>
+          <button onClick={onClose} className="text-white/50 hover:text-white text-2xl">
+            ×
+          </button>
+        </div>
+
+        {/* Filters */}
+        <div className="flex gap-1 px-4 py-2 border-b border-white/10 overflow-x-auto no-scrollbar">
+          <button
+            onClick={() => setFilter("all")}
+            className={`px-2.5 py-1 text-[10px] rounded-full whitespace-nowrap ${
+              filter === "all"
+                ? "bg-white text-black font-bold"
+                : "bg-white/5 text-white/60 hover:text-white"
+            }`}
+          >
+            Todos ({files.length})
+          </button>
+          {uniqueAgents.map((aid) => {
+            const a = agentMap[aid];
+            const count = files.filter((f) => f.agentId === aid).length;
+            return (
+              <button
+                key={aid}
+                onClick={() => setFilter(aid)}
+                className={`px-2.5 py-1 text-[10px] rounded-full whitespace-nowrap flex items-center gap-1 ${
+                  filter === aid ? "text-black font-bold" : "text-white/70 hover:text-white"
+                }`}
+                style={{
+                  background:
+                    filter === aid
+                      ? a?.color ?? "#fff"
+                      : `${a?.color ?? "#fff"}15`,
+                  border: `1px solid ${a?.color ?? "#fff"}40`,
+                }}
+              >
+                {AGENT_EMOJI[aid]} {a?.name ?? aid} ({count})
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Feed */}
+        <div className="flex-1 overflow-y-auto p-4 grid grid-cols-1 md:grid-cols-2 gap-4 auto-rows-min">
+          {loading && (
+            <div className="col-span-full text-center text-white/40 py-12">cargando galería…</div>
+          )}
+          {!loading && filtered.length === 0 && (
+            <div className="col-span-full text-center text-white/40 py-12">
+              <div className="text-4xl mb-3">🪹</div>
+              <div className="text-sm">El equipo todavía no produjo nada visible.</div>
+              <div className="text-[11px] mt-1">Activá el autopilot o pedile algo al Orquestador.</div>
+            </div>
+          )}
+          {!loading &&
+            filtered.map((file) => {
+              const a = agentMap[file.agentId];
+              const isExpanded = expanded === file.id;
+              // Extraer primera imagen del markdown si hay
+              const imgMatch = file.content.match(/!\[[^\]]*\]\(([^)]+)\)/);
+              const firstImage = imgMatch?.[1];
+              // Primera H1/H2/línea como título
+              const titleMatch = file.content.match(/^#{1,3}\s+(.+)$/m);
+              const title = titleMatch?.[1] ?? file.relPath.split("/").pop()?.replace(".md", "");
+              // Preview = primeras ~200 chars del texto sin markdown
+              const preview = file.content
+                .replace(/^#{1,3}\s+.+$/gm, "")
+                .replace(/!\[[^\]]*\]\([^)]+\)/g, "")
+                .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+                .replace(/[*_`]/g, "")
+                .trim()
+                .slice(0, 240);
+
+              return (
+                <motion.div
+                  key={file.id}
+                  layout
+                  className="rounded-xl border bg-gradient-to-br overflow-hidden cursor-pointer hover:border-amber-400/40 transition-colors"
+                  style={{
+                    borderColor: `${a?.color ?? "#fff"}30`,
+                    background: `linear-gradient(145deg, ${a?.color ?? "#fff"}08 0%, transparent 70%)`,
+                    gridColumn: isExpanded ? "span 2" : undefined,
+                  }}
+                  onClick={() => setExpanded(isExpanded ? null : file.id)}
+                >
+                  {/* Header */}
+                  <div
+                    className="flex items-center gap-2 px-3 py-2 border-b"
+                    style={{ borderColor: `${a?.color ?? "#fff"}20` }}
+                  >
+                    <div
+                      className="w-6 h-6 rounded flex items-center justify-center text-sm shrink-0"
+                      style={{ background: `${a?.color ?? "#fff"}25` }}
+                    >
+                      {AGENT_EMOJI[file.agentId]}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[11px] font-bold text-white truncate">
+                        {a?.name ?? file.agentId}
+                      </div>
+                      <div className="text-[9px] text-white/40 font-mono truncate">
+                        {file.relPath}
+                      </div>
+                    </div>
+                    <div className="text-[9px] text-white/40 shrink-0">
+                      {timeAgo(file.updatedAt)}
+                    </div>
+                  </div>
+
+                  {/* Imagen preview si hay */}
+                  {firstImage && !isExpanded && (
+                    <div
+                      className="aspect-video bg-black/40 overflow-hidden"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setLightbox(firstImage);
+                      }}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={firstImage}
+                        alt=""
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    </div>
+                  )}
+
+                  {/* Contenido */}
+                  <div className="p-3">
+                    {title && !isExpanded && (
+                      <div className="font-bold text-white text-sm mb-1 line-clamp-2">{title}</div>
+                    )}
+                    {!isExpanded ? (
+                      <div className="text-[11px] text-white/60 line-clamp-4 leading-relaxed">
+                        {preview}
+                      </div>
+                    ) : (
+                      <div className="text-[12px] text-white/90 leading-relaxed max-h-[60vh] overflow-y-auto pr-2">
+                        <MarkdownLite text={file.content} onImageClick={setLightbox} />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Footer */}
+                  <div
+                    className="px-3 py-1.5 border-t flex items-center justify-between text-[9px] text-white/40"
+                    style={{ borderColor: `${a?.color ?? "#fff"}15` }}
+                  >
+                    <span>{(file.size / 1024).toFixed(1)}kb</span>
+                    <span>{isExpanded ? "click para cerrar" : "click para ver completo"}</span>
+                    {file.createdBy && <span className="font-mono">{file.createdBy}</span>}
+                  </div>
+                </motion.div>
+              );
+            })}
+        </div>
+      </motion.div>
+
+      {/* Lightbox para imágenes de la galería */}
+      <AnimatePresence>
+        {lightbox && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[80] bg-black/95 flex items-center justify-center p-6 cursor-zoom-out"
+            onClick={() => setLightbox(null)}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={lightbox} alt="" className="max-w-full max-h-full object-contain" />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 }
 
@@ -2003,35 +2269,107 @@ function AgentDetailPanel({
         </div>
       </motion.div>
 
-      {/* File viewer modal */}
+      {/* File viewer modal — ahora con markdown renderizado bonito */}
       <AnimatePresence>
         {fileContent && (
+          <FileViewerModal
+            file={fileContent}
+            onClose={() => setFileContent(null)}
+          />
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
+/**
+ * Visor de archivos con toggle entre vista renderizada (markdown → HTML)
+ * y vista raw. Las imágenes markdown se ven como imágenes de verdad,
+ * clickeables para lightbox.
+ */
+function FileViewerModal({
+  file,
+  onClose,
+}: {
+  file: { path: string; content: string };
+  onClose: () => void;
+}) {
+  const [mode, setMode] = useState<"rendered" | "raw">("rendered");
+  const [innerLightbox, setInnerLightbox] = useState<string | null>(null);
+  const isMarkdown = file.path.endsWith(".md") || file.content.startsWith("#");
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.95 }}
+        animate={{ scale: 1 }}
+        className="bg-[#0A0A14] border border-white/20 rounded-xl max-w-4xl w-full max-h-[90vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between p-3 border-b border-white/10">
+          <div className="text-xs text-white/70 font-mono truncate flex-1">{file.path}</div>
+          {isMarkdown && (
+            <div className="flex gap-1 mr-3 shrink-0">
+              <button
+                onClick={() => setMode("rendered")}
+                className={`px-2 py-1 text-[10px] rounded ${
+                  mode === "rendered"
+                    ? "bg-amber-400 text-black font-bold"
+                    : "bg-white/5 text-white/60 hover:text-white"
+                }`}
+              >
+                📄 vista
+              </button>
+              <button
+                onClick={() => setMode("raw")}
+                className={`px-2 py-1 text-[10px] rounded ${
+                  mode === "raw"
+                    ? "bg-amber-400 text-black font-bold"
+                    : "bg-white/5 text-white/60 hover:text-white"
+                }`}
+              >
+                {"</>"} raw
+              </button>
+            </div>
+          )}
+          <button
+            onClick={onClose}
+            className="text-white/50 hover:text-white text-xl shrink-0"
+          >
+            ×
+          </button>
+        </div>
+        <div className="flex-1 overflow-auto">
+          {isMarkdown && mode === "rendered" ? (
+            <div className="p-6 text-sm text-white/90 leading-relaxed">
+              <MarkdownLite text={file.content} onImageClick={setInnerLightbox} />
+            </div>
+          ) : (
+            <pre className="p-4 text-[11px] text-white/80 font-mono whitespace-pre-wrap">
+              {file.content}
+            </pre>
+          )}
+        </div>
+      </motion.div>
+
+      {/* Lightbox interno para imágenes dentro del file */}
+      <AnimatePresence>
+        {innerLightbox && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center p-4"
-            onClick={() => setFileContent(null)}
+            className="fixed inset-0 z-[80] bg-black/95 flex items-center justify-center p-6 cursor-zoom-out"
+            onClick={() => setInnerLightbox(null)}
           >
-            <motion.div
-              initial={{ scale: 0.95 }}
-              animate={{ scale: 1 }}
-              className="bg-[#0A0A14] border border-white/20 rounded-xl max-w-4xl w-full max-h-[85vh] flex flex-col"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between p-3 border-b border-white/10">
-                <div className="text-xs text-white/70 font-mono">{fileContent.path}</div>
-                <button
-                  onClick={() => setFileContent(null)}
-                  className="text-white/50 hover:text-white text-xl"
-                >
-                  ×
-                </button>
-              </div>
-              <pre className="flex-1 overflow-auto p-4 text-[11px] text-white/80 font-mono whitespace-pre-wrap">
-                {fileContent.content}
-              </pre>
-            </motion.div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={innerLightbox} alt="" className="max-w-full max-h-full object-contain" />
           </motion.div>
         )}
       </AnimatePresence>
