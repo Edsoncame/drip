@@ -327,20 +327,30 @@ async function walkLimited(dir: string, max: number): Promise<FileEntry[]> {
 export async function readAgentState(id: AgentId): Promise<AgentState> {
   const dir = path.join(AGENTS_ROOT, id);
   const st = await safeStat(dir);
-  if (!st || !st.isDirectory()) {
-    return {
-      id,
-      exists: false,
-      filesCount: 0,
-      latestFiles: [],
-      memory: null,
-      lastActivity: null,
-      outputFolders: [],
-    };
+
+  // Archivos estáticos del bundle (CLAUDE.md, README.md, memory.md, etc)
+  const staticFiles: FileEntry[] = st && st.isDirectory() ? await walkLimited(dir, 200) : [];
+
+  // Archivos dinámicos escritos por el agente desde la DB
+  const { listAgentFiles } = await import("./agents-db").catch(() => ({ listAgentFiles: null }));
+  let dbFiles: FileEntry[] = [];
+  if (listAgentFiles) {
+    try {
+      const rows = await listAgentFiles(id);
+      dbFiles = rows.map((r) => ({
+        path: `db://${id}/${r.rel_path}`,
+        name: r.rel_path.split("/").pop() || r.rel_path,
+        size: r.size,
+        mtime: r.updated_at.getTime(),
+        kind: "file" as const,
+      }));
+    } catch {
+      // DB puede no estar disponible (tabla recién creada, etc)
+    }
   }
 
-  const files = await walkLimited(dir, 200);
-  files.sort((a, b) => b.mtime - a.mtime);
+  const allFiles = [...staticFiles, ...dbFiles];
+  allFiles.sort((a, b) => b.mtime - a.mtime);
 
   let memory: string | null = null;
   try {
@@ -358,13 +368,16 @@ export async function readAgentState(id: AgentId): Promise<AgentState> {
     }
   } catch {}
 
+  const exists = !!(st && st.isDirectory()) || dbFiles.length > 0;
+  const lastActivity = allFiles[0]?.mtime ?? (st ? st.mtimeMs : null);
+
   return {
     id,
-    exists: true,
-    filesCount: files.length,
-    latestFiles: files.slice(0, 12),
+    exists,
+    filesCount: allFiles.length,
+    latestFiles: allFiles.slice(0, 12),
     memory,
-    lastActivity: files[0]?.mtime ?? st.mtimeMs,
+    lastActivity,
     outputFolders: subdirs,
   };
 }
@@ -379,6 +392,25 @@ export async function agentsRootExists(): Promise<boolean> {
 }
 
 export async function readFileSafe(absPath: string): Promise<{ content: string; size: number } | null> {
+  // Archivos dinámicos desde la DB → formato "db://agentId/rel/path.md"
+  if (absPath.startsWith("db://")) {
+    const rest = absPath.slice(5);
+    const slash = rest.indexOf("/");
+    if (slash < 0) return null;
+    const agentId = rest.slice(0, slash) as AgentId;
+    const relPath = rest.slice(slash + 1);
+    if (!AGENTS.some((a) => a.id === agentId)) return null;
+    try {
+      const { readAgentFile } = await import("./agents-db");
+      const file = await readAgentFile(agentId, relPath);
+      if (!file) return null;
+      return { content: file.content, size: file.size };
+    } catch {
+      return null;
+    }
+  }
+
+  // Archivos estáticos del FS bundleado
   if (!absPath.startsWith(AGENTS_ROOT + path.sep) && absPath !== AGENTS_ROOT) return null;
   const st = await safeStat(absPath);
   if (!st || !st.isFile()) return null;
@@ -406,6 +438,8 @@ export interface ActivityEvent {
  */
 export async function recentActivity(limit = 40): Promise<ActivityEvent[]> {
   const all: ActivityEvent[] = [];
+
+  // Estáticos del bundle
   for (const agent of AGENTS) {
     const files = await walkLimited(path.join(AGENTS_ROOT, agent.id), 150);
     for (const f of files) {
@@ -415,10 +449,27 @@ export async function recentActivity(limit = 40): Promise<ActivityEvent[]> {
         agent: agent.id,
         kind: "file-modified",
         file: f.name,
-        relPath: path.relative(AGENTS_ROOT, f.path),
+        relPath: `${agent.id}/${path.relative(path.join(AGENTS_ROOT, agent.id), f.path)}`,
       });
     }
   }
+
+  // Dinámicos de la DB
+  try {
+    const { listAllRecent } = await import("./agents-db");
+    const rows = await listAllRecent(limit * 2);
+    for (const r of rows) {
+      all.push({
+        id: `db:${r.agent_id}:${r.rel_path}:${r.updated_at.getTime()}`,
+        ts: r.updated_at.getTime(),
+        agent: r.agent_id,
+        kind: r.created_at.getTime() === r.updated_at.getTime() ? "file-created" : "file-modified",
+        file: r.rel_path.split("/").pop() || r.rel_path,
+        relPath: `${r.agent_id}/${r.rel_path}`,
+      });
+    }
+  } catch {}
+
   all.sort((a, b) => b.ts - a.ts);
   return all.slice(0, limit);
 }

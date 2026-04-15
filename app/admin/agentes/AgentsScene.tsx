@@ -22,6 +22,19 @@ type ChatMessage = {
 
 type AgentAnimState = "idle" | "thinking" | "working" | "talking" | "receiving";
 
+type DelegationStatus = {
+  id: string;
+  agent: AgentId;
+  task: string;
+  status: "running" | "done" | "error";
+  result?: {
+    text: string;
+    filesWritten: { relPath: string; size: number }[];
+    error?: string;
+    durationMs: number;
+  };
+};
+
 // Tipo mínimo para Web Speech API (no viene en lib.dom en algunos targets)
 interface SpeechRecognitionLike {
   lang: string;
@@ -172,6 +185,7 @@ export default function AgentsScene() {
   const [moodSeed, setMoodSeed] = useState(0);
   const [activityOpen, setActivityOpen] = useState(false);
   const [lightbox, setLightbox] = useState<string | null>(null);
+  const [delegations, setDelegations] = useState<DelegationStatus[]>([]);
   const [recording, setRecording] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState("");
   const [recordStart, setRecordStart] = useState<number | null>(null);
@@ -267,6 +281,89 @@ export default function AgentsScene() {
   const fireBeam = useCallback((from: AgentId, to: AgentId, label: string) => {
     setBeams((prev) => [...prev, { id: `${from}-${to}-${Date.now()}`, from, to, label, createdAt: Date.now() }]);
   }, []);
+
+  /**
+   * Dispara la ejecución real del subagente en el server.
+   * Llama a /api/admin/agents/delegate con {agent, task}, y cuando termina
+   * refresca el estado para que los archivos nuevos aparezcan en la escena.
+   */
+  const executeDelegation = useCallback(
+    async (agentId: AgentId, task: string) => {
+      const id = `del-${Date.now()}-${agentId}`;
+      setDelegations((prev) => [
+        ...prev,
+        { id, agent: agentId, task, status: "running" },
+      ]);
+      // Tener al agente "working" mientras corre
+      setAgentAnim(agentId, "working", 120000);
+
+      try {
+        const res = await fetch("/api/admin/agents/delegate", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ agent: agentId, task }),
+        });
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          setDelegations((prev) =>
+            prev.map((d) =>
+              d.id === id
+                ? {
+                    ...d,
+                    status: "error",
+                    result: {
+                      text: "",
+                      filesWritten: [],
+                      error: json.error || "fallo desconocido",
+                      durationMs: json.durationMs ?? 0,
+                    },
+                  }
+                : d,
+            ),
+          );
+          setAgentAnim(agentId, "idle");
+          return;
+        }
+        setDelegations((prev) =>
+          prev.map((d) =>
+            d.id === id
+              ? {
+                  ...d,
+                  status: "done",
+                  result: {
+                    text: json.text,
+                    filesWritten: json.filesWritten,
+                    durationMs: json.durationMs,
+                  },
+                }
+              : d,
+          ),
+        );
+        setAgentAnim(agentId, "idle");
+        // refrescar estado para que los archivos nuevos aparezcan
+        loadState();
+      } catch (err) {
+        setDelegations((prev) =>
+          prev.map((d) =>
+            d.id === id
+              ? {
+                  ...d,
+                  status: "error",
+                  result: {
+                    text: "",
+                    filesWritten: [],
+                    error: err instanceof Error ? err.message : "network error",
+                    durationMs: 0,
+                  },
+                }
+              : d,
+          ),
+        );
+        setAgentAnim(agentId, "idle");
+      }
+    },
+    [setAgentAnim, loadState],
+  );
 
   const startRecording = useCallback(() => {
     const w = window as WindowWithSpeech;
@@ -374,6 +471,7 @@ export default function AgentsScene() {
       const decoder = new TextDecoder();
       let buffer = "";
       const mentionedAgents = new Set<AgentId>();
+      const firedDelegations = new Set<string>();
 
       while (true) {
         const { done, value } = await reader.read();
@@ -386,16 +484,27 @@ export default function AgentsScene() {
           prev.map((m) => (m.id === assistantMsg.id ? { ...m, content: clean } : m)),
         );
 
-        // trigger animations for new mentions
+        // trigger animations for new mentions + fire real delegations
         for (const ev of events) {
-          if (mentionedAgents.has(ev.agent)) continue;
-          mentionedAgents.add(ev.agent);
-          // staggered animation
-          const delay = mentionedAgents.size * 600;
-          setTimeout(() => {
-            setAgentAnim(ev.agent, ev.kind === "delegate" ? "working" : "receiving", 8000);
-            fireBeam("orquestador", ev.agent, ev.kind === "delegate" ? "delegando" : "mencionando");
-          }, delay);
+          // Beam + anim la primera vez que se ve este agente
+          if (!mentionedAgents.has(ev.agent)) {
+            mentionedAgents.add(ev.agent);
+            const delay = mentionedAgents.size * 600;
+            setTimeout(() => {
+              setAgentAnim(ev.agent, ev.kind === "delegate" ? "working" : "receiving", 8000);
+              fireBeam("orquestador", ev.agent, ev.kind === "delegate" ? "delegando" : "mencionando");
+            }, delay);
+          }
+
+          // Si es una delegación con tarea concreta, la disparamos UNA sola vez
+          if (ev.kind === "delegate" && ev.message) {
+            const key = `${ev.agent}::${ev.message.slice(0, 80)}`;
+            if (!firedDelegations.has(key)) {
+              firedDelegations.add(key);
+              // Fire and forget — el runner corre en paralelo con el resto del stream
+              executeDelegation(ev.agent, ev.message);
+            }
+          }
         }
       }
 
@@ -569,6 +678,83 @@ export default function AgentsScene() {
           >
             ↓ descargar workspace
           </a>
+
+          {/* Delegaciones en vivo — panel flotante top-right */}
+          {delegations.length > 0 && (
+            <div className="absolute top-12 right-4 z-20 w-[280px] max-h-[60vh] overflow-y-auto space-y-2 pointer-events-none">
+              <AnimatePresence>
+                {delegations
+                  .slice(-6)
+                  .reverse()
+                  .map((d) => {
+                    const a = agentMap[d.agent];
+                    const running = d.status === "running";
+                    const errored = d.status === "error";
+                    return (
+                      <motion.div
+                        key={d.id}
+                        initial={{ opacity: 0, x: 40 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 40 }}
+                        className="pointer-events-auto rounded-lg bg-black/85 backdrop-blur border px-3 py-2 text-[11px]"
+                        style={{
+                          borderColor: errored
+                            ? "#ef4444"
+                            : running
+                              ? a?.color ?? "#888"
+                              : "#34D39988",
+                        }}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          {running && (
+                            <motion.div
+                              className="w-2 h-2 rounded-full"
+                              style={{ background: a?.color ?? "#888" }}
+                              animate={{ opacity: [0.4, 1, 0.4] }}
+                              transition={{ duration: 1, repeat: Infinity }}
+                            />
+                          )}
+                          {!running && !errored && (
+                            <span className="text-emerald-400">✓</span>
+                          )}
+                          {errored && <span className="text-red-400">✕</span>}
+                          <span className="font-semibold text-white/90">
+                            {a?.name ?? d.agent}
+                          </span>
+                          <span className="text-white/40 text-[9px] ml-auto">
+                            {running
+                              ? "corriendo…"
+                              : d.result
+                                ? `${(d.result.durationMs / 1000).toFixed(1)}s`
+                                : ""}
+                          </span>
+                        </div>
+                        <div className="text-white/50 line-clamp-2 mb-1">{d.task}</div>
+                        {d.result?.filesWritten && d.result.filesWritten.length > 0 && (
+                          <div className="mt-1 pt-1 border-t border-white/10 space-y-0.5">
+                            {d.result.filesWritten.map((f) => (
+                              <div
+                                key={f.relPath}
+                                className="flex items-center gap-1 text-emerald-300 text-[10px]"
+                              >
+                                <span>📝</span>
+                                <span className="truncate flex-1">{f.relPath}</span>
+                                <span className="text-white/30">{(f.size / 1024).toFixed(1)}kb</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {d.result?.error && (
+                          <div className="mt-1 pt-1 border-t border-red-500/30 text-red-300 text-[10px]">
+                            {d.result.error}
+                          </div>
+                        )}
+                      </motion.div>
+                    );
+                  })}
+              </AnimatePresence>
+            </div>
+          )}
 
           {/* Slide-up activity panel */}
           <AnimatePresence>
