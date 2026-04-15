@@ -831,6 +831,59 @@ export function addMediaMatrixTool() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Delegate to agent — SOLO para Growth (y el chat)
+// Ejecuta un subagente síncronamente dentro del tool loop.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export function delegateToAgentTool(actor: string) {
+  return tool({
+    description:
+      "Delegá una tarea a un subagente especialista y esperá su respuesta. ÚSALO PRIMERO antes de preguntarle datos al usuario. Ejemplos: data-analyst para baseline de métricas reales (MRR, CAC, LTV, churn del Postgres real), market-researcher para competitive scan, seo-specialist para keyword gap analysis, estratega-oferta para brief de posicionamiento. El agente EJECUTA y escribe archivos reales. Devuelve el texto + lista de archivos. Si falla, dice por qué.",
+    inputSchema: z.object({
+      agent: z.enum([
+        "estratega-oferta",
+        "copy-lanzamiento",
+        "disenador-creativo",
+        "seo-specialist",
+        "content-creator",
+        "sem-manager",
+        "community-manager",
+        "data-analyst",
+        "lead-qualifier",
+        "market-researcher",
+      ]),
+      task: z
+        .string()
+        .describe(
+          "Instrucción completa en español para el subagente. Sé específico sobre qué querés que te devuelva.",
+        ),
+      max_steps: z
+        .number()
+        .optional()
+        .describe("Máximo de pasos del tool loop del subagente, default 6"),
+    }),
+    execute: async ({ agent, task, max_steps }) => {
+      // Dynamic import para evitar circular dependency con agent-runner
+      const { runAgent } = await import("./agent-runner");
+      const result = await runAgent({
+        agentId: agent as AgentId,
+        task,
+        actor: `growth:${actor}`,
+        maxSteps: max_steps ?? 6,
+        depth: 1,
+      });
+      return {
+        success: result.success,
+        text: result.text.slice(0, 3500),
+        files_written: result.filesWritten,
+        duration_ms: result.durationMs,
+        error: result.error,
+      };
+    },
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Build strategy toolset por agente
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -851,7 +904,7 @@ export function strategyToolsForAgent(agentId: AgentId, actor: string): Record<s
   };
 
   if (agentId === "orquestador") {
-    // Head of Growth: CRUD completo de estrategia
+    // Head of Growth: CRUD completo de estrategia + delegate sincrónico
     tools.create_strategy = createStrategyTool(actor);
     tools.activate_strategy = activateStrategyTool();
     tools.update_strategy_document = updateStrategyDocumentTool();
@@ -860,6 +913,7 @@ export function strategyToolsForAgent(agentId: AgentId, actor: string): Record<s
     tools.create_experiment = createExperimentTool(actor);
     tools.allocate_budget = allocateBudgetTool();
     tools.add_media_matrix = addMediaMatrixTool();
+    tools.delegate_to_agent = delegateToAgentTool(actor);
     return tools;
   }
 

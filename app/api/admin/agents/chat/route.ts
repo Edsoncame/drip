@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
-import { streamText } from "ai";
+import { streamText, stepCountIs } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { requireAdmin } from "@/lib/auth";
 import { AGENTS, readOrchestratorSystemPrompt } from "@/lib/agents";
 import { getActiveStrategy, listAttachments } from "@/lib/strategy-db";
+import { strategyToolsForAgent } from "@/lib/strategy-tools";
+import { listAllRecent as listAllRecentAgentFiles } from "@/lib/agents-db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 /**
  * Chat con el Orquestador.
@@ -35,10 +37,11 @@ export async function POST(req: Request) {
 
   const claudeMd = await readOrchestratorSystemPrompt();
 
-  // Estrategia activa + adjuntos recientes → se inyectan al system prompt
-  // para que Growth tenga contexto completo del momento
+  // Estrategia activa + adjuntos + outputs recientes del equipo
+  // → se inyectan al system prompt para contexto completo
   let strategyBlock = "";
   let attachmentsBlock = "";
+  let recentOutputsBlock = "";
   try {
     const active = await getActiveStrategy();
     if (active) {
@@ -56,6 +59,18 @@ export async function POST(req: Request) {
             `- **${a.title}** (${a.content_type ?? "?"}, ${a.size_bytes ?? "?"}b) → ${a.blob_url ?? ""}\n  ${a.parsed_text ? "*Preview:* " + a.parsed_text.slice(0, 300).replace(/\n/g, " ") : "*(binario — usá web_fetch del blob URL si necesitás leerlo)*"}`,
         )
         .join("\n\n")}\n`;
+    }
+
+    // Últimos 15 archivos escritos por el equipo — así Growth sabe qué ya
+    // tiene antes de delegar/ejecutar
+    const recentFiles = await listAllRecentAgentFiles(15);
+    if (recentFiles.length > 0) {
+      recentOutputsBlock = `\n\n---\n\n# OUTPUTS RECIENTES DEL EQUIPO (últimos 15 archivos)\n\n${recentFiles
+        .map(
+          (f) =>
+            `- [${f.agent_id}] ${f.rel_path} (${f.size}b, ${new Date(f.updated_at).toISOString()}) ${f.created_by ? "· by " + f.created_by : ""}`,
+        )
+        .join("\n")}\n\nSi alguno de estos archivos contiene lo que necesitás (ej. baseline metrics, competitor scan, brief), NO lo pidas de nuevo — asumilo como ya hecho.`;
     }
   } catch {
     // DB no disponible, seguimos sin bloque
@@ -120,21 +135,35 @@ REGLAS DE FORMATO CRÍTICAS (el frontend parsea esto en vivo):
 
 9. Nunca inventes capacidades que los agentes no tengan. Si no sabes si algo es factible, dilo.
 
-10. **REGLA DE ORO: Si te piden algo grande (ej: "arma la estrategia completa", "lanza campaña anual", "planea Q3") — ANTES de ejecutar revisá si te falta info crítica (métrica principal, baseline actual, meta concreta, período exacto, techo de presupuesto, audiencia prioritaria). Si falta algo crítico, **PREGUNTÁ PRIMERO** en UNA SOLA respuesta con todas las preguntas agrupadas, no piecemeal. Después de que responda, ejecutás sin más preguntas. Si te dice "arma con lo que tengas" o "hazlo de una", lo hacés con supuestos explícitos marcados en el output como \`[SUPUESTO: ...]\`.
+10. **EL EQUIPO HACE EL RESEARCH, VOS COORDINÁS.** Cuando el user te pide algo grande (ej: "arma la estrategia", "lanza campaña anual"):
+    - **NUNCA le preguntes al user datos que la DB o el equipo pueden responder** — ni MRR, ni CAC, ni LTV, ni churn, ni competencia, ni keywords, ni integraciones. Todo eso lo averigua el equipo.
+    - **Tu primera respuesta DEBE usar \`delegate_to_agent\` en paralelo**:
+      * \`data-analyst\` → baseline real del Postgres (MRR, clientes, CAC, LTV, churn, activation rate)
+      * \`market-researcher\` → competitive scan (Leasein/Rent a Mac/etc) + market sizing + segmentos desatendidos
+      * \`seo-specialist\` → posición orgánica actual + gap analysis + top oportunidades long-tail
+    - Los 3 corren sincrónicamente. Esperá sus archivos (aparecen en OUTPUTS RECIENTES del contexto).
+    - **SOLO preguntale al user decisiones estratégicas que la data no puede responder**, máximo 2-4 preguntas: foco de segmento, período de la estrategia, ambición de budget paid, apetito de riesgo (conservador/agresivo). La primera respuesta hace research + estas preguntas.
+    - **Cuando el user responde**, ejecutás los 14 pasos completos sin más preguntas usando los datos del equipo + las decisiones del user.
 
-11. **Pedir dinero es parte del rol**: si un experimento requiere inversión, lo decís explícitamente en tu respuesta ANTES de armarlo. Ejemplo: "Para este experimento necesito $800/mes en Meta Ads por 3 meses. ¿Apruebas el monto o ajustamos?" — el usuario responde y después ejecutás con \`allocate_budget\`.
+11. **Pedir dinero es parte del rol**: si un experimento requiere inversión, lo decís explícitamente en tu respuesta ANTES de armarlo. Pero primero confirmá con el data-analyst cuánto se gastó/ganó antes — no pidas plata sin sustento. Ejemplo: "Basado en el baseline (CAC Google $45, LTV $400, ratio 8.9x) podemos escalar a $800/mes en Meta por 3 meses. ¿Apruebas?"
 
 ---
 
 CONTEXTO EXPANDIDO DEL ORQUESTADOR (su propio CLAUDE.md):
 
-${claudeMd}${strategyBlock}${attachmentsBlock}`;
+${claudeMd}${strategyBlock}${attachmentsBlock}${recentOutputsBlock}`;
+
+  // Growth tiene tools de estrategia + delegate_to_agent — puede ejecutar
+  // research por el equipo y crear la estrategia directo desde el chat.
+  const tools = strategyToolsForAgent("orquestador", session.email);
 
   const result = streamText({
     model: anthropic("claude-sonnet-4-6"),
     system,
     messages: messages.map((m) => ({ role: m.role, content: m.content })),
     temperature: 0.7,
+    tools,
+    stopWhen: stepCountIs(12),
   });
 
   return result.toTextStreamResponse();
