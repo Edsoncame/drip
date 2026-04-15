@@ -1,14 +1,28 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { statSync } from "node:fs";
 
 /**
  * FLUX Marketing Agent Suite — filesystem reader.
  *
- * Lee el estado real del workspace /Users/securex07/flux-marketing/
- * y lo expone al admin panel. Solo lectura, jamás escribe.
+ * Prioridad para localizar el workspace:
+ *   1. env AGENTS_ROOT (override explícito)
+ *   2. `<cwd>/data/flux-marketing` — carpeta bundleada para producción Vercel
+ *   3. `/Users/securex07/flux-marketing` — ruta absoluta del workspace local de Edson
+ *
+ * Solo lectura, jamás escribe.
  */
 
-export const AGENTS_ROOT = process.env.AGENTS_ROOT || "/Users/securex07/flux-marketing";
+function resolveAgentsRoot(): string {
+  if (process.env.AGENTS_ROOT) return process.env.AGENTS_ROOT;
+  const bundled = path.join(process.cwd(), "data", "flux-marketing");
+  try {
+    if (statSync(bundled).isDirectory()) return bundled;
+  } catch {}
+  return "/Users/securex07/flux-marketing";
+}
+
+export const AGENTS_ROOT = resolveAgentsRoot();
 
 export type AgentId =
   | "orquestador"

@@ -1,6 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Incluir el snapshot del workspace de marketing agents en el bundle
+  // serverless de Vercel para que las route handlers de /api/admin/agents/*
+  // puedan leerlo con fs.readFile en producción.
+  outputFileTracingIncludes: {
+    "/api/admin/agents/**/*": ["./data/flux-marketing/**/*"],
+    "/admin/agentes": ["./data/flux-marketing/**/*"],
+  },
   images: {
     remotePatterns: [
       {

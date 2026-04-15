@@ -1,0 +1,27 @@
+# ═════════════════════════════════════════════════════════════════════
+# CRÍTICO: estos archivos contienen la API key de Fal.ai
+# NUNCA commitearlos a git bajo ninguna circunstancia.
+# ═════════════════════════════════════════════════════════════════════
+.claude/settings.json
+.mcp.json
+
+# Outputs generados — no entran al repo
+output/**/*.jpg
+output/**/*.jpeg
+output/**/*.png
+output/**/*.webp
+output/**/*.mp4
+output/**/*.mov
+
+# Referencias visuales — opcionalmente incluir, dependiendo de tamaño
+brand-refs/*.jpg
+brand-refs/*.jpeg
+brand-refs/*.png
+brand-refs/*.webp
+
+# Archivos temporales
+*.tmp
+.DS_Store
+
+# Logs
+*.log
