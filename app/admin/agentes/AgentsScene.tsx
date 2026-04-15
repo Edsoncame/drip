@@ -637,7 +637,11 @@ export default function AgentsScene() {
           messages: [...messages, userMsg].filter((m) => m.id !== "welcome").map((m) => ({ role: m.role, content: m.content })),
         }),
       });
-      if (!res.ok || !res.body) throw new Error("chat failed");
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        throw new Error(`HTTP ${res.status}: ${errText.slice(0, 300) || res.statusText}`);
+      }
+      if (!res.body) throw new Error("response sin stream body");
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -682,10 +686,14 @@ export default function AgentsScene() {
 
       setAgentAnim("orquestador", "idle");
     } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
       setMessages((prev) =>
         prev.map((m) =>
           m.id === assistantMsg.id
-            ? { ...m, content: "⚠️ No pude conectar con el orquestador. Revisa la API key de Anthropic." }
+            ? {
+                ...m,
+                content: `⚠️ **Error del servidor**\n\n\`\`\`\n${msg}\n\`\`\`\n\nRevisá los logs en Vercel → drip → Logs → filtro \`/api/admin/agents/chat\` para más detalle.`,
+              }
             : m,
         ),
       );

@@ -19,21 +19,22 @@ export const maxDuration = 300;
  * a qué agente le está hablando en vivo.
  */
 export async function POST(req: Request) {
-  const session = await requireAdmin();
-  if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  try {
+    const session = await requireAdmin();
+    if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  const body = await req.json().catch(() => ({}));
-  const messages = body.messages as { role: "user" | "assistant"; content: string }[] | undefined;
-  if (!messages || !Array.isArray(messages)) {
-    return NextResponse.json({ error: "missing messages" }, { status: 400 });
-  }
+    const body = await req.json().catch(() => ({}));
+    const messages = body.messages as { role: "user" | "assistant"; content: string }[] | undefined;
+    if (!messages || !Array.isArray(messages)) {
+      return NextResponse.json({ error: "missing messages" }, { status: 400 });
+    }
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return new Response(
-      "⚠️ Falta ANTHROPIC_API_KEY en .env.local. Agregá la key de Anthropic y reiniciá el dev server.",
-      { status: 200, headers: { "content-type": "text/plain; charset=utf-8" } },
-    );
-  }
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return new Response(
+        "⚠️ Falta ANTHROPIC_API_KEY en Vercel env vars. Agregala y redeploy para que el Growth funcione.",
+        { status: 200, headers: { "content-type": "text/plain; charset=utf-8" } },
+      );
+    }
 
   const claudeMd = await readOrchestratorSystemPrompt();
 
@@ -153,18 +154,32 @@ CONTEXTO EXPANDIDO DEL ORQUESTADOR (su propio CLAUDE.md):
 
 ${claudeMd}${strategyBlock}${attachmentsBlock}${recentOutputsBlock}`;
 
-  // Growth tiene tools de estrategia + delegate_to_agent — puede ejecutar
-  // research por el equipo y crear la estrategia directo desde el chat.
-  const tools = strategyToolsForAgent("orquestador", session.email);
+    // Growth tiene tools de estrategia + delegate_to_agent — puede ejecutar
+    // research por el equipo y crear la estrategia directo desde el chat.
+    const tools = strategyToolsForAgent("orquestador", session.email);
 
-  const result = streamText({
-    model: anthropic("claude-sonnet-4-6"),
-    system,
-    messages: messages.map((m) => ({ role: m.role, content: m.content })),
-    temperature: 0.7,
-    tools,
-    stopWhen: stepCountIs(12),
-  });
+    console.log("[chat] orquestador starting with", Object.keys(tools).length, "tools");
 
-  return result.toTextStreamResponse();
+    const result = streamText({
+      model: anthropic("claude-sonnet-4-6"),
+      system,
+      messages: messages.map((m) => ({ role: m.role, content: m.content })),
+      temperature: 0.7,
+      tools,
+      stopWhen: stepCountIs(12),
+      onError: ({ error }) => {
+        console.error("[chat] streamText onError", error);
+      },
+    });
+
+    return result.toTextStreamResponse();
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : "";
+    console.error("[chat] FATAL error", errorMessage, stack);
+    return new Response(
+      `⚠️ Error interno del chat: ${errorMessage}\n\nStack:\n${stack?.slice(0, 500) ?? "n/a"}`,
+      { status: 200, headers: { "content-type": "text/plain; charset=utf-8" } },
+    );
+  }
 }
