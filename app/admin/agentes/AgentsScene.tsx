@@ -1469,6 +1469,33 @@ function CurrentTaskPanel({
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Steps panel — colapsable para no robar espacio al chat
+// ═══════════════════════════════════════════════════════════════════════════
+
+function StepsPanel({ steps }: { steps: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border-b border-white/10">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between px-5 py-2.5 bg-black/20 hover:bg-black/30 text-[10px] uppercase text-white/60 tracking-wider"
+      >
+        <span className="flex items-center gap-2">
+          <span>📋</span>
+          <span>Pasos iniciales sugeridos</span>
+        </span>
+        <span className="text-white/40">{open ? "▼ ocultar" : "▶ ver"}</span>
+      </button>
+      {open && (
+        <div className="px-5 py-3 bg-black/15 text-[11px] text-white/80 leading-relaxed max-h-[180px] overflow-y-auto">
+          <MarkdownLite text={steps} onImageClick={() => {}} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Blocker Chat Card — mini chat por blocker con imagenes y streaming
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1715,20 +1742,15 @@ function BlockerChatCard({
             </div>
           )}
 
-          {/* Steps iniciales */}
-          <div className="px-4 py-3 bg-black/20">
-            <div className="text-[10px] uppercase text-white/50 tracking-wider mb-2">
-              Pasos iniciales
-            </div>
-            <div className="text-[11px] text-white/80 leading-relaxed">
-              <MarkdownLite text={blocker.stepsToFix} onImageClick={() => {}} />
-            </div>
-          </div>
+          {/* Steps iniciales — collapsable para no comer espacio */}
+          <StepsPanel steps={blocker.stepsToFix} />
 
-          {/* Chat messages */}
+
+          {/* Chat messages — grande y scrolleable */}
           <div
             ref={scrollRef}
-            className="max-h-[300px] overflow-y-auto px-4 py-3 space-y-2 border-t border-white/10 bg-black/30"
+            className="overflow-y-auto px-5 py-4 space-y-3 border-t border-white/10 bg-black/40"
+            style={{ minHeight: 420, maxHeight: "55vh" }}
           >
             {!loaded && (
               <div className="text-center text-white/40 text-[10px] py-4">
@@ -1794,15 +1816,18 @@ function BlockerChatCard({
             )}
           </div>
 
-          {/* Input area */}
-          <div className="p-3 border-t border-white/10 bg-black/40">
+          {/* Input area — mas grande y prominente */}
+          <div className="p-4 border-t border-white/10 bg-black/50">
             {image && (
-              <div className="mb-2 flex items-center gap-2 px-2 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-400/30 text-[10px]">
-                <span>🖼</span>
+              <div className="mb-3 flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500/15 border border-emerald-400/40 text-[11px]">
+                <span className="text-base">🖼</span>
                 <span className="text-emerald-200 truncate flex-1">{image.name}</span>
+                <span className="text-white/40 text-[10px]">
+                  {(image.size / 1024).toFixed(0)}kb
+                </span>
                 <button
                   onClick={() => setImage(null)}
-                  className="text-white/40 hover:text-white"
+                  className="text-white/40 hover:text-white text-lg leading-none"
                 >
                   ×
                 </button>
@@ -1819,11 +1844,11 @@ function BlockerChatCard({
                   }
                 }}
                 disabled={sending}
-                placeholder="Describí dónde te trabaste o adjuntá screenshot…"
-                className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-[12px] text-white placeholder:text-white/30 focus:outline-none focus:border-amber-400/60"
+                placeholder="Describí dónde te trabaste o arrastrá un screenshot…"
+                className="flex-1 bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-[13px] text-white placeholder:text-white/30 focus:outline-none focus:border-amber-400/60 focus:bg-white/10"
               />
               <label
-                className="w-9 h-9 rounded-full bg-white/10 hover:bg-emerald-500/20 border border-white/15 hover:border-emerald-400/50 flex items-center justify-center cursor-pointer text-sm"
+                className="w-11 h-11 rounded-full bg-white/10 hover:bg-emerald-500/25 border border-white/15 hover:border-emerald-400/60 flex items-center justify-center cursor-pointer text-base transition-colors shrink-0"
                 title="Adjuntar screenshot"
               >
                 📎
@@ -1842,15 +1867,15 @@ function BlockerChatCard({
               <button
                 onClick={sendMessage}
                 disabled={sending || (!input.trim() && !image)}
-                className="w-9 h-9 rounded-full bg-amber-400 text-black text-sm font-bold disabled:opacity-30 hover:bg-amber-300 flex items-center justify-center"
+                className="w-11 h-11 rounded-full bg-amber-400 text-black text-lg font-bold disabled:opacity-30 hover:bg-amber-300 flex items-center justify-center shrink-0"
               >
                 ↑
               </button>
             </div>
-            <div className="flex items-center gap-2 mt-2">
+            <div className="flex items-center gap-2 mt-3">
               <button
                 onClick={markResolved}
-                className="px-3 py-1 rounded-full bg-emerald-500/80 hover:bg-emerald-500 text-white text-[10px] font-bold"
+                className="px-4 py-1.5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-white text-[11px] font-bold"
               >
                 ✓ Ya lo resolví
               </button>
@@ -1866,15 +1891,15 @@ function BlockerChatCard({
                   });
                   onResolved();
                 }}
-                className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white/60 text-[10px]"
+                className="px-4 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white/70 text-[11px]"
               >
-                Ignorar blocker
+                Ignorar
               </button>
               <span
-                className="ml-auto text-[9px] text-white/30"
-                style={{ color: agentColor + "aa" }}
+                className="ml-auto text-[10px]"
+                style={{ color: agentColor + "bb" }}
               >
-                enter para enviar
+                enter → enviar · arrastrá imagen para adjuntar
               </span>
             </div>
           </div>
@@ -2766,12 +2791,17 @@ function AgentDetailPanel({
       onClick={onClose}
     >
       <motion.div
-        initial={{ scale: 0.9, y: 20 }}
+        initial={{ scale: 0.95, y: 20 }}
         animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.9, y: 20 }}
-        className="bg-[#0E0E1A] border border-white/10 rounded-2xl max-w-3xl w-full max-h-[85vh] flex flex-col overflow-hidden"
+        exit={{ scale: 0.95, y: 20 }}
+        className="bg-[#0E0E1A] border border-white/10 rounded-2xl w-full flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
-        style={{ boxShadow: `0 0 60px ${agent.color}33` }}
+        style={{
+          boxShadow: `0 0 80px ${agent.color}40`,
+          maxWidth: tab === "blockers" && expandedBlocker !== null ? "1100px" : "900px",
+          maxHeight: "94vh",
+          height: tab === "blockers" && expandedBlocker !== null ? "94vh" : "auto",
+        }}
       >
         {/* Header */}
         <div
@@ -2867,8 +2897,12 @@ function AgentDetailPanel({
           </div>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-5 text-sm">
+        {/* Content — menos padding cuando estamos en blockers con chat abierto */}
+        <div
+          className={`flex-1 overflow-y-auto text-sm ${
+            tab === "blockers" && expandedBlocker !== null ? "p-3" : "p-5"
+          }`}
+        >
           {tab === "overview" && (
             <div className="space-y-4">
               <div>
