@@ -885,6 +885,70 @@ export function delegateToAgentTool(actor: string) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Blockers — cualquier agente puede reportar que no puede completar algo
+// ═══════════════════════════════════════════════════════════════════════════
+
+export function reportBlockerTool(actor: string, defaultAgentId: AgentId) {
+  return tool({
+    description:
+      "Reportá un bloqueo cuando intentás completar una tarea y descubrís que te falta algo crítico: una API key, credenciales, conexión a un servicio externo, env var, permisos, acceso a una DB, etc. El blocker aparece como linterna roja en tu avatar en /admin/agentes. Incluí SIEMPRE los pasos exactos para resolverlo. Si ya existe un blocker abierto con el mismo context_key, se actualiza.",
+    inputSchema: z.object({
+      title: z
+        .string()
+        .describe("Título corto del problema. Ej: 'Falta META_ACCESS_TOKEN'"),
+      description: z
+        .string()
+        .describe("Qué estabas intentando hacer cuando descubriste el bloqueo"),
+      steps_to_fix: z
+        .string()
+        .describe(
+          "Markdown con los pasos NUMERADOS exactos para resolverlo. Incluí URLs, nombres de env vars, permisos/scopes necesarios. Sé literal.",
+        ),
+      severity: z.enum(["info", "warning", "critical"]).optional(),
+      context_key: z
+        .string()
+        .optional()
+        .describe(
+          "Clave única para dedupe. Ej: 'env:META_ACCESS_TOKEN'. Si no pasás, se genera automáticamente.",
+        ),
+    }),
+    execute: async ({ title, description, steps_to_fix, severity, context_key }) => {
+      const { reportBlocker } = await import("./agent-blockers");
+      const b = await reportBlocker({
+        agentId: defaultAgentId,
+        title,
+        description,
+        stepsToFix: steps_to_fix,
+        severity: severity ?? "warning",
+        source: `agent:${actor}`,
+        contextKey: context_key,
+      });
+      return {
+        ok: true,
+        blocker_id: b.id,
+        message:
+          "Blocker reportado. Edson va a verlo como linterna roja en tu avatar en /admin/agentes.",
+      };
+    },
+  });
+}
+
+export function resolveBlockerTool(actor: string) {
+  return tool({
+    description:
+      "Marca un blocker propio como resuelto. Usalo cuando ya encontraste workaround o el user configuró lo que faltaba.",
+    inputSchema: z.object({
+      blocker_id: z.number(),
+    }),
+    execute: async ({ blocker_id }) => {
+      const { resolveBlocker } = await import("./agent-blockers");
+      await resolveBlocker(blocker_id, actor);
+      return { ok: true };
+    },
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Build strategy toolset por agente
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -896,12 +960,14 @@ export function delegateToAgentTool(actor: string) {
 export function strategyToolsForAgent(agentId: AgentId, actor: string): Record<string, any> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tools: Record<string, any> = {
-    // Todos tienen acceso al contexto
+    // Todos tienen acceso al contexto y al sistema de blockers
     get_strategy_context: getStrategyContextTool(),
     schedule_task: scheduleTaskTool(actor),
     mark_task_done: markTaskDoneTool(actor),
     update_kpi: updateKpiValueTool(actor),
     write_report: writeReportTool(actor),
+    report_blocker: reportBlockerTool(actor, agentId),
+    resolve_blocker: resolveBlockerTool(actor),
   };
 
   if (agentId === "orquestador") {

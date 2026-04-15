@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import type { AgentId, AgentMeta, AgentState, FileEntry, ActivityEvent } from "@/lib/agents";
+import type { AgentId, AgentMeta, AgentState, FileEntry, ActivityEvent, AgentBlocker } from "@/lib/agents";
 import PixelAvatar, { type AgentMood } from "./PixelAvatar";
 
 type StatePayload = {
@@ -706,7 +706,47 @@ export default function AgentsScene() {
               </div>
             </div>
           )}
-          <div className="absolute top-4 right-4 flex items-center gap-2 text-[10px] text-white/60">
+          <div className="absolute top-4 right-4 flex items-center gap-3 text-[10px] text-white/60">
+            {/* Campana global de blockers */}
+            {(() => {
+              const totalBlockers = (data?.states ?? []).reduce(
+                (acc, s) => acc + (s.openBlockers?.length ?? 0),
+                0,
+              );
+              const hasCritical = (data?.states ?? []).some((s) =>
+                s.openBlockers?.some((b) => b.severity === "critical"),
+              );
+              if (totalBlockers === 0) return null;
+              const color = hasCritical ? "#EF4444" : "#F59E0B";
+              return (
+                <motion.button
+                  onClick={() => {
+                    // Abrir el primer agente con blockers
+                    const first = (data?.states ?? []).find(
+                      (s) => (s.openBlockers?.length ?? 0) > 0,
+                    );
+                    if (first) setSelected(first.id);
+                  }}
+                  animate={{
+                    boxShadow: [
+                      `0 0 0 0 ${color}00`,
+                      `0 0 0 6px ${color}44`,
+                      `0 0 0 0 ${color}00`,
+                    ],
+                  }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                  className="flex items-center gap-1.5 px-2 py-1 rounded-full font-bold text-[10px]"
+                  style={{
+                    background: `${color}25`,
+                    color,
+                    border: `1px solid ${color}66`,
+                  }}
+                  title="Hay bloqueos abiertos — click para ver"
+                >
+                  🚨 {totalBlockers} bloqueo{totalBlockers > 1 ? "s" : ""}
+                </motion.button>
+              );
+            })()}
             <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
             {data ? `${data.agents.length} agentes · ${data.activity.length} eventos` : "cargando…"}
           </div>
@@ -1914,6 +1954,41 @@ function AgentAvatar({
           {state.filesCount}
         </div>
       )}
+
+      {/* Linterna roja pulsante cuando hay blockers abiertos */}
+      {state && state.openBlockers && state.openBlockers.length > 0 && (() => {
+        const hasCritical = state.openBlockers.some((b) => b.severity === "critical");
+        const color = hasCritical ? "#EF4444" : "#F59E0B";
+        return (
+          <motion.div
+            className="absolute -top-1 -right-1 z-30"
+            animate={{
+              scale: [1, 1.2, 1],
+              boxShadow: [
+                `0 0 0 0 ${color}88`,
+                `0 0 0 8px ${color}00`,
+                `0 0 0 0 ${color}00`,
+              ],
+            }}
+            transition={{ duration: 1.2, repeat: Infinity }}
+            style={{
+              width: 18,
+              height: 18,
+              borderRadius: "50%",
+              background: color,
+              border: "2px solid #0A0A14",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 10,
+              fontWeight: "bold",
+              color: "white",
+            }}
+          >
+            {state.openBlockers.length}
+          </motion.div>
+        );
+      })()}
     </motion.button>
   );
 }
@@ -2168,8 +2243,23 @@ function AgentDetailPanel({
   state: AgentState;
   onClose: () => void;
 }) {
-  const [tab, setTab] = useState<"overview" | "memory" | "files">("overview");
+  const [tab, setTab] = useState<"overview" | "memory" | "files" | "blockers">(
+    state.openBlockers && state.openBlockers.length > 0 ? "blockers" : "overview",
+  );
   const [fileContent, setFileContent] = useState<{ path: string; content: string } | null>(null);
+  const [expandedBlocker, setExpandedBlocker] = useState<number | null>(null);
+
+  const resolveBlocker = async (blockerId: number) => {
+    try {
+      await fetch("/api/admin/agents/blockers", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "resolve", blocker_id: blockerId }),
+      });
+      // UX: forzar refresh del state parent cerrando el panel
+      onClose();
+    } catch {}
+  };
 
   const openFile = async (f: FileEntry) => {
     const r = await fetch(`/api/admin/agents/file?path=${encodeURIComponent(f.path)}`);
@@ -2244,19 +2334,41 @@ function AgentDetailPanel({
 
         {/* Tabs */}
         <div className="flex gap-1 px-5 border-b border-white/10">
-          {(["overview", "memory", "files"] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`px-3 py-2 text-xs uppercase tracking-wider border-b-2 ${
-                tab === t
-                  ? "border-amber-400 text-white"
-                  : "border-transparent text-white/40 hover:text-white/70"
-              }`}
-            >
-              {t === "overview" ? "Vista" : t === "memory" ? "Memoria" : "Archivos"}
-            </button>
-          ))}
+          {(["overview", "memory", "files", "blockers"] as const).map((t) => {
+            const blockerCount = state.openBlockers?.length ?? 0;
+            if (t === "blockers" && blockerCount === 0) return null;
+            const hasCritical = state.openBlockers?.some((b) => b.severity === "critical");
+            return (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={`px-3 py-2 text-xs uppercase tracking-wider border-b-2 flex items-center gap-1 ${
+                  tab === t
+                    ? "border-amber-400 text-white"
+                    : "border-transparent text-white/40 hover:text-white/70"
+                }`}
+              >
+                {t === "overview"
+                  ? "Vista"
+                  : t === "memory"
+                    ? "Memoria"
+                    : t === "files"
+                      ? "Archivos"
+                      : "Bloqueos"}
+                {t === "blockers" && (
+                  <span
+                    className="text-[9px] px-1.5 rounded-full font-bold"
+                    style={{
+                      background: hasCritical ? "#EF4444" : "#F59E0B",
+                      color: "white",
+                    }}
+                  >
+                    {blockerCount}
+                  </span>
+                )}
+              </button>
+            );
+          })}
           <div className="ml-auto flex items-center gap-2">
             <a
               href={`/api/admin/agents/download?agent=${agent.id}`}
@@ -2351,6 +2463,92 @@ function AgentDetailPanel({
               {state.latestFiles.length === 0 && (
                 <div className="text-white/40 text-center py-8">sin archivos todavía</div>
               )}
+            </div>
+          )}
+
+          {tab === "blockers" && state.openBlockers && state.openBlockers.length > 0 && (
+            <div className="space-y-3">
+              <div className="text-[10px] uppercase tracking-wider text-red-300 mb-2">
+                {state.openBlockers.length} bloqueo
+                {state.openBlockers.length > 1 ? "s" : ""} abierto
+                {state.openBlockers.length > 1 ? "s" : ""} — resolvelos para desbloquear al agente
+              </div>
+              {state.openBlockers.map((b) => {
+                const severityColor =
+                  b.severity === "critical"
+                    ? "#EF4444"
+                    : b.severity === "warning"
+                      ? "#F59E0B"
+                      : "#3B82F6";
+                const isExpanded = expandedBlocker === b.id;
+                return (
+                  <div
+                    key={b.id}
+                    className="rounded-xl border overflow-hidden"
+                    style={{
+                      borderColor: `${severityColor}60`,
+                      background: `linear-gradient(135deg, ${severityColor}12 0%, transparent 60%)`,
+                    }}
+                  >
+                    <button
+                      onClick={() => setExpandedBlocker(isExpanded ? null : b.id)}
+                      className="w-full text-left p-4"
+                    >
+                      <div className="flex items-start gap-3">
+                        <span
+                          className="text-[9px] uppercase px-2 py-0.5 rounded-full font-bold shrink-0"
+                          style={{ background: `${severityColor}30`, color: severityColor }}
+                        >
+                          {b.severity}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-bold text-white text-sm">{b.title}</div>
+                          <div className="text-[11px] text-white/60 mt-1 leading-snug">
+                            {b.description}
+                          </div>
+                          <div className="text-[9px] text-white/30 mt-2 flex items-center gap-2">
+                            <span>{timeAgo(b.createdAt)}</span>
+                            <span>·</span>
+                            <span>fuente: {b.source}</span>
+                          </div>
+                        </div>
+                        <span className="text-white/30 text-xs">{isExpanded ? "▼" : "▶"}</span>
+                      </div>
+                    </button>
+                    {isExpanded && (
+                      <div className="px-4 pb-4 pt-2 border-t border-white/10">
+                        <div className="text-[10px] uppercase text-white/50 tracking-wider mb-2">
+                          Pasos para solucionarlo
+                        </div>
+                        <div className="text-[12px] text-white/85 leading-relaxed">
+                          <MarkdownLite text={b.stepsToFix} onImageClick={() => {}} />
+                        </div>
+                        <div className="flex gap-2 mt-4">
+                          <button
+                            onClick={() => resolveBlocker(b.id)}
+                            className="px-4 py-1.5 rounded-full bg-emerald-500 text-white text-[11px] font-bold hover:bg-emerald-600"
+                          >
+                            ✓ Resolver
+                          </button>
+                          <button
+                            onClick={async () => {
+                              await fetch("/api/admin/agents/blockers", {
+                                method: "POST",
+                                headers: { "content-type": "application/json" },
+                                body: JSON.stringify({ action: "ignore", blocker_id: b.id }),
+                              });
+                              onClose();
+                            }}
+                            className="px-4 py-1.5 rounded-full bg-white/10 text-white/70 text-[11px] hover:bg-white/20"
+                          >
+                            Ignorar
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

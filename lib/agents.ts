@@ -311,6 +311,16 @@ export interface AgentLatestRun {
   error: string | null;
 }
 
+export interface AgentBlocker {
+  id: number;
+  title: string;
+  description: string;
+  stepsToFix: string;
+  severity: "info" | "warning" | "critical";
+  source: string;
+  createdAt: number;
+}
+
 export interface AgentState {
   id: AgentId;
   exists: boolean;
@@ -321,6 +331,7 @@ export interface AgentState {
   outputFolders: string[];
   latestRun: AgentLatestRun | null;
   isRunning: boolean;
+  openBlockers: AgentBlocker[];
 }
 
 const IGNORED = new Set([".DS_Store", ".git", "node_modules", ".claude", ".mcp.json"]);
@@ -380,9 +391,24 @@ export async function readAgentState(id: AgentId): Promise<AgentState> {
   let dbFiles: FileEntry[] = [];
   let latestRun: AgentLatestRun | null = null;
   let isRunning = false;
+  let openBlockers: AgentBlocker[] = [];
   try {
     const { listAgentFiles, latestRunForAgent } = await import("./agents-db");
-    const [rows, run] = await Promise.all([listAgentFiles(id), latestRunForAgent(id)]);
+    const { listOpenBlockers } = await import("./agent-blockers");
+    const [rows, run, blockers] = await Promise.all([
+      listAgentFiles(id),
+      latestRunForAgent(id),
+      listOpenBlockers(id),
+    ]);
+    openBlockers = blockers.map((b) => ({
+      id: b.id,
+      title: b.title,
+      description: b.description,
+      stepsToFix: b.steps_to_fix,
+      severity: b.severity,
+      source: b.source,
+      createdAt: b.created_at.getTime(),
+    }));
     dbFiles = rows.map((r) => ({
       path: `db://${id}/${r.rel_path}`,
       name: r.rel_path.split("/").pop() || r.rel_path,
@@ -450,6 +476,7 @@ export async function readAgentState(id: AgentId): Promise<AgentState> {
     outputFolders: subdirs,
     latestRun,
     isRunning,
+    openBlockers,
   };
 }
 

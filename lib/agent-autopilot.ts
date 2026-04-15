@@ -13,6 +13,7 @@ import { runAgent, type AgentRunResult } from "./agent-runner";
 import { AGENTS, type AgentId } from "./agents";
 import { latestRunForAgent, runningAgents } from "./agents-db";
 import { runSchedulerTick } from "./task-scheduler";
+import { autoDetectBlockers } from "./agent-blockers";
 
 const COOLDOWN_MS = 6 * 60 * 60 * 1000; // 6 horas
 const MAX_AGENTS_PER_TICK = 3;
@@ -85,9 +86,15 @@ export async function runAutopilotTick(opts?: {
   const now = Date.now();
   const results: AutopilotResult["results"] = [];
 
-  // 1. PRIMERO corremos el scheduler de tasks due (estrategia)
-  //    Esto tiene prioridad sobre las tareas proactivas porque son
-  //    tareas concretas con deadline.
+  // 0. Auto-detectar blockers (env vars faltantes, etc). Si aparecen
+  //    nuevos, se reportan solos; si el user configuró algo que faltaba,
+  //    el blocker correspondiente se marca como resuelto.
+  await autoDetectBlockers().catch((err) => {
+    console.error("[autopilot] blocker detection error", err);
+  });
+
+  // 1. Corremos el scheduler de tasks due (estrategia) — prioridad sobre
+  //    las tareas proactivas porque son tareas concretas con deadline.
   const scheduled = await runSchedulerTick({ maxTasks: 3 }).catch((err) => {
     console.error("[autopilot] scheduler error", err);
     return { checked: 0, executed: 0, rescheduled: 0, results: [] };
