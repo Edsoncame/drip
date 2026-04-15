@@ -23,6 +23,33 @@ import {
   writeAgentFile,
   ensureSchema,
 } from "./agents-db";
+import { webFetchTool, webSearchTool, generateImageTool } from "./agent-tools";
+import { matchHandoffs } from "./agent-handoffs";
+
+/** Qué tools extra recibe cada tipo de agente. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extraToolsForAgent(agentId: AgentId): Record<string, any> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const extras: Record<string, any> = {};
+  // Research y SEO necesitan web
+  if (
+    agentId === "market-researcher" ||
+    agentId === "seo-specialist" ||
+    agentId === "data-analyst"
+  ) {
+    extras.web_fetch = webFetchTool;
+    extras.web_search = webSearchTool;
+  }
+  // El diseñador genera imágenes
+  if (agentId === "disenador-creativo") {
+    extras.generate_image = generateImageTool;
+  }
+  // SEM y content también pueden querer fetch para research
+  if (agentId === "sem-manager" || agentId === "content-creator") {
+    extras.web_fetch = webFetchTool;
+  }
+  return extras;
+}
 
 export interface AgentRunResult {
   agentId: AgentId;
@@ -32,6 +59,7 @@ export interface AgentRunResult {
   steps: number;
   error?: string;
   durationMs: number;
+  handoffs?: { agent: AgentId; task: string }[];
 }
 
 /**
@@ -75,11 +103,14 @@ export async function runAgent({
   task,
   actor = "orquestador",
   maxSteps = 6,
+  depth = 0,
 }: {
   agentId: AgentId;
   task: string;
   actor?: string;
   maxSteps?: number;
+  /** Nivel de cascada de handoffs — se incrementa cuando un agente dispara a otro. Max 2. */
+  depth?: number;
 }): Promise<AgentRunResult> {
   const start = Date.now();
   const filesWritten: { relPath: string; size: number }[] = [];
@@ -148,12 +179,14 @@ ${existingContext}
 **Importante**: No respondas solo con texto — tu trabajo es escribir archivos. Si no escribiste nada, la tarea no se considera terminada.`;
 
   try {
+    const extras = extraToolsForAgent(agentId);
     const result = await generateText({
       model: anthropic("claude-sonnet-4-6"),
       system: systemPrompt,
       prompt: `Tarea del orquestador: ${task}`,
       stopWhen: stepCountIs(maxSteps),
       tools: {
+        ...extras,
         list_files: tool({
           description: "Lista todos los archivos existentes de este agente con path, tamaño y fecha",
           inputSchema: z.object({}),
@@ -213,6 +246,16 @@ ${existingContext}
       },
     });
 
+    // Handoffs en cascada — solo si estamos debajo del límite de profundidad
+    const triggeredHandoffs: { agent: AgentId; task: string }[] = [];
+    if (depth < 2 && filesWritten.length > 0) {
+      const matches = matchHandoffs(agentId, filesWritten);
+      for (const { rule, sourcePath } of matches) {
+        const task = rule.then.taskTemplate({ sourceAgent: agentId, sourcePath });
+        triggeredHandoffs.push({ agent: rule.then.agent, task });
+      }
+    }
+
     return {
       agentId,
       success: true,
@@ -220,6 +263,7 @@ ${existingContext}
       filesWritten,
       steps: result.steps?.length ?? 1,
       durationMs: Date.now() - start,
+      handoffs: triggeredHandoffs.length > 0 ? triggeredHandoffs : undefined,
     };
   } catch (err) {
     return {

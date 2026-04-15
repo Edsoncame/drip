@@ -8,6 +8,22 @@
     {
       "path": "/api/cron/payment-reminders",
       "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/agents?job=weekly-seo-scan",
+      "schedule": "0 14 * * 1"
+    },
+    {
+      "path": "/api/cron/agents?job=weekly-compet-scan",
+      "schedule": "0 15 * * 1"
+    },
+    {
+      "path": "/api/cron/agents?job=weekly-content-cal",
+      "schedule": "0 15 * * 5"
+    },
+    {
+      "path": "/api/cron/agents?job=monthly-data-report",
+      "schedule": "0 13 1 * *"
     }
   ]
 }

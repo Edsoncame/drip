@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { runAgent } from "@/lib/agent-runner";
 import type { AgentId } from "@/lib/agents";
@@ -19,6 +19,7 @@ export async function POST(req: Request) {
   const body = (await req.json().catch(() => ({}))) as {
     agent?: string;
     task?: string;
+    depth?: number;
   };
   const agentId = body.agent as AgentId | undefined;
   const task = body.task;
@@ -36,12 +37,34 @@ export async function POST(req: Request) {
     );
   }
 
+  const depth = typeof body.depth === "number" ? body.depth : 0;
   const result = await runAgent({
     agentId,
     task,
     actor: session.email,
     maxSteps: 6,
+    depth,
   });
+
+  // Si el agente generó handoffs, los disparamos DESPUÉS de responder al cliente
+  // usando `after()` para no bloquear la respuesta del primero.
+  if (result.handoffs && result.handoffs.length > 0) {
+    after(async () => {
+      for (const h of result.handoffs ?? []) {
+        try {
+          await runAgent({
+            agentId: h.agent,
+            task: h.task,
+            actor: `handoff:${agentId}`,
+            maxSteps: 5,
+            depth: depth + 1,
+          });
+        } catch (err) {
+          console.error("[handoff] failed", h.agent, err);
+        }
+      }
+    });
+  }
 
   return NextResponse.json(result);
 }
