@@ -16,6 +16,7 @@ export type AvatarAccessory =
   | "laptop"
   | "binoculars"
   | "dashboard"
+  | "code-terminal"
   | "none";
 
 /**
@@ -474,6 +475,30 @@ function AccessoryLayer({ accessory, p }: { accessory: AvatarAccessory; p: numbe
           <rect x={10 * p} y={8.8 * p} width={p * 0.8} height={p * 0.2} fill="#10B981" />
           {/* Base del laptop */}
           <rect x={9.2 * p} y={9.5 * p} width={p * 3.6} height={p * 0.25} fill="#6B7280" />
+        </g>
+      );
+    case "code-terminal":
+      return (
+        <g>
+          {/* Terminal flotante con código verde estilo hacker */}
+          <rect x={9 * p} y={5.5 * p} width={p * 4.2} height={p * 3.2} fill="#0A0A14" rx={p * 0.2} />
+          <rect x={9 * p} y={5.5 * p} width={p * 4.2} height={p * 0.5} fill="#1F2937" rx={p * 0.2} />
+          {/* Luces rojo/amarillo/verde del window header */}
+          <circle cx={9.4 * p} cy={5.75 * p} r={p * 0.15} fill="#EF4444" />
+          <circle cx={9.8 * p} cy={5.75 * p} r={p * 0.15} fill="#F59E0B" />
+          <circle cx={10.2 * p} cy={5.75 * p} r={p * 0.15} fill="#10B981" />
+          {/* Líneas de código */}
+          <rect x={9.2 * p} y={6.3 * p} width={p * 0.35} height={p * 0.2} fill="#10B981" />
+          <rect x={9.7 * p} y={6.3 * p} width={p * 2} height={p * 0.2} fill="#34D399" />
+          <rect x={9.2 * p} y={6.7 * p} width={p * 0.35} height={p * 0.2} fill="#10B981" />
+          <rect x={9.7 * p} y={6.7 * p} width={p * 1.4} height={p * 0.2} fill="#A7F3D0" />
+          <rect x={9.2 * p} y={7.1 * p} width={p * 0.35} height={p * 0.2} fill="#10B981" />
+          <rect x={9.7 * p} y={7.1 * p} width={p * 2.6} height={p * 0.2} fill="#34D399" />
+          <rect x={9.2 * p} y={7.5 * p} width={p * 0.35} height={p * 0.2} fill="#10B981" />
+          <rect x={9.7 * p} y={7.5 * p} width={p * 1.8} height={p * 0.2} fill="#6EE7B7" />
+          <rect x={9.2 * p} y={7.9 * p} width={p * 0.35} height={p * 0.2} fill="#10B981" />
+          {/* Cursor blink */}
+          <rect x={9.7 * p} y={7.9 * p} width={p * 0.25} height={p * 0.2} fill="#A7F3D0" />
         </g>
       );
     case "dashboard":

@@ -162,6 +162,7 @@ const AGENT_EMOJI: Record<AgentId, string> = {
   "data-analyst": "📈",
   "lead-qualifier": "🎯",
   "market-researcher": "🔬",
+  "programador-fullstack": "💻",
 };
 
 export default function AgentsScene() {

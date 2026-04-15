@@ -851,6 +851,7 @@ export function delegateToAgentTool(actor: string) {
         "data-analyst",
         "lead-qualifier",
         "market-researcher",
+        "programador-fullstack",
       ]),
       task: z
         .string()

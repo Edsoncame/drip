@@ -35,9 +35,10 @@ export type AgentId =
   | "community-manager"
   | "data-analyst"
   | "lead-qualifier"
-  | "market-researcher";
+  | "market-researcher"
+  | "programador-fullstack";
 
-export type AgentRole = "orchestrator" | "strategy" | "copy" | "design" | "growth" | "data" | "leads" | "research";
+export type AgentRole = "orchestrator" | "strategy" | "copy" | "design" | "growth" | "data" | "leads" | "research" | "engineering";
 
 export type AgentAccessory =
   | "crown"
@@ -50,7 +51,8 @@ export type AgentAccessory =
   | "phone"
   | "laptop"
   | "binoculars"
-  | "dashboard";
+  | "dashboard"
+  | "code-terminal";
 
 export interface AgentMeta {
   id: AgentId;
@@ -62,7 +64,7 @@ export interface AgentMeta {
   colorDark: string;
   x: number; // 0-100 grid position
   y: number;
-  cluster: "pipeline" | "growth" | "data" | "research";
+  cluster: "pipeline" | "growth" | "data" | "research" | "engineering";
   accessory: AgentAccessory;
   catchphrases: string[];
 }
@@ -260,6 +262,26 @@ export const AGENTS: AgentMeta[] = [
       "Encontré un insight que cambia todo",
       "Tengo data, no corazonadas",
       "TAM peruano: 14K PyMEs con fit",
+    ],
+  },
+  {
+    id: "programador-fullstack",
+    name: "DevOps",
+    role: "engineering",
+    title: "Full Stack Engineer",
+    tagline: "Next.js 16, TS, Postgres, AI SDK, Meta/Google APIs, deploy",
+    color: "#10B981",
+    colorDark: "#047857",
+    x: 14, y: 14, cluster: "engineering",
+    accessory: "code-terminal",
+    catchphrases: [
+      "Ya lo deployo",
+      "Typecheck limpio, pusheo",
+      "Ese bug lo arreglo en 5 min",
+      "Integro Meta CAPI y listo",
+      "Menos charla, más código",
+      "Commit + push automático",
+      "Zod + tool loop, fácil",
     ],
   },
 ];
