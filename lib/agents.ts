@@ -80,11 +80,15 @@ export const AGENTS: AgentMeta[] = [
     accessory: "crown",
     catchphrases: [
       "¿Qué métrica querés mover?",
-      "Tengo 3 experimentos con ICE alto",
+      "Tengo 3 experimentos con PIE score alto",
       "Esa hipótesis la tiro esta semana",
       "CAC < LTV, escalamos ya",
       "Primero data, después ejecuto",
       "AARRR — ¿en qué etapa estamos cortos?",
+      "Armo la estrategia completa en 2 minutos",
+      "Te programo el calendario W1-W52",
+      "Necesito $800 USD para Meta, ¿apruebas?",
+      "Lunes 9am te llega el reporte",
     ],
   },
   {
