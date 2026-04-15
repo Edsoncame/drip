@@ -381,8 +381,11 @@ export async function readAgentState(id: AgentId): Promise<AgentState> {
     // DB puede no estar disponible
   }
 
-  // latestFiles: static + DB, pero DB arriba porque es lo importante
-  const allFiles = [...dbFiles, ...staticFiles];
+  // latestFiles: SOLO archivos dinámicos (DB). Los estáticos (CLAUDE.md,
+  // README.md, agents.md, memory.md) no son "trabajo reciente" — son docs
+  // del bundle que ademas tienen mtime bogus en Vercel. Si querés ver los
+  // estáticos, usá las tabs Memory/Files del detail panel.
+  const allFiles = dbFiles;
 
   let memory: string | null = null;
   try {
@@ -477,24 +480,9 @@ export interface ActivityEvent {
  * derivado puramente del filesystem.
  */
 export async function recentActivity(limit = 40): Promise<ActivityEvent[]> {
+  // Solo archivos dinámicos de la DB — los estáticos del bundle no son
+  // "actividad" y tienen mtime bogus en Vercel serverless.
   const all: ActivityEvent[] = [];
-
-  // Estáticos del bundle
-  for (const agent of AGENTS) {
-    const files = await walkLimited(path.join(AGENTS_ROOT, agent.id), 150);
-    for (const f of files) {
-      all.push({
-        id: `${agent.id}:${f.path}:${f.mtime}`,
-        ts: f.mtime,
-        agent: agent.id,
-        kind: "file-modified",
-        file: f.name,
-        relPath: `${agent.id}/${path.relative(path.join(AGENTS_ROOT, agent.id), f.path)}`,
-      });
-    }
-  }
-
-  // Dinámicos de la DB
   try {
     const { listAllRecent } = await import("./agents-db");
     const rows = await listAllRecent(limit * 2);
@@ -509,7 +497,6 @@ export async function recentActivity(limit = 40): Promise<ActivityEvent[]> {
       });
     }
   } catch {}
-
   all.sort((a, b) => b.ts - a.ts);
   return all.slice(0, limit);
 }

@@ -1856,7 +1856,7 @@ function AgentDetailPanel({
               </div>
               <div>
                 <div className="text-[10px] uppercase tracking-wider text-white/40 mb-2">
-                  Archivos más recientes
+                  Archivos escritos por el agente
                 </div>
                 <div className="space-y-1">
                   {state.latestFiles.slice(0, 8).map((f) => (
@@ -1872,6 +1872,12 @@ function AgentDetailPanel({
                       </span>
                     </button>
                   ))}
+                  {state.latestFiles.length === 0 && (
+                    <div className="text-[11px] text-white/30 italic py-2 px-2">
+                      Todavía no escribió ningún archivo. Cuando el agente ejecute una
+                      tarea y use <code className="text-white/50">write_file</code>, aparecerán acá.
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
