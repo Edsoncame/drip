@@ -29,6 +29,7 @@ import { webFetchTool, webSearchTool, generateImageTool } from "./agent-tools";
 import { matchHandoffs } from "./agent-handoffs";
 import { strategyToolsForAgent } from "./strategy-tools";
 import { getActiveStrategy } from "./strategy-db";
+import { codeToolsForProgrammer } from "./code-tools";
 
 /** Qué tools extra recibe cada tipo de agente. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -166,7 +167,14 @@ export async function runAgent({
     // DB puede no estar lista aún — seguimos sin el bloque
   }
 
-  const systemPrompt = `${systemPromptBase}${strategyContextBlock}
+  // El Programador recibe un override del protocolo (no usa file tools
+  // del marketing workspace, usa GitHub API).
+  const programmerOverride =
+    agentId === "programador-fullstack"
+      ? `\n\n---\n\n# OVERRIDE PARA PROGRAMADOR\n\nIGNORÁ las file tools (\`write_file\`, \`read_file\`, \`list_files\`) — ésas escriben al workspace de marketing, no al código de FLUX.\n\nPara editar código usás EXCLUSIVAMENTE las tools con prefijo \`github_*\`:\n- \`github_read_file(path)\` para leer, devuelve { content, sha }\n- \`github_write_file(path, content, commit_message, sha?)\` para commitear directo a main (sin sha = crea nuevo, con sha = update)\n- \`github_list_files(path_prefix)\` para explorar\n- \`github_search_code(query)\` para buscar\n- \`github_recent_commits()\` para ver qué cambió\n- \`github_delete_file(path, sha, message)\` para borrar\n- \`check_deploy_status(commit_sha)\` para verificar que el deploy pasó\n\nFlujo: read → edit en memoria → write con sha → check_deploy_status. Cada commit atómico. Mensajes convencionales. Co-Authored-By se añade automático.\n\n**No respondas con el resultado textual — ejecutá las tools.** Al final del turno, respondé con un resumen de 3 líneas: qué hiciste, commit sha, status del deploy.`
+      : "";
+
+  const systemPrompt = `${systemPromptBase}${strategyContextBlock}${programmerOverride}
 
 ---
 
@@ -203,6 +211,13 @@ ${existingContext}
   try {
     const extras = extraToolsForAgent(agentId);
     const strategyTools = strategyToolsForAgent(agentId, actor);
+
+    // El Programador usa herramientas de código (GitHub API) en lugar de
+    // las file tools por defecto (que escriben a marketing_agent_files DB).
+    // Commitea directo al repo de FLUX y Vercel auto-deploya.
+    const isProgrammer = agentId === "programador-fullstack";
+    const programmerTools = isProgrammer ? codeToolsForProgrammer(actor) : {};
+
     const result = await generateText({
       model: anthropic("claude-sonnet-4-6"),
       system: systemPrompt,
@@ -211,6 +226,7 @@ ${existingContext}
       tools: {
         ...extras,
         ...strategyTools,
+        ...programmerTools,
         list_files: tool({
           description: "Lista todos los archivos existentes de este agente con path, tamaño y fecha",
           inputSchema: z.object({}),
