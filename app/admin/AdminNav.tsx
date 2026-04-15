@@ -13,6 +13,7 @@ const TABS = [
   { href: "/admin/usuarios",   label: "Usuarios" },
   { href: "/admin/vault",      label: "🔐 Vault" },
   { href: "/admin/agentes",    label: "🤖 Agentes" },
+  { href: "/admin/estrategia", label: "📋 Estrategia" },
 ];
 
 export default function AdminNav() {
