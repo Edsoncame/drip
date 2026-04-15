@@ -70,19 +70,21 @@ export interface AgentMeta {
 export const AGENTS: AgentMeta[] = [
   {
     id: "orquestador",
-    name: "Orquestador",
+    name: "Growth",
     role: "orchestrator",
-    title: "Conductor del equipo",
-    tagline: "Coordina los 9 agentes en pipelines autónomos",
+    title: "Head of Growth",
+    tagline: "Define experimentos, prioriza con ICE, coordina al equipo entero",
     color: "#FFB547",
     colorDark: "#D97706",
     x: 50, y: 14, cluster: "pipeline",
     accessory: "crown",
     catchphrases: [
-      "¿En qué te ayudo, jefe?",
-      "Pongo al equipo a trabajar y te aviso",
-      "Dime qué lanzamos hoy",
-      "Listo para armar el pipeline",
+      "¿Qué métrica querés mover?",
+      "Tengo 3 experimentos con ICE alto",
+      "Esa hipótesis la tiro esta semana",
+      "CAC < LTV, escalamos ya",
+      "Primero data, después ejecuto",
+      "AARRR — ¿en qué etapa estamos cortos?",
     ],
   },
   {
