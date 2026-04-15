@@ -12,6 +12,7 @@
 import { runAgent, type AgentRunResult } from "./agent-runner";
 import { AGENTS, type AgentId } from "./agents";
 import { latestRunForAgent, runningAgents } from "./agents-db";
+import { runSchedulerTick } from "./task-scheduler";
 
 const COOLDOWN_MS = 6 * 60 * 60 * 1000; // 6 horas
 const MAX_AGENTS_PER_TICK = 3;
@@ -56,6 +57,11 @@ export interface AutopilotResult {
   tickedAt: string;
   agentsConsidered: number;
   agentsExecuted: number;
+  scheduledTasks: {
+    checked: number;
+    executed: number;
+    rescheduled: number;
+  };
   results: {
     agent: AgentId;
     status: "executed" | "cooldown" | "busy" | "skipped";
@@ -78,6 +84,14 @@ export async function runAutopilotTick(opts?: {
   const max = opts?.max ?? MAX_AGENTS_PER_TICK;
   const now = Date.now();
   const results: AutopilotResult["results"] = [];
+
+  // 1. PRIMERO corremos el scheduler de tasks due (estrategia)
+  //    Esto tiene prioridad sobre las tareas proactivas porque son
+  //    tareas concretas con deadline.
+  const scheduled = await runSchedulerTick({ maxTasks: 3 }).catch((err) => {
+    console.error("[autopilot] scheduler error", err);
+    return { checked: 0, executed: 0, rescheduled: 0, results: [] };
+  });
 
   // Agentes candidatos (sin el orquestador — él no ejecuta, solo delega)
   const candidates = AGENTS.filter((a) => a.id !== "orquestador")
@@ -131,6 +145,11 @@ export async function runAutopilotTick(opts?: {
     tickedAt: new Date().toISOString(),
     agentsConsidered: candidates.length,
     agentsExecuted: toRun.length,
+    scheduledTasks: {
+      checked: scheduled.checked,
+      executed: scheduled.executed,
+      rescheduled: scheduled.rescheduled,
+    },
     results,
   };
 }
