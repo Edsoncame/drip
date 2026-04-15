@@ -33,6 +33,15 @@ export interface DbBlocker {
   resolved_by: string | null;
 }
 
+export interface DbBlockerMessage {
+  id: number;
+  blocker_id: number;
+  role: "user" | "assistant";
+  content: string;
+  image_url: string | null;
+  created_at: Date;
+}
+
 let blockerSchemaReady = false;
 
 export async function ensureBlockerSchema(): Promise<void> {
@@ -60,7 +69,63 @@ export async function ensureBlockerSchema(): Promise<void> {
   await query(
     `CREATE INDEX IF NOT EXISTS idx_marketing_agent_blockers_open ON marketing_agent_blockers(status) WHERE status = 'open';`,
   );
+
+  // Tabla de mensajes por blocker — user ↔ assistant con imágenes opcionales
+  await query(`
+    CREATE TABLE IF NOT EXISTS marketing_blocker_messages (
+      id BIGSERIAL PRIMARY KEY,
+      blocker_id BIGINT NOT NULL REFERENCES marketing_agent_blockers(id) ON DELETE CASCADE,
+      role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+      content TEXT NOT NULL,
+      image_url TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+  await query(
+    `CREATE INDEX IF NOT EXISTS idx_marketing_blocker_messages_blocker ON marketing_blocker_messages(blocker_id, created_at);`,
+  );
+
   blockerSchemaReady = true;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Blocker messages (chat por blocker)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function addBlockerMessage(
+  blockerId: number,
+  role: "user" | "assistant",
+  content: string,
+  imageUrl?: string | null,
+): Promise<DbBlockerMessage> {
+  await ensureBlockerSchema();
+  const res = await query<DbBlockerMessage>(
+    `INSERT INTO marketing_blocker_messages (blocker_id, role, content, image_url)
+     VALUES ($1, $2, $3, $4)
+     RETURNING *`,
+    [blockerId, role, content, imageUrl ?? null],
+  );
+  return res.rows[0];
+}
+
+export async function listBlockerMessages(blockerId: number): Promise<DbBlockerMessage[]> {
+  await ensureBlockerSchema();
+  const res = await query<DbBlockerMessage>(
+    `SELECT * FROM marketing_blocker_messages
+     WHERE blocker_id = $1
+     ORDER BY created_at ASC`,
+    [blockerId],
+  );
+  return res.rows;
+}
+
+export async function getBlockerById(id: number): Promise<DbBlocker | null> {
+  await ensureBlockerSchema();
+  const res = await query<DbBlocker>(
+    `SELECT * FROM marketing_agent_blockers WHERE id = $1`,
+    [id],
+  );
+  return res.rows[0] ?? null;
 }
 
 export async function reportBlocker(input: {

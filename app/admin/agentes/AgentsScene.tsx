@@ -1384,6 +1384,360 @@ function CurrentTaskPanel({
   );
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Blocker Chat Card — mini chat por blocker con imagenes y streaming
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface BlockerMessage {
+  id: number;
+  role: "user" | "assistant";
+  content: string;
+  image_url: string | null;
+  created_at: number;
+}
+
+function BlockerChatCard({
+  blocker,
+  agentColor,
+  expanded,
+  onToggle,
+  onResolved,
+}: {
+  blocker: AgentBlocker;
+  agentColor: string;
+  expanded: boolean;
+  onToggle: () => void;
+  onResolved: () => void;
+}) {
+  const [messages, setMessages] = useState<BlockerMessage[]>([]);
+  const [input, setInput] = useState("");
+  const [image, setImage] = useState<File | null>(null);
+  const [sending, setSending] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [streamingText, setStreamingText] = useState("");
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const severityColor =
+    blocker.severity === "critical"
+      ? "#EF4444"
+      : blocker.severity === "warning"
+        ? "#F59E0B"
+        : "#3B82F6";
+
+  // Cargar historial cuando se expande la primera vez
+  useEffect(() => {
+    if (!expanded || loaded) return;
+    const load = async () => {
+      try {
+        const r = await fetch(
+          `/api/admin/agents/blockers/chat?blocker_id=${blocker.id}`,
+          { cache: "no-store" },
+        );
+        const json = await r.json();
+        if (json.messages) setMessages(json.messages);
+      } catch {}
+      setLoaded(true);
+    };
+    load();
+  }, [expanded, loaded, blocker.id]);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: 99999, behavior: "smooth" });
+  }, [messages, streamingText]);
+
+  const sendMessage = async () => {
+    if (sending) return;
+    const text = input.trim();
+    if (!text && !image) return;
+
+    setSending(true);
+    const userMsg: BlockerMessage = {
+      id: Date.now(),
+      role: "user",
+      content: text || "(imagen adjunta)",
+      image_url: image ? URL.createObjectURL(image) : null,
+      created_at: Date.now(),
+    };
+    setMessages((prev) => [...prev, userMsg]);
+    setInput("");
+    const fileToSend = image;
+    setImage(null);
+    setStreamingText("");
+
+    try {
+      const form = new FormData();
+      form.append("blocker_id", String(blocker.id));
+      form.append("message", text);
+      if (fileToSend) form.append("image", fileToSend);
+
+      const res = await fetch("/api/admin/agents/blockers/chat", {
+        method: "POST",
+        body: form,
+      });
+
+      if (!res.ok || !res.body) {
+        throw new Error("chat failed");
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        setStreamingText(buffer);
+      }
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now() + 1,
+          role: "assistant",
+          content: buffer,
+          image_url: null,
+          created_at: Date.now(),
+        },
+      ]);
+      setStreamingText("");
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now() + 2,
+          role: "assistant",
+          content: "⚠️ Error al enviar el mensaje. Reintentá.",
+          image_url: null,
+          created_at: Date.now(),
+        },
+      ]);
+      setStreamingText("");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const markResolved = async () => {
+    try {
+      const form = new FormData();
+      form.append("blocker_id", String(blocker.id));
+      form.append("action", "mark-resolved");
+      await fetch("/api/admin/agents/blockers/chat", {
+        method: "POST",
+        body: form,
+      });
+      onResolved();
+    } catch {}
+  };
+
+  return (
+    <div
+      className="rounded-xl border overflow-hidden"
+      style={{
+        borderColor: `${severityColor}60`,
+        background: `linear-gradient(135deg, ${severityColor}12 0%, transparent 60%)`,
+      }}
+    >
+      <button onClick={onToggle} className="w-full text-left p-4">
+        <div className="flex items-start gap-3">
+          <span
+            className="text-[9px] uppercase px-2 py-0.5 rounded-full font-bold shrink-0"
+            style={{ background: `${severityColor}30`, color: severityColor }}
+          >
+            {blocker.severity}
+          </span>
+          <div className="flex-1 min-w-0">
+            <div className="font-bold text-white text-sm">{blocker.title}</div>
+            <div className="text-[11px] text-white/60 mt-1 leading-snug">
+              {blocker.description}
+            </div>
+            <div className="text-[9px] text-white/30 mt-2 flex items-center gap-2">
+              <span>{timeAgo(blocker.createdAt)}</span>
+              <span>·</span>
+              <span>fuente: {blocker.source}</span>
+              {messages.length > 0 && (
+                <>
+                  <span>·</span>
+                  <span>💬 {messages.length} msgs</span>
+                </>
+              )}
+            </div>
+          </div>
+          <span className="text-white/30 text-xs">{expanded ? "▼" : "▶"}</span>
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="border-t border-white/10">
+          {/* Steps iniciales */}
+          <div className="px-4 py-3 bg-black/20">
+            <div className="text-[10px] uppercase text-white/50 tracking-wider mb-2">
+              Pasos iniciales
+            </div>
+            <div className="text-[11px] text-white/80 leading-relaxed">
+              <MarkdownLite text={blocker.stepsToFix} onImageClick={() => {}} />
+            </div>
+          </div>
+
+          {/* Chat messages */}
+          <div
+            ref={scrollRef}
+            className="max-h-[300px] overflow-y-auto px-4 py-3 space-y-2 border-t border-white/10 bg-black/30"
+          >
+            {!loaded && (
+              <div className="text-center text-white/40 text-[10px] py-4">
+                cargando chat…
+              </div>
+            )}
+            {loaded && messages.length === 0 && !streamingText && (
+              <div className="text-center text-white/40 text-[11px] py-4">
+                Si te trabás en algún paso, escribime acá o mandame un screenshot. Te
+                ayudo a resolverlo.
+              </div>
+            )}
+            {messages.map((m) => (
+              <div
+                key={m.id}
+                className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
+              >
+                <div
+                  className={`max-w-[85%] rounded-xl px-3 py-2 text-[12px] leading-relaxed ${
+                    m.role === "user"
+                      ? "bg-amber-400 text-black"
+                      : "bg-white/10 border border-white/15 text-white/90"
+                  }`}
+                >
+                  {m.image_url && (
+                    <a
+                      href={m.image_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block mb-2 rounded-lg overflow-hidden"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={m.image_url}
+                        alt=""
+                        className="max-w-full max-h-40 object-contain bg-black/20"
+                      />
+                    </a>
+                  )}
+                  <div className="whitespace-pre-wrap">
+                    {m.role === "assistant" ? (
+                      <MarkdownLite text={m.content} onImageClick={() => {}} />
+                    ) : (
+                      m.content
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+            {streamingText && (
+              <div className="flex justify-start">
+                <div className="max-w-[85%] rounded-xl px-3 py-2 text-[12px] bg-white/10 border border-white/15 text-white/90">
+                  <MarkdownLite text={streamingText} onImageClick={() => {}} />
+                </div>
+              </div>
+            )}
+            {sending && !streamingText && (
+              <div className="flex items-center gap-1 text-white/40 text-xs">
+                <span className="w-1 h-1 bg-white/60 rounded-full animate-bounce" />
+                <span className="w-1 h-1 bg-white/60 rounded-full animate-bounce [animation-delay:150ms]" />
+                <span className="w-1 h-1 bg-white/60 rounded-full animate-bounce [animation-delay:300ms]" />
+              </div>
+            )}
+          </div>
+
+          {/* Input area */}
+          <div className="p-3 border-t border-white/10 bg-black/40">
+            {image && (
+              <div className="mb-2 flex items-center gap-2 px-2 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-400/30 text-[10px]">
+                <span>🖼</span>
+                <span className="text-emerald-200 truncate flex-1">{image.name}</span>
+                <button
+                  onClick={() => setImage(null)}
+                  className="text-white/40 hover:text-white"
+                >
+                  ×
+                </button>
+              </div>
+            )}
+            <div className="flex gap-2 items-center">
+              <input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                  }
+                }}
+                disabled={sending}
+                placeholder="Describí dónde te trabaste o adjuntá screenshot…"
+                className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-[12px] text-white placeholder:text-white/30 focus:outline-none focus:border-amber-400/60"
+              />
+              <label
+                className="w-9 h-9 rounded-full bg-white/10 hover:bg-emerald-500/20 border border-white/15 hover:border-emerald-400/50 flex items-center justify-center cursor-pointer text-sm"
+                title="Adjuntar screenshot"
+              >
+                📎
+                <input
+                  type="file"
+                  className="hidden"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) setImage(f);
+                    e.target.value = "";
+                  }}
+                  disabled={sending}
+                />
+              </label>
+              <button
+                onClick={sendMessage}
+                disabled={sending || (!input.trim() && !image)}
+                className="w-9 h-9 rounded-full bg-amber-400 text-black text-sm font-bold disabled:opacity-30 hover:bg-amber-300 flex items-center justify-center"
+              >
+                ↑
+              </button>
+            </div>
+            <div className="flex items-center gap-2 mt-2">
+              <button
+                onClick={markResolved}
+                className="px-3 py-1 rounded-full bg-emerald-500/80 hover:bg-emerald-500 text-white text-[10px] font-bold"
+              >
+                ✓ Ya lo resolví
+              </button>
+              <button
+                onClick={async () => {
+                  await fetch("/api/admin/agents/blockers", {
+                    method: "POST",
+                    headers: { "content-type": "application/json" },
+                    body: JSON.stringify({
+                      action: "ignore",
+                      blocker_id: blocker.id,
+                    }),
+                  });
+                  onResolved();
+                }}
+                className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white/60 text-[10px]"
+              >
+                Ignorar blocker
+              </button>
+              <span
+                className="ml-auto text-[9px] text-white/30"
+                style={{ color: agentColor + "aa" }}
+              >
+                enter para enviar
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface GalleryFile {
   id: number;
   agentId: AgentId;
@@ -2249,18 +2603,6 @@ function AgentDetailPanel({
   const [fileContent, setFileContent] = useState<{ path: string; content: string } | null>(null);
   const [expandedBlocker, setExpandedBlocker] = useState<number | null>(null);
 
-  const resolveBlocker = async (blockerId: number) => {
-    try {
-      await fetch("/api/admin/agents/blockers", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "resolve", blocker_id: blockerId }),
-      });
-      // UX: forzar refresh del state parent cerrando el panel
-      onClose();
-    } catch {}
-  };
-
   const openFile = async (f: FileEntry) => {
     const r = await fetch(`/api/admin/agents/file?path=${encodeURIComponent(f.path)}`);
     if (r.ok) {
@@ -2471,84 +2813,21 @@ function AgentDetailPanel({
               <div className="text-[10px] uppercase tracking-wider text-red-300 mb-2">
                 {state.openBlockers.length} bloqueo
                 {state.openBlockers.length > 1 ? "s" : ""} abierto
-                {state.openBlockers.length > 1 ? "s" : ""} — resolvelos para desbloquear al agente
+                {state.openBlockers.length > 1 ? "s" : ""} — chat con el agente para resolverlo
               </div>
-              {state.openBlockers.map((b) => {
-                const severityColor =
-                  b.severity === "critical"
-                    ? "#EF4444"
-                    : b.severity === "warning"
-                      ? "#F59E0B"
-                      : "#3B82F6";
-                const isExpanded = expandedBlocker === b.id;
-                return (
-                  <div
-                    key={b.id}
-                    className="rounded-xl border overflow-hidden"
-                    style={{
-                      borderColor: `${severityColor}60`,
-                      background: `linear-gradient(135deg, ${severityColor}12 0%, transparent 60%)`,
-                    }}
-                  >
-                    <button
-                      onClick={() => setExpandedBlocker(isExpanded ? null : b.id)}
-                      className="w-full text-left p-4"
-                    >
-                      <div className="flex items-start gap-3">
-                        <span
-                          className="text-[9px] uppercase px-2 py-0.5 rounded-full font-bold shrink-0"
-                          style={{ background: `${severityColor}30`, color: severityColor }}
-                        >
-                          {b.severity}
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-bold text-white text-sm">{b.title}</div>
-                          <div className="text-[11px] text-white/60 mt-1 leading-snug">
-                            {b.description}
-                          </div>
-                          <div className="text-[9px] text-white/30 mt-2 flex items-center gap-2">
-                            <span>{timeAgo(b.createdAt)}</span>
-                            <span>·</span>
-                            <span>fuente: {b.source}</span>
-                          </div>
-                        </div>
-                        <span className="text-white/30 text-xs">{isExpanded ? "▼" : "▶"}</span>
-                      </div>
-                    </button>
-                    {isExpanded && (
-                      <div className="px-4 pb-4 pt-2 border-t border-white/10">
-                        <div className="text-[10px] uppercase text-white/50 tracking-wider mb-2">
-                          Pasos para solucionarlo
-                        </div>
-                        <div className="text-[12px] text-white/85 leading-relaxed">
-                          <MarkdownLite text={b.stepsToFix} onImageClick={() => {}} />
-                        </div>
-                        <div className="flex gap-2 mt-4">
-                          <button
-                            onClick={() => resolveBlocker(b.id)}
-                            className="px-4 py-1.5 rounded-full bg-emerald-500 text-white text-[11px] font-bold hover:bg-emerald-600"
-                          >
-                            ✓ Resolver
-                          </button>
-                          <button
-                            onClick={async () => {
-                              await fetch("/api/admin/agents/blockers", {
-                                method: "POST",
-                                headers: { "content-type": "application/json" },
-                                body: JSON.stringify({ action: "ignore", blocker_id: b.id }),
-                              });
-                              onClose();
-                            }}
-                            className="px-4 py-1.5 rounded-full bg-white/10 text-white/70 text-[11px] hover:bg-white/20"
-                          >
-                            Ignorar
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+              {state.openBlockers.map((b) => (
+                <BlockerChatCard
+                  key={b.id}
+                  blocker={b}
+                  agentColor={agent.color}
+                  expanded={expandedBlocker === b.id}
+                  onToggle={() => setExpandedBlocker(expandedBlocker === b.id ? null : b.id)}
+                  onResolved={() => {
+                    setExpandedBlocker(null);
+                    onClose();
+                  }}
+                />
+              ))}
             </div>
           )}
         </div>
