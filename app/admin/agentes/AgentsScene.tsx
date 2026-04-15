@@ -733,16 +733,36 @@ export default function AgentsScene() {
             ↓ descargar workspace
           </a>
 
-          {/* Autopilot button — dispara trabajo proactivo sin instrucciones */}
+          {/* Autopilot button — arriba centro para que sea imposible perderlo */}
           <motion.button
             onClick={triggerAutopilot}
             disabled={autopilotRunning}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="absolute bottom-4 right-[180px] z-20 px-3 py-2 rounded-lg bg-gradient-to-r from-amber-400 to-orange-500 text-black text-[11px] font-bold hover:from-amber-300 hover:to-orange-400 disabled:opacity-40 disabled:cursor-not-allowed backdrop-blur shadow-lg shadow-orange-500/20"
+            whileHover={{ scale: 1.06, y: -2 }}
+            whileTap={{ scale: 0.96 }}
+            animate={
+              autopilotRunning
+                ? { boxShadow: ["0 0 20px #f59e0b", "0 0 40px #f59e0b", "0 0 20px #f59e0b"] }
+                : undefined
+            }
+            transition={autopilotRunning ? { duration: 1.2, repeat: Infinity } : undefined}
+            className="absolute z-30 font-bold backdrop-blur disabled:opacity-60 disabled:cursor-wait"
+            style={{
+              top: 12,
+              left: "50%",
+              transform: "translateX(-50%)",
+              padding: "10px 20px",
+              borderRadius: 999,
+              background:
+                "linear-gradient(135deg, #f59e0b 0%, #f97316 50%, #ef4444 100%)",
+              color: "#0A0A14",
+              fontSize: 13,
+              border: "2px solid rgba(255,255,255,0.25)",
+              boxShadow:
+                "0 10px 30px rgba(249, 115, 22, 0.35), 0 2px 8px rgba(0,0,0,0.4)",
+            }}
             title="Despierta al equipo — los agentes deciden y ejecutan tareas solos"
           >
-            {autopilotRunning ? "⚡ Autopilot corriendo…" : "🚀 Autopilot"}
+            {autopilotRunning ? "⚡ AUTOPILOT CORRIENDO…" : "🚀 ACTIVAR AUTOPILOT"}
           </motion.button>
 
           {/* Delegaciones en vivo — panel flotante top-right */}
