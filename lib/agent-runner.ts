@@ -27,6 +27,8 @@ import {
 } from "./agents-db";
 import { webFetchTool, webSearchTool, generateImageTool } from "./agent-tools";
 import { matchHandoffs } from "./agent-handoffs";
+import { strategyToolsForAgent } from "./strategy-tools";
+import { getActiveStrategy } from "./strategy-db";
 
 /** Qué tools extra recibe cada tipo de agente. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -149,7 +151,22 @@ export async function runAgent({
   const systemPromptBase = await loadAgentSystemPrompt(agentId);
   const existingContext = await filesContext(agentId);
 
-  const systemPrompt = `${systemPromptBase}
+  // Contexto de estrategia activa (si existe) — se inyecta al system prompt
+  let strategyContextBlock = "";
+  try {
+    const active = await getActiveStrategy();
+    if (active) {
+      strategyContextBlock = `\n\n---\n\n# ESTRATEGIA ACTIVA\n\nEstás trabajando dentro de una estrategia en ejecución:\n\n- **Nombre:** ${active.name} (id ${active.id}, status ${active.status})\n- **Período:** ${active.start_date} → ${active.end_date} (${active.duration_months} meses)\n- **North Star:** ${active.north_star_metric ?? "—"}\n- **Meta global:** ${active.meta_global_descripcion ?? "—"}\n- **Plan de crecimiento:** ${active.plan_crecimiento ?? "—"}\n\nAntes de decidir qué hacer, llamá a \`get_strategy_context\` para ver objetivos, KPIs, tasks próximas, experimentos en curso y attachments. Todo lo que produzcas debe estar alineado a esta estrategia.\n\nCuando escribís archivos o programás tasks, asociálas a esta strategy_id = ${active.id}.`;
+    } else if (agentId === "orquestador") {
+      strategyContextBlock = `\n\n---\n\n# SIN ESTRATEGIA ACTIVA\n\nNo hay ninguna estrategia activa. Si el usuario te pide "arma la estrategia" o similar, usá el tool \`create_strategy\` para crearla y después \`create_objective\`, \`create_kpi\`, \`schedule_task\`, \`allocate_budget\`, etc. para llenarla. Finalmente llamá a \`update_strategy_document\` con el markdown completo y \`activate_strategy\` para ponerla en ejecución.`;
+    } else {
+      strategyContextBlock = `\n\n---\n\n# SIN ESTRATEGIA ACTIVA\n\nNo hay estrategia activa todavía. Trabajá en modo libre hasta que el Head of Growth cree una.`;
+    }
+  } catch {
+    // DB puede no estar lista aún — seguimos sin el bloque
+  }
+
+  const systemPrompt = `${systemPromptBase}${strategyContextBlock}
 
 ---
 
@@ -185,6 +202,7 @@ ${existingContext}
 
   try {
     const extras = extraToolsForAgent(agentId);
+    const strategyTools = strategyToolsForAgent(agentId, actor);
     const result = await generateText({
       model: anthropic("claude-sonnet-4-6"),
       system: systemPrompt,
@@ -192,6 +210,7 @@ ${existingContext}
       stopWhen: stepCountIs(maxSteps),
       tools: {
         ...extras,
+        ...strategyTools,
         list_files: tool({
           description: "Lista todos los archivos existentes de este agente con path, tamaño y fecha",
           inputSchema: z.object({}),
