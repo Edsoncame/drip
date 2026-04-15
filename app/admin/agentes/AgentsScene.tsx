@@ -194,6 +194,8 @@ export default function AgentsScene() {
   const [attachedFiles, setAttachedFiles] = useState<
     { id: number; title: string; filename: string; size: number; contentType: string | null }[]
   >([]);
+  const [globalDragging, setGlobalDragging] = useState(false);
+  const globalDragCounterRef = useRef(0);
   const [recording, setRecording] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState("");
   const [recordStart, setRecordStart] = useState<number | null>(null);
@@ -242,6 +244,49 @@ export default function AgentsScene() {
   useEffect(() => {
     const id = setInterval(() => setMoodSeed((s) => s + 1), 30000);
     return () => clearInterval(id);
+  }, []);
+
+  // Drag & drop global al chat principal. Cualquier imagen arrastrada a la
+  // escena se sube como attachment al chat del Growth.
+  useEffect(() => {
+    const onDragEnter = (e: DragEvent) => {
+      if (!e.dataTransfer?.types.includes("Files")) return;
+      e.preventDefault();
+      globalDragCounterRef.current++;
+      setGlobalDragging(true);
+    };
+    const onDragLeave = (e: DragEvent) => {
+      e.preventDefault();
+      globalDragCounterRef.current--;
+      if (globalDragCounterRef.current <= 0) {
+        globalDragCounterRef.current = 0;
+        setGlobalDragging(false);
+      }
+    };
+    const onDragOver = (e: DragEvent) => {
+      if (!e.dataTransfer?.types.includes("Files")) return;
+      e.preventDefault();
+    };
+    const onDrop = (e: DragEvent) => {
+      e.preventDefault();
+      globalDragCounterRef.current = 0;
+      setGlobalDragging(false);
+      const file = e.dataTransfer?.files?.[0];
+      if (!file) return;
+      // Si es una imagen, se trata como adjunto al chat del Growth
+      uploadFile(file, "reference");
+    };
+    window.addEventListener("dragenter", onDragEnter);
+    window.addEventListener("dragleave", onDragLeave);
+    window.addEventListener("dragover", onDragOver);
+    window.addEventListener("drop", onDrop);
+    return () => {
+      window.removeEventListener("dragenter", onDragEnter);
+      window.removeEventListener("dragleave", onDragLeave);
+      window.removeEventListener("dragover", onDragOver);
+      window.removeEventListener("drop", onDrop);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Countdown del próximo tick cuando está en modo continuo
@@ -1227,6 +1272,45 @@ export default function AgentsScene() {
         )}
       </AnimatePresence>
 
+      {/* Global drag overlay */}
+      <AnimatePresence>
+        {globalDragging && !selected && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[75] pointer-events-none flex items-center justify-center"
+            style={{
+              background: "rgba(255, 181, 71, 0.12)",
+              backdropFilter: "blur(4px)",
+            }}
+          >
+            <div
+              className="text-center px-10 py-8 rounded-3xl"
+              style={{
+                background: "rgba(10, 10, 20, 0.92)",
+                border: "3px dashed #FFB547",
+                boxShadow: "0 0 60px rgba(255, 181, 71, 0.4)",
+              }}
+            >
+              <motion.div
+                animate={{ y: [0, -8, 0] }}
+                transition={{ duration: 1, repeat: Infinity }}
+                className="text-6xl mb-3"
+              >
+                📥
+              </motion.div>
+              <div className="text-2xl font-bold text-white mb-1">
+                Soltá el archivo acá
+              </div>
+              <div className="text-sm text-white/60">
+                Se adjunta al chat del Orquestador
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Lightbox for chat images */}
       <AnimatePresence>
         {lightbox && (
@@ -1415,7 +1499,38 @@ function BlockerChatCard({
   const [sending, setSending] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [streamingText, setStreamingText] = useState("");
+  const [dragging, setDragging] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const dragCounterRef = useRef(0);
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current++;
+    if (e.dataTransfer.types.includes("Files")) {
+      setDragging(true);
+    }
+  };
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current--;
+    if (dragCounterRef.current === 0) setDragging(false);
+  };
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = 0;
+    setDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith("image/")) {
+      setImage(file);
+    }
+  };
 
   const severityColor =
     blocker.severity === "critical"
@@ -1568,7 +1683,38 @@ function BlockerChatCard({
       </button>
 
       {expanded && (
-        <div className="border-t border-white/10">
+        <div
+          className="border-t border-white/10 relative"
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+        >
+          {/* Drop overlay */}
+          {dragging && (
+            <div
+              className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none rounded-b-xl"
+              style={{
+                background: `${agentColor}33`,
+                border: `2px dashed ${agentColor}`,
+                backdropFilter: "blur(2px)",
+              }}
+            >
+              <div
+                className="text-center px-6 py-4 rounded-2xl bg-black/80 border-2 border-dashed"
+                style={{ borderColor: agentColor }}
+              >
+                <div className="text-3xl mb-1">📥</div>
+                <div className="text-[11px] font-bold text-white">
+                  Soltá la imagen acá
+                </div>
+                <div className="text-[9px] text-white/50">
+                  Se adjunta al chat del blocker
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Steps iniciales */}
           <div className="px-4 py-3 bg-black/20">
             <div className="text-[10px] uppercase text-white/50 tracking-wider mb-2">
