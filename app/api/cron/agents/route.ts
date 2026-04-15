@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { runAgent } from "@/lib/agent-runner";
+import { runAutopilotTick } from "@/lib/agent-autopilot";
 import type { AgentId } from "@/lib/agents";
 
 export const runtime = "nodejs";
@@ -55,12 +56,25 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const jobKey = searchParams.get("job");
   if (!jobKey) {
-    return NextResponse.json({ error: "missing job param", jobs: Object.keys(JOBS) }, { status: 400 });
+    return NextResponse.json(
+      { error: "missing job param", jobs: [...Object.keys(JOBS), "autopilot"] },
+      { status: 400 },
+    );
+  }
+
+  // Job especial: autopilot — corre N agentes proactivamente
+  if (jobKey === "autopilot") {
+    const max = parseInt(searchParams.get("max") ?? "3", 10);
+    const result = await runAutopilotTick({ max });
+    return NextResponse.json({ job: "autopilot", ...result });
   }
 
   const job = JOBS[jobKey];
   if (!job) {
-    return NextResponse.json({ error: `unknown job: ${jobKey}`, jobs: Object.keys(JOBS) }, { status: 404 });
+    return NextResponse.json(
+      { error: `unknown job: ${jobKey}`, jobs: [...Object.keys(JOBS), "autopilot"] },
+      { status: 404 },
+    );
   }
 
   const result = await runAgent({

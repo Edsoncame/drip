@@ -191,6 +191,7 @@ export default function AgentsScene() {
   const [activityOpen, setActivityOpen] = useState(false);
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [delegations, setDelegations] = useState<DelegationStatus[]>([]);
+  const [autopilotRunning, setAutopilotRunning] = useState(false);
   const [recording, setRecording] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState("");
   const [recordStart, setRecordStart] = useState<number | null>(null);
@@ -286,6 +287,51 @@ export default function AgentsScene() {
   const fireBeam = useCallback((from: AgentId, to: AgentId, label: string) => {
     setBeams((prev) => [...prev, { id: `${from}-${to}-${Date.now()}`, from, to, label, createdAt: Date.now() }]);
   }, []);
+
+  /**
+   * Dispara un tick de autopilot: el server elige los 3 agentes más idle
+   * y los ejecuta con modo proactivo (cada uno decide qué hacer según su
+   * CLAUDE.md). No requiere prompt del usuario.
+   */
+  const triggerAutopilot = useCallback(async () => {
+    if (autopilotRunning) return;
+    setAutopilotRunning(true);
+    try {
+      const res = await fetch("/api/admin/agents/autopilot", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ max: 3, ignoreCooldown: true }),
+      });
+      const json = await res.json();
+      if (json.results) {
+        // Meter cada ejecución en el panel de delegaciones para verla
+        for (const r of json.results) {
+          if (r.status === "executed" && r.run) {
+            setDelegations((prev) => [
+              ...prev,
+              {
+                id: `auto-${Date.now()}-${r.agent}`,
+                agent: r.agent,
+                task: "Autopilot — decidiendo qué hacer",
+                status: r.run.success ? "done" : "error",
+                result: {
+                  text: r.run.text ?? "",
+                  filesWritten: r.run.filesWritten ?? [],
+                  error: r.run.error,
+                  durationMs: r.run.durationMs ?? 0,
+                },
+              },
+            ]);
+          }
+        }
+      }
+      loadState();
+    } catch {
+      // swallow — ya se ve en el panel si falló
+    } finally {
+      setAutopilotRunning(false);
+    }
+  }, [autopilotRunning, loadState]);
 
   /**
    * Dispara la ejecución real del subagente en el server.
@@ -686,6 +732,18 @@ export default function AgentsScene() {
           >
             ↓ descargar workspace
           </a>
+
+          {/* Autopilot button — dispara trabajo proactivo sin instrucciones */}
+          <motion.button
+            onClick={triggerAutopilot}
+            disabled={autopilotRunning}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="absolute bottom-4 right-[180px] z-20 px-3 py-2 rounded-lg bg-gradient-to-r from-amber-400 to-orange-500 text-black text-[11px] font-bold hover:from-amber-300 hover:to-orange-400 disabled:opacity-40 disabled:cursor-not-allowed backdrop-blur shadow-lg shadow-orange-500/20"
+            title="Despierta al equipo — los agentes deciden y ejecutan tareas solos"
+          >
+            {autopilotRunning ? "⚡ Autopilot corriendo…" : "🚀 Autopilot"}
+          </motion.button>
 
           {/* Delegaciones en vivo — panel flotante top-right */}
           {delegations.length > 0 && (
