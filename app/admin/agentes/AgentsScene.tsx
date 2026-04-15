@@ -112,36 +112,30 @@ function computeMood(
   seed: number,
   awakeUntil = 0,
 ): AgentMood {
-  // Si está ejecutando AHORA → motivated (trabajando en vivo)
+  // 1. Trabajando AHORA → motivated (el cuerpo también se anima working por
+  //    state.isRunning en el avatar)
   if (state?.isRunning) return "motivated";
 
-  // Si nunca corrió (lastActivity === null) es "standby" → normal, NO dormido.
-  // Los agentes duermen SOLO si hicieron cosas y llevan rato quietos.
-  if (!state || state.lastActivity === null) {
-    return Date.now() < awakeUntil ? "motivated" : "normal";
-  }
+  // 2. Recién despierto (timer interno post-delegación) → motivated
+  if (Date.now() < awakeUntil) return "motivated";
 
-  const last = state.lastActivity;
-  const age = Date.now() - last;
-  const h = 3600 * 1000;
-  const justWokeUp = Date.now() < awakeUntil;
+  // 3. Nunca trabajó O hace >10 min que terminó → DORMIDO (default)
+  //    El usuario quiere que los inactivos estén dormidos, no en standby.
+  if (!state || state.lastActivity === null) return "sleepy";
 
-  // Reglas de cansancio/sueño NO aplican si está recién despierto
-  if (!justWokeUp && age > 6 * h) return "sleepy";
-  if (!justWokeUp && age > 2 * h) return "tired";
-  if (age < 5 * 60 * 1000) return "motivated";
-  if (state.filesCount > 20) return "stressed";
-  if (justWokeUp) return "motivated";
+  const age = Date.now() - state.lastActivity;
+  const MIN = 60 * 1000;
 
-  // Creative bias for creative roles with rotating randomness
-  const creativeRoles: AgentId[] = ["disenador-creativo", "content-creator", "copy-lanzamiento"];
-  if (creativeRoles.includes(agent.id)) {
-    return (seed + agent.id.length) % 3 === 0 ? "creative" : "normal";
-  }
+  // 4. Acaba de terminar hace poco (<10 min) → motivated/normal
+  if (age < 5 * MIN) return "motivated";
+  if (age < 10 * MIN) return "normal";
 
-  // Rotate through moods randomly for liveliness
-  const moods: AgentMood[] = ["normal", "normal", "normal", "motivated", "creative", "tired"];
-  return moods[(seed + agent.id.length) % moods.length];
+  // 5. Pasaron 10+ min sin nada → a dormir
+  if (state.filesCount > 20) return "stressed"; // salvo que esté sobrecargado
+  return "sleepy";
+
+  // Default (fallback si ninguna regla match): dormido
+  return "sleepy";
 }
 
 function timeAgo(ts: number) {
@@ -236,9 +230,9 @@ export default function AgentsScene() {
   const sceneRef = useRef<HTMLDivElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
 
-  // Rotate moods every 20s for liveliness
+  // Rotate mood seed cada 30s solo para que el tiempo pase (recalcula age)
   useEffect(() => {
-    const id = setInterval(() => setMoodSeed((s) => s + 1), 20000);
+    const id = setInterval(() => setMoodSeed((s) => s + 1), 30000);
     return () => clearInterval(id);
   }, []);
 
