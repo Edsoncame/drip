@@ -189,6 +189,10 @@ export default function AgentsScene() {
   const [autopilotContinuous, setAutopilotContinuous] = useState(false);
   const [autopilotNextTick, setAutopilotNextTick] = useState<number | null>(null);
   const [galleryOpen, setGalleryOpen] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState<
+    { id: number; title: string; filename: string; size: number; contentType: string | null }[]
+  >([]);
   const [recording, setRecording] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState("");
   const [recordStart, setRecordStart] = useState<number | null>(null);
@@ -450,6 +454,42 @@ export default function AgentsScene() {
     },
     [setAgentAnim, loadState],
   );
+
+  const uploadFile = useCallback(async (file: File, kind = "reference") => {
+    setUploadingFile(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("kind", kind);
+      form.append("title", file.name);
+      const res = await fetch("/api/admin/agents/upload", {
+        method: "POST",
+        body: form,
+      });
+      if (!res.ok) throw new Error("upload failed");
+      const json = await res.json();
+      if (json.attachment) {
+        setAttachedFiles((prev) => [
+          ...prev,
+          {
+            id: json.attachment.id,
+            title: json.attachment.title,
+            filename: json.attachment.filename,
+            size: json.attachment.size_bytes,
+            contentType: json.attachment.content_type,
+          },
+        ]);
+        // Metemos una mini-línea al input con referencia al archivo
+        setInput((prev) =>
+          (prev ? prev + " " : "") + `[adjunté ${file.name} como referencia]`,
+        );
+      }
+    } catch (err) {
+      alert("No pude subir el archivo: " + (err instanceof Error ? err.message : ""));
+    } finally {
+      setUploadingFile(false);
+    }
+  }, []);
 
   const startRecording = useCallback(() => {
     const w = window as WindowWithSpeech;
@@ -1044,35 +1084,81 @@ export default function AgentsScene() {
                   e.preventDefault();
                   sendMessage();
                 }}
-                className="p-3 flex gap-2 items-center"
+                className="p-3 flex flex-col gap-2"
               >
-                <input
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  disabled={streaming}
-                  placeholder="Ej: lanza campaña para agencias creativas de Lima"
-                  className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm placeholder:text-white/30 focus:outline-none focus:border-amber-400/60"
-                />
-                <motion.button
-                  type="button"
-                  onClick={startRecording}
-                  disabled={streaming}
-                  title="Grabar nota de voz (es-PE)"
-                  whileHover={{ scale: 1.08 }}
-                  whileTap={{ scale: 0.92 }}
-                  className="w-10 h-10 rounded-full bg-white/10 text-white hover:bg-red-500/20 hover:text-red-300 border border-white/15 hover:border-red-400/50 disabled:opacity-30 flex items-center justify-center text-lg transition-colors"
-                >
-                  🎙
-                </motion.button>
-                <motion.button
-                  type="submit"
-                  disabled={streaming || !input.trim()}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="w-10 h-10 rounded-full bg-amber-400 text-black text-lg font-bold disabled:opacity-30 hover:bg-amber-300 flex items-center justify-center"
-                >
-                  ↑
-                </motion.button>
+                {attachedFiles.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {attachedFiles.map((f) => (
+                      <div
+                        key={f.id}
+                        className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-[10px] text-emerald-200"
+                      >
+                        <span>📎</span>
+                        <span className="truncate max-w-[140px]">{f.filename}</span>
+                        <span className="text-white/40">{(f.size / 1024).toFixed(0)}kb</span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setAttachedFiles((prev) => prev.filter((x) => x.id !== f.id))
+                          }
+                          className="text-white/40 hover:text-white ml-1"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2 items-center">
+                  <input
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    disabled={streaming}
+                    placeholder="Ej: arma la estrategia anual completa"
+                    className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm placeholder:text-white/30 focus:outline-none focus:border-amber-400/60"
+                  />
+                  <label
+                    className={`w-10 h-10 rounded-full bg-white/10 text-white hover:bg-emerald-500/20 hover:text-emerald-300 border border-white/15 hover:border-emerald-400/50 disabled:opacity-30 flex items-center justify-center text-lg transition-colors cursor-pointer ${
+                      uploadingFile ? "animate-pulse" : ""
+                    }`}
+                    title="Adjuntar archivo (PDF/XLSX/CSV/imagen)"
+                  >
+                    📎
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept=".pdf,.xlsx,.xls,.csv,.txt,.md,.jpg,.jpeg,.png,.webp"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          uploadFile(file);
+                          e.target.value = "";
+                        }
+                      }}
+                      disabled={uploadingFile || streaming}
+                    />
+                  </label>
+                  <motion.button
+                    type="button"
+                    onClick={startRecording}
+                    disabled={streaming}
+                    title="Grabar nota de voz (es-PE)"
+                    whileHover={{ scale: 1.08 }}
+                    whileTap={{ scale: 0.92 }}
+                    className="w-10 h-10 rounded-full bg-white/10 text-white hover:bg-red-500/20 hover:text-red-300 border border-white/15 hover:border-red-400/50 disabled:opacity-30 flex items-center justify-center text-lg transition-colors"
+                  >
+                    🎙
+                  </motion.button>
+                  <motion.button
+                    type="submit"
+                    disabled={streaming || !input.trim()}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="w-10 h-10 rounded-full bg-amber-400 text-black text-lg font-bold disabled:opacity-30 hover:bg-amber-300 flex items-center justify-center"
+                  >
+                    ↑
+                  </motion.button>
+                </div>
               </motion.form>
             )}
           </AnimatePresence>

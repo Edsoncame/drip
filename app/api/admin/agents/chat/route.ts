@@ -3,6 +3,7 @@ import { streamText } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { requireAdmin } from "@/lib/auth";
 import { AGENTS, readOrchestratorSystemPrompt } from "@/lib/agents";
+import { getActiveStrategy, listAttachments } from "@/lib/strategy-db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,6 +34,32 @@ export async function POST(req: Request) {
   }
 
   const claudeMd = await readOrchestratorSystemPrompt();
+
+  // Estrategia activa + adjuntos recientes → se inyectan al system prompt
+  // para que Growth tenga contexto completo del momento
+  let strategyBlock = "";
+  let attachmentsBlock = "";
+  try {
+    const active = await getActiveStrategy();
+    if (active) {
+      strategyBlock = `\n\n---\n\n# ESTRATEGIA ACTIVA\n\n- **Nombre:** ${active.name} (id ${active.id})\n- **Período:** ${active.start_date} → ${active.end_date} (${active.duration_months} meses)\n- **Status:** ${active.status}\n- **North Star:** ${active.north_star_metric ?? "—"}\n- **Meta global:** ${active.meta_global_descripcion ?? "—"}\n\nTenés tools del strategy engine: \`get_strategy_context\`, \`schedule_task\`, \`create_objective\`, \`create_kpi\`, \`create_experiment\`, \`create_calendar_item\`, \`create_sem_plan\`, \`allocate_budget\`, \`write_report\`, \`activate_strategy\`, \`update_strategy_document\`. Usalos cuando corresponda.\n`;
+    } else {
+      strategyBlock = `\n\n---\n\n# SIN ESTRATEGIA ACTIVA\n\nNo hay estrategia activa todavía. Si el usuario te pide "arma la estrategia", usá los tools: \`create_strategy\` → \`create_objective\` (por funnel) → \`create_kpi\` → \`create_experiment\` → \`schedule_task\` → \`allocate_budget\` → \`update_strategy_document\` → \`activate_strategy\`. Finalmente decile al usuario que puede descargar el PDF en /api/admin/strategy/export-pdf.\n`;
+    }
+
+    const attachments = await listAttachments(active?.id ?? null);
+    const recent = attachments.slice(0, 10);
+    if (recent.length > 0) {
+      attachmentsBlock = `\n\n---\n\n# ADJUNTOS DISPONIBLES\n\nEl usuario subió estos archivos. Úsalos como referencia estructural cuando crees cosas:\n\n${recent
+        .map(
+          (a) =>
+            `- **${a.title}** (${a.content_type ?? "?"}, ${a.size_bytes ?? "?"}b) → ${a.blob_url ?? ""}\n  ${a.parsed_text ? "*Preview:* " + a.parsed_text.slice(0, 300).replace(/\n/g, " ") : "*(binario — usá web_fetch del blob URL si necesitás leerlo)*"}`,
+        )
+        .join("\n\n")}\n`;
+    }
+  } catch {
+    // DB no disponible, seguimos sin bloque
+  }
 
   const agentList = AGENTS.filter((a) => a.id !== "orquestador")
     .map((a) => `- \`${a.id}\` — ${a.title}: ${a.tagline}`)
@@ -97,7 +124,7 @@ REGLAS DE FORMATO CRÍTICAS (el frontend parsea esto en vivo):
 
 CONTEXTO EXPANDIDO DEL ORQUESTADOR (su propio CLAUDE.md):
 
-${claudeMd}`;
+${claudeMd}${strategyBlock}${attachmentsBlock}`;
 
   const result = streamText({
     model: anthropic("claude-sonnet-4-6"),
