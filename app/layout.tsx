@@ -5,6 +5,7 @@ import { OrganizationJsonLd, LocalBusinessJsonLd } from "@/components/JsonLd";
 import "./globals.css";
 
 const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID;
+const GA4_ID = process.env.NEXT_PUBLIC_GA4_ID;
 
 const inter = Inter({
   subsets: ["latin"],
@@ -115,6 +116,21 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
 })(window,document,'script','dataLayer','${GTM_ID}');`}
           </Script>
+        )}
+        {GA4_ID && (
+          <>
+            <Script
+              id="ga4-gtag"
+              strategy="afterInteractive"
+              src={`https://www.googletagmanager.com/gtag/js?id=${GA4_ID}`}
+            />
+            <Script id="ga4-config" strategy="afterInteractive">
+              {`window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', '${GA4_ID}');`}
+            </Script>
+          </>
         )}
       </head>
       <body className="min-h-full flex flex-col" style={{ fontFamily: "Inter, sans-serif" }}>
