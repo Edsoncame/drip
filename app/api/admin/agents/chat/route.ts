@@ -36,10 +36,16 @@ export async function POST(req: Request) {
       );
     }
 
-  const claudeMd = await readOrchestratorSystemPrompt();
+  let claudeMd = await readOrchestratorSystemPrompt();
+    // Trimar CLAUDE.md a 6000 chars — con 20+ tools el system prompt
+    // se vuelve enorme y puede causar timeout en cold start
+    if (claudeMd.length > 6000) {
+      claudeMd = claudeMd.slice(0, 6000) + "\n\n…(contexto completo en el CLAUDE.md bundled)";
+    }
 
-  // Estrategia activa + adjuntos + outputs recientes del equipo
-  // → se inyectan al system prompt para contexto completo
+    console.log("[chat] claudeMd length:", claudeMd.length);
+
+    // Estrategia activa + adjuntos + outputs recientes del equipo
   let strategyBlock = "";
   let attachmentsBlock = "";
   let recentOutputsBlock = "";

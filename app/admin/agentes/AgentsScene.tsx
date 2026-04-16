@@ -658,7 +658,11 @@ export default function AgentsScene() {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          messages: [...messages, userMsg].filter((m) => m.id !== "welcome").map((m) => ({ role: m.role, content: m.content })),
+          // Solo últimos 6 mensajes para no explotar el context window
+          messages: [...messages, userMsg]
+            .filter((m) => m.id !== "welcome")
+            .slice(-6)
+            .map((m) => ({ role: m.role, content: m.content.slice(0, 8000) })),
         }),
       });
       if (!res.ok) {
