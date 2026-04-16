@@ -162,15 +162,16 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 4 — Save subscription to DB
+    // 4 — Save subscription to DB (RETURNING id to link the first payment)
     const endsAt = new Date();
     endsAt.setMonth(endsAt.getMonth() + months);
 
-    await query(
+    const subResult = await query<{ id: string }>(
       `INSERT INTO subscriptions
         (user_id, product_slug, product_name, months, monthly_price, status, started_at, ends_at, mp_subscription_id, customer_name, customer_email, customer_phone, customer_company, customer_ruc, apple_care, delivery_method, delivery_address, delivery_distrito, delivery_reference, dni_number, dni_photo_url, selfie_url)
        VALUES ($1,$2,$3,$4,$5,'active',NOW(),$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
-       ON CONFLICT DO NOTHING`,
+       ON CONFLICT DO NOTHING
+       RETURNING id`,
       [
         userId,
         product.slug,
@@ -194,6 +195,16 @@ export async function POST(req: NextRequest) {
         identity?.selfiePhoto || null,
       ]
     );
+
+    // If ON CONFLICT fired (duplicate), fetch the existing subscription id
+    let dbSubscriptionId: string | null = subResult.rows[0]?.id ?? null;
+    if (!dbSubscriptionId) {
+      const existing = await query<{ id: string }>(
+        `SELECT id FROM subscriptions WHERE mp_subscription_id = $1 LIMIT 1`,
+        [subscriptionId]
+      );
+      dbSubscriptionId = existing.rows[0]?.id ?? null;
+    }
 
     // 5 — Update user profile
     if (userId) {
@@ -241,13 +252,15 @@ export async function POST(req: NextRequest) {
     }
 
     // 7 — Create payment record for first month (already paid via Culqi)
+    // IMPORTANT: subscription_id must be set so cron/generate-payments counts
+    // this payment and does NOT generate a duplicate for month 1.
     if (userId) {
       const monthLabel = new Date().toLocaleDateString("es-PE", { month: "long", year: "numeric" });
       const periodLabel = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
       await query(
-        `INSERT INTO payments (user_id, amount, currency, period_label, due_date, status, payment_method, validated_at)
-         VALUES ($1, $2, 'USD', $3, NOW(), 'validated', 'culqi', NOW())`,
-        [userId, totalMonthly, periodLabel]
+        `INSERT INTO payments (subscription_id, user_id, amount, currency, period_label, due_date, status, payment_method, validated_at)
+         VALUES ($1, $2, $3, 'USD', $4, NOW(), 'validated', 'culqi', NOW())`,
+        [dbSubscriptionId, userId, totalMonthly, periodLabel]
       );
     }
 
@@ -261,7 +274,7 @@ export async function POST(req: NextRequest) {
       endsAt,
     }).catch(() => {});
 
-    console.log(`${tag} subscription created culqi_charge=${charge.id} product=${slug} months=${months} user=${userId}`);
+    console.log(`${tag} subscription created culqi_charge=${charge.id} product=${slug} months=${months} user=${userId} db_sub=${dbSubscriptionId}`);
 
     return NextResponse.json({
       subscriptionId: subscriptionId,
