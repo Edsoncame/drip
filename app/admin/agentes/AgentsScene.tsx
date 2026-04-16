@@ -171,15 +171,39 @@ export default function AgentsScene() {
   const [animStates, setAnimStates] = useState<Record<AgentId, AgentAnimState>>({} as Record<AgentId, AgentAnimState>);
   const [awakeUntil, setAwakeUntil] = useState<Record<AgentId, number>>({} as Record<AgentId, number>);
   const [beams, setBeams] = useState<Beam[]>([]);
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: "welcome",
-      role: "assistant",
-      content:
-        "Soy el Orquestador del equipo de marketing de FLUX. Tengo 9 agentes listos — estrategia, copy, diseño, SEO, content, SEM, community, data y leads. Dime qué quieres lanzar y pongo al equipo a trabajar.",
-      ts: Date.now(),
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    // Cargar conversación persistida del localStorage (sobrevive refreshes)
+    if (typeof window !== "undefined") {
+      try {
+        const stored = window.localStorage.getItem("flux-agents-chat");
+        if (stored) {
+          const parsed = JSON.parse(stored) as ChatMessage[];
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch {}
+    }
+    return [
+      {
+        id: "welcome",
+        role: "assistant",
+        content:
+          "Soy el Head of Growth del equipo de marketing de FLUX. Tengo 10 agentes a mi cargo — estrategia, copy, diseño, SEO, content, SEM, community, data, leads, research y full-stack engineering. Dime qué quieres lanzar.",
+        ts: Date.now(),
+      },
+    ];
+  });
+
+  // Persistir el historial del chat cada vez que cambia
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      // Limite: últimos 100 mensajes para no explotar el localStorage
+      const trimmed = messages.slice(-100);
+      window.localStorage.setItem("flux-agents-chat", JSON.stringify(trimmed));
+    } catch {
+      // storage lleno o disabled — ignoramos
+    }
+  }, [messages]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [moodSeed, setMoodSeed] = useState(0);
