@@ -885,6 +885,69 @@ export function delegateToAgentTool(actor: string) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// SQL Query readonly — solo para data-analyst
+// ═══════════════════════════════════════════════════════════════════════════
+
+export function sqlQueryReadonlyTool() {
+  return tool({
+    description:
+      "Ejecuta una query SQL READONLY contra la base de datos de producción de FLUX (Postgres). SOLO SELECT — no INSERT/UPDATE/DELETE/DROP/ALTER/TRUNCATE. Usa esto para obtener métricas reales: MRR, clientes activos, órdenes, pagos, equipos, etc. Tablas principales: users, subscriptions, payments, payment_invoices, equipment, products. Devuelve las primeras 100 filas como JSON.",
+    inputSchema: z.object({
+      sql: z.string().describe(
+        "Query SELECT en SQL. Ej: 'SELECT COUNT(*) as total FROM subscriptions WHERE status = \\'active\\''",
+      ),
+    }),
+    execute: async ({ sql }) => {
+      // Validación estricta: solo SELECT
+      const trimmed = sql.trim().toUpperCase();
+      const forbidden = [
+        "INSERT",
+        "UPDATE",
+        "DELETE",
+        "DROP",
+        "ALTER",
+        "TRUNCATE",
+        "CREATE",
+        "GRANT",
+        "REVOKE",
+        "COPY",
+        "EXECUTE",
+      ];
+      for (const keyword of forbidden) {
+        if (
+          trimmed.startsWith(keyword) ||
+          trimmed.includes(` ${keyword} `) ||
+          trimmed.includes(`${keyword} `)
+        ) {
+          return {
+            error: `BLOQUEADO: query contiene '${keyword}'. Solo SELECT permitido.`,
+          };
+        }
+      }
+      if (!trimmed.startsWith("SELECT") && !trimmed.startsWith("WITH")) {
+        return {
+          error: "Solo queries que empiecen con SELECT o WITH (CTE) están permitidas.",
+        };
+      }
+
+      try {
+        const { query: dbQuery } = await import("./db");
+        const result = await dbQuery(sql);
+        return {
+          rows: result.rows.slice(0, 100),
+          rowCount: result.rowCount,
+          fields: result.fields?.map((f) => f.name),
+        };
+      } catch (err) {
+        return {
+          error: err instanceof Error ? err.message : "query failed",
+        };
+      }
+    },
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Blockers — cualquier agente puede reportar que no puede completar algo
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1006,6 +1069,7 @@ export function strategyToolsForAgent(agentId: AgentId, actor: string): Record<s
 
   if (agentId === "data-analyst") {
     tools.create_kpi = createKpiTool(actor);
+    tools.sql_query = sqlQueryReadonlyTool();
   }
 
   return tools;
