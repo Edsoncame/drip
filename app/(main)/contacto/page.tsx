@@ -32,8 +32,8 @@ export default function ContactoPage() {
           {
             icon: "💬",
             title: "WhatsApp",
-            value: "+51 932 648 702",
-            href: "https://wa.me/51932648702",
+            value: "+51 900 164 769",
+            href: "https://wa.me/51900164769",
             desc: "Lunes a viernes, 9am – 6pm",
           },
           {

@@ -44,7 +44,7 @@ export default async function LandingMacAirPage() {
               Ver MacBook Air disponibles
             </Link>
             <a
-              href="https://wa.me/51932648703"
+              href="https://wa.me/51900164769"
               target="_blank"
               rel="noreferrer"
               className="px-6 py-3 border border-[#E5E5E5] text-[#333] font-700 rounded-full hover:bg-white transition-colors"

@@ -83,7 +83,7 @@ export async function PATCH(req: NextRequest) {
     <p style="color:#999;font-size:12px;margin:0 0 4px">Dirección de entrega</p>
     <p style="color:#333;font-size:14px;margin:0">${sub.delivery_address ?? "—"}, ${sub.delivery_distrito ?? ""}</p>
   </div>
-  <p style="color:#666;font-size:13px">¿Tienes dudas? Escríbenos a <a href="https://wa.me/51932648702" style="color:#1B4FFF">WhatsApp</a> o a <a href="mailto:hola@fluxperu.com" style="color:#1B4FFF">hola@fluxperu.com</a>.</p>
+  <p style="color:#666;font-size:13px">¿Tienes dudas? Escríbenos a <a href="https://wa.me/51900164769" style="color:#1B4FFF">WhatsApp</a> o a <a href="mailto:hola@fluxperu.com" style="color:#1B4FFF">hola@fluxperu.com</a>.</p>
   <p style="color:#999;font-size:12px;margin-top:24px">© 2026 FLUX — Tika Services S.A.C.</p>
 </div>`,
       }).catch(() => {});
@@ -102,7 +102,7 @@ export async function PATCH(req: NextRequest) {
     <p style="color:#333;font-size:14px;margin:0">Lunes a viernes · 9:00 a.m. – 6:00 p.m.</p>
     <p style="color:#999;font-size:12px;margin:8px 0 0">Te enviaremos la dirección exacta por WhatsApp.</p>
   </div>
-  <p style="color:#666;font-size:13px">Coordina tu recojo: <a href="https://wa.me/51932648702" style="color:#1B4FFF">WhatsApp +51 932 648 702</a></p>
+  <p style="color:#666;font-size:13px">Coordina tu recojo: <a href="https://wa.me/51900164769" style="color:#1B4FFF">WhatsApp +51 900 164 769</a></p>
   <p style="color:#999;font-size:12px;margin-top:24px">© 2026 FLUX — Tika Services S.A.C.</p>
 </div>`,
       }).catch(() => {});

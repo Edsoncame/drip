@@ -85,7 +85,7 @@ export default function CancelacionesPage() {
             Si el equipo presenta fallas de fábrica o defectos durante el periodo de alquiler, FLUX se
             compromete a reemplazarlo o repararlo sin costo adicional dentro de un plazo de 48 horas hábiles. El
             reporte debe hacerse a través de <a href="mailto:hola@fluxperu.com" className="text-[#1B4FFF] hover:underline">hola@fluxperu.com</a> o
-            por WhatsApp al <a href="https://wa.me/51932648703" className="text-[#1B4FFF] hover:underline">+51 932 648 703</a>.
+            por WhatsApp al <a href="https://wa.me/51900164769" className="text-[#1B4FFF] hover:underline">+51 900 164 769</a>.
           </p>
         </section>
 
@@ -104,7 +104,7 @@ export default function CancelacionesPage() {
           <p>Para cualquier consulta relacionada con cancelaciones o devoluciones:</p>
           <ul className="list-disc pl-6 space-y-1">
             <li>Email: <a href="mailto:hola@fluxperu.com" className="text-[#1B4FFF] hover:underline">hola@fluxperu.com</a></li>
-            <li>WhatsApp: <a href="https://wa.me/51932648703" className="text-[#1B4FFF] hover:underline">+51 932 648 703</a></li>
+            <li>WhatsApp: <a href="https://wa.me/51900164769" className="text-[#1B4FFF] hover:underline">+51 900 164 769</a></li>
             <li>Horario de atención: Lunes a Viernes, 9:00 a.m. – 6:00 p.m.</li>
           </ul>
         </section>

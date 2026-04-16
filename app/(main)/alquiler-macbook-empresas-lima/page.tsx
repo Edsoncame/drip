@@ -48,7 +48,7 @@ export default async function LandingEmpresasLimaPage() {
               Pedir cotización gratis
             </Link>
             <a
-              href="https://wa.me/51932648703"
+              href="https://wa.me/51900164769"
               target="_blank"
               rel="noreferrer"
               className="px-6 py-3.5 border border-white/30 text-white font-700 rounded-full hover:bg-white/10 transition-colors"

@@ -51,7 +51,7 @@ export default function Page() {
       faqs={[
         {
           q: "¿Tienen oficina que pueda visitar en San Borja?",
-          a: "Sí. Av. Primavera 543, Piso 4. Para visitas técnicas coordinamos cita previa por WhatsApp (+51 932 648 703). No tenemos atención al público walk-in.",
+          a: "Sí. Av. Primavera 543, Piso 4. Para visitas técnicas coordinamos cita previa por WhatsApp (+51 900 164 769). No tenemos atención al público walk-in.",
         },
         {
           q: "¿Cuánto tardan en entregar en San Borja?",

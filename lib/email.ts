@@ -38,7 +38,7 @@ export async function sendConfirmationEmail({
       <tr><td>Vence</td><td style="text-align:right;font-weight:600;color:#18191F">${endStr}</td></tr>
     </table>
   </div>
-  <p style="color:#666;font-size:13px">¿Tienes dudas? Escríbenos a <a href="mailto:hola@fluxperu.com" style="color:#1B4FFF">hola@fluxperu.com</a> o al WhatsApp <a href="https://wa.me/51932648702" style="color:#1B4FFF">+51 932 648 702</a>.</p>
+  <p style="color:#666;font-size:13px">¿Tienes dudas? Escríbenos a <a href="mailto:hola@fluxperu.com" style="color:#1B4FFF">hola@fluxperu.com</a> o al WhatsApp <a href="https://wa.me/51900164769" style="color:#1B4FFF">+51 900 164 769</a>.</p>
   <p style="color:#999;font-size:12px;margin-top:24px">© 2026 FLUX — Tika Services S.A.C.</p>
 </div>`,
   });

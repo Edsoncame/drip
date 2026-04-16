@@ -234,7 +234,7 @@ export async function POST(req: NextRequest) {
   <p style="color:#666;margin:0 0 16px">El cobro mensual de <strong>$${row.monthly_price}</strong> por tu <strong>${row.product_name}</strong> fue rechazado.</p>
   <p style="color:#666;margin:0 0 16px">Esto puede pasar si tu tarjeta expiró, no tiene fondos suficientes, o el banco lo bloqueó.</p>
   <p style="color:#666;margin:0 0 24px"><strong>Tienes 5 días hábiles para regularizar el pago.</strong> Después de ese plazo podemos suspender tu servicio.</p>
-  <a href="https://wa.me/51932648702" style="display:inline-block;background:#1B4FFF;color:#fff;font-weight:700;padding:14px 32px;border-radius:999px;text-decoration:none;font-size:14px">Contactar soporte</a>
+  <a href="https://wa.me/51900164769" style="display:inline-block;background:#1B4FFF;color:#fff;font-weight:700;padding:14px 32px;border-radius:999px;text-decoration:none;font-size:14px">Contactar soporte</a>
   <p style="color:#999;font-size:12px;margin-top:24px">© 2026 FLUX — Tika Services S.A.C.</p>
 </div>`,
             }).catch(() => {});

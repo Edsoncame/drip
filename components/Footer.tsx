@@ -38,7 +38,7 @@ export default function Footer() {
               Accede a las mejores Macs sin comprarlas. Planes mensuales para empresas en Lima.
             </p>
             <div className="flex gap-3">
-              <a href="https://wa.me/51932648703" target="_blank" rel="noopener noreferrer"
+              <a href="https://wa.me/51900164769" target="_blank" rel="noopener noreferrer"
                 className="flex items-center gap-2 px-3 py-2 rounded-full text-xs font-bold transition-colors hover:bg-white/10"
                 style={{ border: "1px solid rgba(255,255,255,0.2)" }} aria-label="WhatsApp">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20.52 3.48A12 12 0 003.48 20.52L2 22l1.59-1.41A12 12 0 1020.52 3.48zm-8.52 17a8.5 8.5 0 01-4.33-1.18l-.31-.18-3.2.84.85-3.12-.2-.32A8.5 8.5 0 1120.5 12 8.5 8.5 0 0112 20.5zm4.67-6.38c-.26-.13-1.52-.75-1.75-.83s-.41-.13-.58.13-.67.83-.82 1-.3.2-.56.07a6.98 6.98 0 01-3.45-3.01c-.26-.45.26-.42.75-1.4.08-.17 0-.32-.03-.45s-.58-1.4-.8-1.92c-.21-.5-.42-.43-.58-.44h-.5a.96.96 0 00-.7.33 2.93 2.93 0 00-.92 2.19 5.09 5.09 0 001.06 2.67 11.66 11.66 0 004.47 3.92c.62.27 1.1.43 1.48.55a3.58 3.58 0 001.64.1 2.68 2.68 0 001.76-1.24 2.17 2.17 0 00.15-1.24c-.07-.1-.23-.17-.49-.3z"/></svg>
@@ -109,7 +109,7 @@ export default function Footer() {
                 <a href="mailto:hola@fluxperu.com" className="hover:text-white transition-colors">hola@fluxperu.com</a>
               </p>
               <p>
-                <a href="https://wa.me/51932648703" target="_blank" rel="noreferrer" className="hover:text-white transition-colors">+51 932 648 703</a>
+                <a href="https://wa.me/51900164769" target="_blank" rel="noreferrer" className="hover:text-white transition-colors">+51 900 164 769</a>
               </p>
             </div>
           </div>

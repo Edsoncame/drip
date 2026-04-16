@@ -128,7 +128,7 @@ const categories: Category[] = [
       },
       {
         q: "¿Quién atiende el soporte?",
-        a: "Nuestro equipo técnico directo. Respondemos por WhatsApp (+51 932 648 703) y email (hola@fluxperu.com) en horario de lunes a viernes de 9 a 6.",
+        a: "Nuestro equipo técnico directo. Respondemos por WhatsApp (+51 900 164 769) y email (hola@fluxperu.com) en horario de lunes a viernes de 9 a 6.",
       },
     ],
   },
@@ -292,7 +292,7 @@ export default function HelpCenterPage() {
           <p className="opacity-80 mb-6">Escríbenos directamente y te respondemos en menos de 24 horas.</p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <a
-              href="https://wa.me/51932648703"
+              href="https://wa.me/51900164769"
               target="_blank"
               rel="noreferrer"
               className="px-6 py-3 bg-[#25D366] text-white font-700 rounded-full hover:opacity-90"

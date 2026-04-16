@@ -49,7 +49,7 @@ export function LocalBusinessJsonLd() {
     url: BASE,
     logo: `${BASE}/images/logoflux.svg`,
     image: `${BASE}/og-image.png`,
-    telephone: "+51932648703",
+    telephone: "+51900164769",
     email: "hola@fluxperu.com",
     address: {
       "@type": "PostalAddress",

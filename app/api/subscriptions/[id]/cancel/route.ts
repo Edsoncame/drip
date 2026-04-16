@@ -63,7 +63,7 @@ export async function POST(
   <p style="color:#666;margin:0 0 16px">Tu suscripción de <strong>${sub.product_name}</strong> ha sido cancelada.</p>
   <p style="color:#666;margin:0 0 16px">En los próximos 30 días nuestro equipo coordinará contigo la devolución del equipo.</p>
   <p style="color:#666;margin:0 0 24px">Si crees que esto fue un error, contáctanos:</p>
-  <a href="https://wa.me/51932648702" style="display:inline-block;background:#1B4FFF;color:#fff;font-weight:700;padding:12px 28px;border-radius:999px;text-decoration:none;font-size:14px">Contactar soporte</a>
+  <a href="https://wa.me/51900164769" style="display:inline-block;background:#1B4FFF;color:#fff;font-weight:700;padding:12px 28px;border-radius:999px;text-decoration:none;font-size:14px">Contactar soporte</a>
   <p style="color:#999;font-size:12px;margin-top:24px">© 2026 FLUX — Tika Services S.A.C.</p>
 </div>`,
     }).catch(() => {});

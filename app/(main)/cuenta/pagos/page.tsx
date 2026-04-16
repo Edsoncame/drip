@@ -235,7 +235,7 @@ export default async function PagosPage() {
           <p className="font-700 text-[#18191F] text-sm">¿Tienes dudas sobre un pago?</p>
           <p className="text-xs text-[#666666]">
             Escríbenos a{" "}
-            <a href="https://wa.me/51932648702" className="text-[#1B4FFF] hover:underline">WhatsApp</a>
+            <a href="https://wa.me/51900164769" className="text-[#1B4FFF] hover:underline">WhatsApp</a>
             {" "}o a{" "}
             <a href="mailto:hola@fluxperu.com" className="text-[#1B4FFF] hover:underline">hola@fluxperu.com</a>
           </p>

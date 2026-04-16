@@ -218,7 +218,7 @@ export default function BuyVsRentCalculator() {
           Pedir cotización personalizada
         </a>
         <a
-          href="https://wa.me/51932648703?text=Hola,%20quiero%20alquilar%20MacBooks%20para%20mi%20empresa"
+          href="https://wa.me/51900164769?text=Hola,%20quiero%20alquilar%20MacBooks%20para%20mi%20empresa"
           target="_blank"
           rel="noreferrer"
           className="px-6 py-3 border border-[#E5E5E5] bg-white text-[#333] font-700 text-sm rounded-full hover:bg-[#F7F7F7] text-center"

@@ -84,7 +84,7 @@ export async function GET(req: NextRequest) {
   <h1 style="font-size:22px;font-weight:900;color:#18191F;margin:0 0 16px">${subject}</h1>
   <p style="color:#666;line-height:1.5;margin:0 0 16px">${body}</p>
   <a href="https://www.fluxperu.com/cuenta/pagos" style="display:inline-block;background:#1B4FFF;color:#fff;font-weight:700;padding:14px 32px;border-radius:999px;text-decoration:none;font-size:14px">Ver mi pago</a>
-  <p style="color:#999;font-size:12px;margin-top:24px">¿Dudas? Responde a este correo o escríbenos al WhatsApp +51 932 648 703</p>
+  <p style="color:#999;font-size:12px;margin-top:24px">¿Dudas? Responde a este correo o escríbenos al WhatsApp +51 900 164 769</p>
   <p style="color:#999;font-size:11px;margin-top:8px">© 2026 FLUX — Tika Services S.A.C.</p>
 </div>`,
       });

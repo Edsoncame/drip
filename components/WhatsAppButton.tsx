@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-const WA_NUMBER = "51932648702";
+const WA_NUMBER = "51900164769";
 const WA_MESSAGE = encodeURIComponent("Hola FLUX, quiero rentar una MacBook 👋");
 
 export default function WhatsAppButton() {

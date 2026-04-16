@@ -125,7 +125,7 @@ export default function HomeFAQ() {
         <p className="text-center text-sm text-[#666] mt-8">
           ¿Tienes otra pregunta?{" "}
           <a
-            href="https://wa.me/51932648703"
+            href="https://wa.me/51900164769"
             target="_blank"
             rel="noreferrer"
             className="text-[#1B4FFF] font-700 hover:underline"
