@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createHmac, timingSafeEqual } from "crypto";
 import { query } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
 
@@ -10,10 +11,44 @@ import { sendEmail } from "@/lib/email";
  *   Eventos: subscription.charge.succeeded, subscription.charge.failed,
  *            charge.succeeded, charge.failed, charge.expired
  *
- * Culqi envía POST con JSON body incluyendo el evento y los datos.
+ * Culqi firma cada webhook con HMAC-SHA256 usando el Webhook Secret del panel.
+ * Header: x-culqi-signature  (hex del HMAC-SHA256 del raw body)
+ *
+ * Variable de entorno requerida:
+ *   CULQI_WEBHOOK_SECRET — obtenida en Culqi Panel → Desarrollo → Webhooks → Ver clave
  */
 
 const tag = "[webhook/culqi]";
+
+// ── Signature verification ────────────────────────────────────────────────────
+
+function verifySignature(rawBody: string, xSignature: string): boolean {
+  const secret = process.env.CULQI_WEBHOOK_SECRET;
+  if (!secret) {
+    console.warn(`${tag} CULQI_WEBHOOK_SECRET not set — skipping signature check (UNSAFE in production)`);
+    return true; // allow in dev; enforce by setting the env var in prod
+  }
+
+  if (!xSignature) {
+    console.warn(`${tag} missing x-culqi-signature header`);
+    return false;
+  }
+
+  // Culqi sends HMAC-SHA256 of the raw body as a hex string
+  const expected = createHmac("sha256", secret).update(rawBody, "utf8").digest("hex");
+
+  try {
+    // timingSafeEqual prevents timing attacks
+    const expectedBuf = Buffer.from(expected, "hex");
+    const receivedBuf = Buffer.from(xSignature.toLowerCase().replace(/^sha256=/, ""), "hex");
+    if (expectedBuf.length !== receivedBuf.length) return false;
+    return timingSafeEqual(expectedBuf, receivedBuf);
+  } catch {
+    return false;
+  }
+}
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface CulqiEvent {
   type: string;
@@ -33,10 +68,22 @@ interface CulqiEvent {
   };
 }
 
+// ── Handler ───────────────────────────────────────────────────────────────────
+
 export async function POST(req: NextRequest) {
+  // Read raw body BEFORE parsing JSON (signature is over the raw bytes)
+  const rawBody = await req.text();
+  const xSignature = req.headers.get("x-culqi-signature") ?? "";
+
+  // Verify signature first — reject before any DB work
+  if (!verifySignature(rawBody, xSignature)) {
+    console.warn(`${tag} signature verification failed — rejected`);
+    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+  }
+
   let body: CulqiEvent;
   try {
-    body = await req.json();
+    body = JSON.parse(rawBody) as CulqiEvent;
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
