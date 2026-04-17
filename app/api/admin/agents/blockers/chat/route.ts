@@ -12,6 +12,7 @@ import {
 import { runAgent } from "@/lib/flux-agents";
 import type { AgentId } from "@/lib/agents";
 import { AGENTS } from "@/lib/agents";
+import { FLUX_INFRA_CONTEXT } from "@/lib/flux-infra-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -127,7 +128,9 @@ ${blocker.steps_to_fix}
 - **Sé específico.** No digas "andá a Settings" — decí "click en 'Project Settings' arriba a la derecha, después 'Environment Variables' en el sidebar izquierdo".
 - Si necesitás más info del user (ej: URL completa, qué ve en la pantalla), pedíselo.
 
-Cuando Edson diga cosas como "ya está", "listo", "lo arreglé", verificá antes de confirmar. Si hay duda, pedí screenshot.`;
+Cuando Edson diga cosas como "ya está", "listo", "lo arreglé", verificá antes de confirmar. Si hay duda, pedí screenshot.
+
+${FLUX_INFRA_CONTEXT}`;
 
   // Armamos los messages para Claude incluyendo imagen si es la última
   const messages: {

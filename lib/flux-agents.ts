@@ -30,6 +30,7 @@ import { strategyToolsForAgent } from "./strategy-tools";
 import { codeToolsForProgrammer } from "./code-tools";
 import { matchHandoffs } from "./agent-handoffs";
 import { getActiveStrategy } from "./strategy-db";
+import { FLUX_INFRA_CONTEXT } from "./flux-infra-context";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Helpers
@@ -171,6 +172,8 @@ export async function buildAgent(
     : "";
 
   const instructions = `${systemPromptBase.slice(0, 6000)}${strategyBlock}${programmerOverride}
+
+${FLUX_INFRA_CONTEXT}
 
 ---
 
@@ -354,6 +357,8 @@ export async function buildGrowthAgent(actor: string): Promise<ToolLoopAgent<nev
   } catch {}
 
   const instructions = `Eres el HEAD OF GROWTH de FLUX (fluxperu.com, alquiler mensual MacBooks, Perú).
+
+${FLUX_INFRA_CONTEXT}
 
 Pensás en AARRR, priorizás con PIE, sos data-first. Tenés 10+ agentes especializados.
 Delegás research al equipo con delegate_to_agent ANTES de preguntarle al usuario.
