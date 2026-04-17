@@ -83,6 +83,11 @@ export async function ensureSchema(): Promise<void> {
       duration_ms INTEGER
     );
   `);
+  // Agregar columnas de tokens/costo si no existen (migration safe)
+  await query(`ALTER TABLE marketing_agent_runs ADD COLUMN IF NOT EXISTS input_tokens INTEGER`);
+  await query(`ALTER TABLE marketing_agent_runs ADD COLUMN IF NOT EXISTS output_tokens INTEGER`);
+  await query(`ALTER TABLE marketing_agent_runs ADD COLUMN IF NOT EXISTS cost_usd NUMERIC`);
+
   await query(
     `CREATE INDEX IF NOT EXISTS idx_marketing_agent_runs_agent ON marketing_agent_runs(agent_id, started_at DESC);`,
   );
@@ -117,6 +122,9 @@ export async function finishRun(
     filesWritten?: { relPath: string; size: number }[];
     error?: string;
     durationMs: number;
+    inputTokens?: number;
+    outputTokens?: number;
+    costUsd?: number;
   },
 ): Promise<void> {
   await ensureSchema();
@@ -127,7 +135,10 @@ export async function finishRun(
          text_result = $3,
          files_written = $4,
          error = $5,
-         duration_ms = $6
+         duration_ms = $6,
+         input_tokens = COALESCE($7, input_tokens),
+         output_tokens = COALESCE($8, output_tokens),
+         cost_usd = COALESCE($9, cost_usd)
      WHERE id = $1`,
     [
       runId,
@@ -136,8 +147,82 @@ export async function finishRun(
       params.filesWritten ? JSON.stringify(params.filesWritten) : null,
       params.error ?? null,
       params.durationMs,
+      params.inputTokens ?? null,
+      params.outputTokens ?? null,
+      params.costUsd ?? null,
     ],
   );
+}
+
+/** Costos de Claude Sonnet 4.6 */
+const COST_PER_INPUT_TOKEN = 3.0 / 1_000_000; // $3/M tokens
+const COST_PER_OUTPUT_TOKEN = 15.0 / 1_000_000; // $15/M tokens
+
+export function calculateCost(inputTokens: number, outputTokens: number): number {
+  return inputTokens * COST_PER_INPUT_TOKEN + outputTokens * COST_PER_OUTPUT_TOKEN;
+}
+
+export interface AgentFinanceSummary {
+  agent_id: string;
+  total_runs: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  total_cost_usd: number;
+}
+
+export async function getFinanceSummary(
+  period: "today" | "week" | "month" | "all" = "month",
+): Promise<{
+  byAgent: AgentFinanceSummary[];
+  totals: { runs: number; inputTokens: number; outputTokens: number; costUsd: number };
+}> {
+  await ensureSchema();
+  const interval =
+    period === "today"
+      ? "1 day"
+      : period === "week"
+        ? "7 days"
+        : period === "month"
+          ? "30 days"
+          : "10 years";
+
+  const res = await query<{
+    agent_id: string;
+    total_runs: string;
+    total_input: string;
+    total_output: string;
+    total_cost: string;
+  }>(
+    `SELECT
+       agent_id,
+       COUNT(*)::text AS total_runs,
+       COALESCE(SUM(input_tokens), 0)::text AS total_input,
+       COALESCE(SUM(output_tokens), 0)::text AS total_output,
+       COALESCE(SUM(cost_usd), 0)::text AS total_cost
+     FROM marketing_agent_runs
+     WHERE started_at > NOW() - $1::interval
+       AND status IN ('done', 'error')
+     GROUP BY agent_id
+     ORDER BY COALESCE(SUM(cost_usd), 0) DESC`,
+    [interval],
+  );
+
+  const byAgent = res.rows.map((r) => ({
+    agent_id: r.agent_id,
+    total_runs: parseInt(r.total_runs, 10),
+    total_input_tokens: parseInt(r.total_input, 10),
+    total_output_tokens: parseInt(r.total_output, 10),
+    total_cost_usd: parseFloat(r.total_cost),
+  }));
+
+  const totals = {
+    runs: byAgent.reduce((s, a) => s + a.total_runs, 0),
+    inputTokens: byAgent.reduce((s, a) => s + a.total_input_tokens, 0),
+    outputTokens: byAgent.reduce((s, a) => s + a.total_output_tokens, 0),
+    costUsd: byAgent.reduce((s, a) => s + a.total_cost_usd, 0),
+  };
+
+  return { byAgent, totals };
 }
 
 export async function latestRunForAgent(agentId: AgentId): Promise<DbAgentRun | null> {

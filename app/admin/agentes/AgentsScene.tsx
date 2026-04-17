@@ -214,6 +214,7 @@ export default function AgentsScene() {
   const [autopilotContinuous, setAutopilotContinuous] = useState(false);
   const [autopilotNextTick, setAutopilotNextTick] = useState<number | null>(null);
   const [galleryOpen, setGalleryOpen] = useState(false);
+  const [financeOpen, setFinanceOpen] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<
     { id: number; title: string; filename: string; size: number; contentType: string | null; blobUrl: string | null }[]
@@ -927,8 +928,14 @@ export default function AgentsScene() {
             )}
           </button>
 
-          {/* Floating gallery + download buttons */}
+          {/* Floating gallery + finance + download buttons */}
           <div className="absolute bottom-4 right-4 z-20 flex gap-2">
+            <button
+              onClick={() => setFinanceOpen(true)}
+              className="px-3 py-2 rounded-lg bg-black/70 border border-white/15 text-[11px] text-emerald-300 hover:bg-black/90 hover:border-emerald-400/40 backdrop-blur font-semibold"
+            >
+              💰 Finanzas
+            </button>
             <button
               onClick={() => setGalleryOpen(true)}
               className="px-3 py-2 rounded-lg bg-black/70 border border-white/15 text-[11px] text-amber-300 hover:bg-black/90 hover:border-amber-400/40 backdrop-blur font-semibold"
@@ -939,7 +946,7 @@ export default function AgentsScene() {
               href="/api/admin/agents/download?all=1"
               className="px-3 py-2 rounded-lg bg-black/70 border border-white/15 text-[11px] text-emerald-300 hover:bg-black/90 hover:border-emerald-400/40 backdrop-blur"
             >
-              ↓ descargar workspace
+              ↓ workspace
             </a>
           </div>
 
@@ -1300,6 +1307,13 @@ export default function AgentsScene() {
             state={selectedState}
             onClose={() => setSelected(null)}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Finance modal */}
+      <AnimatePresence>
+        {financeOpen && (
+          <FinanceModal agentMap={agentMap} onClose={() => setFinanceOpen(false)} />
         )}
       </AnimatePresence>
 
@@ -1947,6 +1961,199 @@ function BlockerChatCard({
         </div>
       )}
     </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Finance Modal — gasto en tokens AI + presupuesto real
+// ═══════════════════════════════════════════════════════════════════════════
+
+function FinanceModal({
+  agentMap,
+  onClose,
+}: {
+  agentMap: Record<string, AgentMeta>;
+  onClose: () => void;
+}) {
+  const [data, setData] = useState<{
+    period: string;
+    ai: {
+      byAgent: { agent_id: string; total_runs: number; total_input_tokens: number; total_output_tokens: number; total_cost_usd: number }[];
+      totals: { runs: number; inputTokens: number; outputTokens: number; costUsd: number };
+    };
+    budget: { allocated_usd: number; strategy_name: string | null };
+  } | null>(null);
+  const [period, setPeriod] = useState<"today" | "week" | "month" | "all">("month");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    fetch(`/api/admin/agents/finance?period=${period}`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((json) => {
+        if (alive) setData(json);
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => { alive = false; };
+  }, [period]);
+
+  const fmt = (n: number) => n.toLocaleString("en-US");
+  const fmtUsd = (n: number) => `$${n.toFixed(4)}`;
+  const fmtUsdBig = (n: number) => `$${n.toFixed(2)}`;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[65] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.95, y: 20 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.95, y: 20 }}
+        className="bg-[#0A0A14] border border-white/20 rounded-2xl max-w-3xl w-full max-h-[85vh] flex flex-col overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 border-b border-white/10">
+          <div>
+            <h2 className="text-xl font-bold text-white">💰 Finanzas del equipo</h2>
+            <p className="text-[11px] text-white/50">
+              Gasto en tokens AI (Claude Sonnet 4.6: $3/M input · $15/M output)
+              {data?.budget.strategy_name && ` + budget de "${data.budget.strategy_name}"`}
+            </p>
+          </div>
+          <button onClick={onClose} className="text-white/50 hover:text-white text-2xl">×</button>
+        </div>
+
+        {/* Period filter */}
+        <div className="flex gap-1 px-5 py-2 border-b border-white/10">
+          {(["today", "week", "month", "all"] as const).map((p) => (
+            <button
+              key={p}
+              onClick={() => setPeriod(p)}
+              className={`px-3 py-1 text-[10px] rounded-full ${
+                period === p
+                  ? "bg-emerald-400 text-black font-bold"
+                  : "bg-white/5 text-white/60 hover:text-white"
+              }`}
+            >
+              {p === "today" ? "Hoy" : p === "week" ? "7 días" : p === "month" ? "30 días" : "Todo"}
+            </button>
+          ))}
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-5">
+          {loading && (
+            <div className="text-center text-white/40 py-12">Cargando finanzas…</div>
+          )}
+
+          {!loading && data && (
+            <div className="space-y-6">
+              {/* Totals cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-500/15 to-transparent border border-emerald-400/30">
+                  <div className="text-[9px] uppercase tracking-widest text-emerald-300">Gasto AI total</div>
+                  <div className="text-2xl font-bold text-white mt-1">{fmtUsdBig(data.ai.totals.costUsd)}</div>
+                </div>
+                <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                  <div className="text-[9px] uppercase tracking-widest text-white/40">Runs</div>
+                  <div className="text-2xl font-bold text-white mt-1">{fmt(data.ai.totals.runs)}</div>
+                </div>
+                <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                  <div className="text-[9px] uppercase tracking-widest text-white/40">Tokens input</div>
+                  <div className="text-lg font-bold text-white mt-1">{fmt(data.ai.totals.inputTokens)}</div>
+                  <div className="text-[9px] text-white/30">{fmtUsdBig(data.ai.totals.inputTokens * 3 / 1e6)}</div>
+                </div>
+                <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                  <div className="text-[9px] uppercase tracking-widest text-white/40">Tokens output</div>
+                  <div className="text-lg font-bold text-white mt-1">{fmt(data.ai.totals.outputTokens)}</div>
+                  <div className="text-[9px] text-white/30">{fmtUsdBig(data.ai.totals.outputTokens * 15 / 1e6)}</div>
+                </div>
+              </div>
+
+              {/* Budget allocated (from strategy) */}
+              {data.budget.allocated_usd > 0 && (
+                <div className="p-4 rounded-xl bg-gradient-to-br from-amber-400/15 to-transparent border border-amber-400/30">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-[9px] uppercase tracking-widest text-amber-300">Presupuesto marketing asignado</div>
+                      <div className="text-2xl font-bold text-white mt-1">{fmtUsdBig(data.budget.allocated_usd)}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-[9px] text-white/40">Estrategia</div>
+                      <div className="text-sm text-amber-200">{data.budget.strategy_name}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Cost by agent */}
+              <div>
+                <div className="text-[10px] uppercase tracking-widest text-white/40 mb-3">
+                  Gasto AI por agente
+                </div>
+                {data.ai.byAgent.length === 0 ? (
+                  <div className="text-center text-white/30 py-8 text-sm">
+                    Sin ejecuciones en este período
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {data.ai.byAgent.map((row) => {
+                      const a = agentMap[row.agent_id];
+                      const maxCost = Math.max(...data.ai.byAgent.map((r) => r.total_cost_usd), 0.001);
+                      const pct = (row.total_cost_usd / maxCost) * 100;
+                      return (
+                        <div key={row.agent_id} className="flex items-center gap-3">
+                          <div className="flex items-center gap-2 w-28 shrink-0">
+                            <span
+                              className="w-2 h-2 rounded-full shrink-0"
+                              style={{ background: a?.color ?? "#888" }}
+                            />
+                            <span className="text-[11px] text-white/80 truncate">
+                              {a?.name ?? row.agent_id}
+                            </span>
+                          </div>
+                          <div className="flex-1 h-5 bg-white/5 rounded-full overflow-hidden">
+                            <div
+                              className="h-full rounded-full"
+                              style={{
+                                width: `${Math.max(pct, 2)}%`,
+                                background: a?.color ?? "#888",
+                                opacity: 0.7,
+                              }}
+                            />
+                          </div>
+                          <div className="w-16 text-right text-[11px] font-mono text-white/80">
+                            {fmtUsd(row.total_cost_usd)}
+                          </div>
+                          <div className="w-12 text-right text-[10px] text-white/40">
+                            {row.total_runs} runs
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Info */}
+              <div className="text-[9px] text-white/30 pt-4 border-t border-white/10">
+                Precios: Claude Sonnet 4.6 — $3.00 por millón de tokens de entrada · $15.00 por millón de tokens de salida.
+                Los costos se registran por cada ejecución de agente (delegaciones, autopilot, chat del Growth, blocker chat).
+                El presupuesto de marketing es lo que el Growth asigna con allocate_budget en la estrategia activa.
+              </div>
+            </div>
+          )}
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }
 

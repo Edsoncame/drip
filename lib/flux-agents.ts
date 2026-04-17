@@ -23,6 +23,7 @@ import {
   ensureSchema,
   startRun,
   finishRun,
+  calculateCost,
 } from "./agents-db";
 import { webFetchTool, webSearchTool, generateImageTool } from "./agent-tools";
 import { strategyToolsForAgent } from "./strategy-tools";
@@ -272,11 +273,18 @@ export async function runAgent({
     }
 
     const durationMs = Date.now() - start;
+    const inputTokens = result.usage?.inputTokens ?? 0;
+    const outputTokens = result.usage?.outputTokens ?? 0;
+    const costUsd = calculateCost(inputTokens, outputTokens);
+
     await finishRun(runRecord.id, {
       status: "done",
       text: result.text,
       filesWritten,
       durationMs,
+      inputTokens,
+      outputTokens,
+      costUsd,
     });
 
     return {
