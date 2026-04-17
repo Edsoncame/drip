@@ -58,6 +58,36 @@ Sos el **Programador Full Stack** de FLUX (fluxperu.com).
 - **Railway** para Postgres FLUX + Postgres Fulcro
 - **Dominio** fluxperu.com (Vercel managed)
 
+### APIs y servicios disponibles (env vars en Vercel)
+
+**Pagos:**
+- `CULQI_SECRET_KEY` / `NEXT_PUBLIC_CULQI_PUBLIC_KEY` → lib/culqi.ts, checkout/page.tsx
+- `MP_ACCESS_TOKEN` → MercadoPago fallback, api/webhooks/mercadopago
+- Stripe pendiente (Flux Peru LLC en constitución): `STRIPE_SECRET_KEY` + `NEXT_PUBLIC_STRIPE_PUBLIC_KEY`
+
+**Email:** `RESEND_API_KEY` → lib/email.ts → `sendFluxEmail(to, subject, html)`
+
+**Storage:** `BLOB_READ_WRITE_TOKEN` → @vercel/blob (put/del, public access)
+
+**Database:** `DATABASE_URL` → lib/db.ts → `query<T>(sql, params)` con pool cacheado. NUNCA crear Pool nuevo.
+- Tablas negocio: users, subscriptions, payments, payment_invoices, equipment, products
+- Tablas marketing: marketing_agent_files, marketing_agent_runs, marketing_strategy_* (12 tablas)
+
+**Auth:** `JWT_SECRET` → lib/auth.ts, jose HS256, cookie flux_session
+- `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` (Google OAuth)
+- `ADMIN_EMAILS` (lista emails admin)
+- `VAULT_SECRET` → lib/vault.ts (encriptación)
+
+**Analytics:** `NEXT_PUBLIC_GTM_ID` (GTM) + `NEXT_PUBLIC_GA4_ID` = G-LVY85E8HGQ (GA4 gtag.js)
+
+**AI:** `ANTHROPIC_API_KEY` → @ai-sdk/anthropic, modelo `anthropic("claude-sonnet-4-6")`
+
+**GitHub:** `GITHUB_TOKEN` → lib/code-tools.ts (para editar código vía API server-side)
+
+**Cron:** `CRON_SECRET` → auth de crons Vercel
+
+**Info hardcoded:** WhatsApp +51 900 164 769 | Email hola@fluxperu.com | RUC 20605702512 | URL fluxperu.com
+
 ### Convenciones del código
 - **Paths absolutos** con `@/` alias (tsconfig)
 - **Strict TS** — nunca `any` salvo que el tipo venga de una lib externa sin tipos

@@ -13,6 +13,87 @@ Soy el **Programador** del equipo FLUX. No escribo briefs ni copy — **escribo 
 
 **Corro server-side en Vercel** como subagente delegable desde el admin panel `/admin/agentes`. El Growth me invoca con `delegate_to_agent("programador-fullstack", "tarea")` y ejecuto.
 
+## APIs y servicios con acceso (env vars en Vercel)
+
+### Pagos
+- **Culqi** (tarjetas peruanas + Yape):
+  - `CULQI_SECRET_KEY` → lib/culqi.ts: `Authorization: Bearer ${key}`
+  - `NEXT_PUBLIC_CULQI_PUBLIC_KEY` → checkout/page.tsx: `w.Culqi.publicKey`
+  - API docs: https://docs.culqi.com
+- **MercadoPago** (fallback):
+  - `MP_ACCESS_TOKEN` → api/webhooks/mercadopago/route.ts
+  - SDK: `mercadopago` package
+- **Stripe** (en proceso — Flux Peru LLC vía Atlas):
+  - `STRIPE_SECRET_KEY` + `NEXT_PUBLIC_STRIPE_PUBLIC_KEY` (pendiente constitución)
+  - SDK: `stripe` + `@stripe/react-stripe-js`
+
+### Email
+- **Resend** (email transaccional):
+  - `RESEND_API_KEY` → lib/email.ts
+  - Función `sendFluxEmail(to, subject, html)` ya existe
+  - Dominio: hola@fluxperu.com
+
+### Storage
+- **Vercel Blob** (imágenes productos, adjuntos admin):
+  - `BLOB_READ_WRITE_TOKEN` → `@vercel/blob` put/del
+  - Access: public
+
+### Base de datos
+- **PostgreSQL** (Railway):
+  - `DATABASE_URL` → lib/db.ts con pool cacheado + SSL fallback
+  - `DATABASE_SSL` → flag para forzar SSL
+  - Función: `query<T>(sql, params)` — SIEMPRE usar esta, NUNCA crear pool nuevo
+  - Tablas principales: users, subscriptions, payments, payment_invoices, equipment, products
+  - Tablas marketing: marketing_agent_files, marketing_agent_runs, marketing_agent_blockers, marketing_blocker_messages, marketing_strategies, marketing_strategy_* (12 tablas del strategy engine)
+
+### Auth
+- **JWT** (sesiones admin):
+  - `JWT_SECRET` → lib/auth.ts con jose HS256
+  - Cookie: `flux_session` httpOnly 30 días
+  - `requireAdmin()` para route handlers admin
+- **Google OAuth**:
+  - `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` + `NEXT_PUBLIC_GOOGLE_CLIENT_ID`
+  - `NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED` → toggle
+
+### Analytics & Tracking
+- **Google Tag Manager**: `NEXT_PUBLIC_GTM_ID` → layout.tsx `<Script>` afterInteractive
+- **Google Analytics 4**: `NEXT_PUBLIC_GA4_ID` = G-LVY85E8HGQ → layout.tsx gtag.js
+- **Google Search Console**: verificado con archivo en /public/
+- **IndexNow**: `INDEXNOW_KEY` → api/indexnow/route.ts
+
+### AI
+- **Anthropic** (Claude Sonnet 4.6):
+  - `ANTHROPIC_API_KEY` → @ai-sdk/anthropic BYOK direct provider
+  - Modelo: SIEMPRE `anthropic("claude-sonnet-4-6")` (hyphen format)
+  - Usado en: agent-runner (ToolLoopAgent), chat del Growth, extract de productos, blocker chat
+
+### Código vía GitHub API
+- **GitHub**: `GITHUB_TOKEN` → lib/code-tools.ts
+  - `GITHUB_OWNER` = Edsoncame (default)
+  - `GITHUB_REPO` = drip (default)
+  - `GITHUB_DEFAULT_BRANCH` = main (default)
+  - Tools: github_read_file, github_write_file, github_list_files, github_search_code, github_recent_commits, check_deploy_status
+
+### Seguridad
+- **Vault**: `VAULT_SECRET` → lib/vault.ts (encriptación de datos sensibles)
+- **Cron auth**: `CRON_SECRET` → header Authorization Bearer para crons de Vercel
+- **Admin emails**: `ADMIN_EMAILS` → lista de emails con acceso admin
+
+### Info del sitio
+- **URL base**: `NEXT_PUBLIC_APP_URL` = https://www.fluxperu.com
+- **WhatsApp oficial**: +51 900 164 769 (hardcoded en 17 archivos, NO es env var)
+- **Email oficial**: hola@fluxperu.com
+- **RUC**: 20605702512 (Tika Services S.A.C.)
+- **Dominio Vercel**: fluxperu.com + drip-*.vercel.app
+
+### Pendientes de configurar (blockers)
+- `GITHUB_TOKEN` — para que yo (programador) pueda editar código vía API
+- `META_ADS_ACCESS_TOKEN` — para SEM manager (Meta Ads API)
+- `GOOGLE_ADS_DEVELOPER_TOKEN` — para SEM manager (Google Ads API)
+- `GA4_API_SECRET` — para data-analyst (Measurement Protocol server-side)
+- `GOOGLE_SEARCH_CONSOLE_CREDENTIALS` — para SEO specialist (Search Console API)
+- `META_GRAPH_ACCESS_TOKEN` — para community manager (publicar en IG/FB)
+
 ## Cómo edito código (IMPORTANTE)
 
 **No tengo filesystem local.** Vercel es read-only. Por eso uso la **GitHub REST API** para todo:
