@@ -165,6 +165,46 @@ const AGENT_EMOJI: Record<AgentId, string> = {
   "programador-fullstack": "💻",
 };
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Notification sound — chime agradable generado con Web Audio API
+// ═══════════════════════════════════════════════════════════════════════════
+
+function playNotificationSound() {
+  try {
+    const ctx = new AudioContext();
+    const now = ctx.currentTime;
+
+    // Chime: dos tonos cortos ascendentes
+    [523.25, 659.25].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.15, now + i * 0.15);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.15 + 0.4);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + i * 0.15);
+      osc.stop(now + i * 0.15 + 0.5);
+    });
+  } catch {}
+}
+
+function sendBrowserNotification(title: string, body: string) {
+  try {
+    if (typeof Notification === "undefined") return;
+    if (Notification.permission === "granted") {
+      new Notification(title, {
+        body,
+        icon: "/icon.png",
+        badge: "/icon.png",
+        silent: true, // usamos nuestro propio sonido
+      });
+      playNotificationSound();
+    }
+  } catch {}
+}
+
 export default function AgentsScene() {
   const [data, setData] = useState<StatePayload | null>(null);
   const [selected, setSelected] = useState<AgentId | null>(null);
@@ -223,6 +263,104 @@ export default function AgentsScene() {
   const [pendingImages, setPendingImages] = useState<File[]>([]);
   const [globalDragging, setGlobalDragging] = useState(false);
   const globalDragCounterRef = useRef(0);
+  const [musicPlaying, setMusicPlaying] = useState(false);
+  const [musicEnabled, setMusicEnabled] = useState(true);
+  const [clapEnabled, setClapEnabled] = useState(false);
+  const youtubeRef = useRef<HTMLIFrameElement>(null);
+  const clapStreamRef = useRef<MediaStream | null>(null);
+
+  // Pedir permiso de notificaciones al cargar
+  useEffect(() => {
+    if (typeof Notification !== "undefined" && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  // Back In Black al abrir por primera vez
+  useEffect(() => {
+    if (!musicEnabled) return;
+    const played = sessionStorage.getItem("flux-music-played");
+    if (!played) {
+      sessionStorage.setItem("flux-music-played", "1");
+      // Delay para que el iframe cargue
+      setTimeout(() => {
+        if (youtubeRef.current) {
+          youtubeRef.current.contentWindow?.postMessage(
+            JSON.stringify({ event: "command", func: "playVideo" }),
+            "*",
+          );
+          setMusicPlaying(true);
+        }
+      }, 2000);
+    }
+  }, [musicEnabled]);
+
+  // Toggle música
+  const toggleMusic = useCallback(() => {
+    if (!youtubeRef.current) return;
+    if (musicPlaying) {
+      youtubeRef.current.contentWindow?.postMessage(
+        JSON.stringify({ event: "command", func: "pauseVideo" }),
+        "*",
+      );
+    } else {
+      youtubeRef.current.contentWindow?.postMessage(
+        JSON.stringify({ event: "command", func: "playVideo" }),
+        "*",
+      );
+    }
+    setMusicPlaying(!musicPlaying);
+  }, [musicPlaying]);
+
+  // Clap detection
+  useEffect(() => {
+    if (!clapEnabled) {
+      if (clapStreamRef.current) {
+        clapStreamRef.current.getTracks().forEach((t) => t.stop());
+        clapStreamRef.current = null;
+      }
+      return;
+    }
+    let active = true;
+    const startClap = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        clapStreamRef.current = stream;
+        const ctx = new AudioContext();
+        const src = ctx.createMediaStreamSource(stream);
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 512;
+        src.connect(analyser);
+        const data = new Uint8Array(analyser.frequencyBinCount);
+        let lastClap = 0;
+
+        const check = () => {
+          if (!active) return;
+          analyser.getByteTimeDomainData(data);
+          // Detectar pico de amplitud (clap = transiente fuerte)
+          let max = 0;
+          for (let i = 0; i < data.length; i++) {
+            const v = Math.abs(data[i] - 128);
+            if (v > max) max = v;
+          }
+          if (max > 80 && Date.now() - lastClap > 1000) {
+            lastClap = Date.now();
+            toggleMusic();
+          }
+          requestAnimationFrame(check);
+        };
+        check();
+      } catch {}
+    };
+    startClap();
+    return () => {
+      active = false;
+      if (clapStreamRef.current) {
+        clapStreamRef.current.getTracks().forEach((t) => t.stop());
+        clapStreamRef.current = null;
+      }
+    };
+  }, [clapEnabled, toggleMusic]);
   const [recording, setRecording] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState("");
   const [recordStart, setRecordStart] = useState<number | null>(null);
@@ -487,7 +625,7 @@ export default function AgentsScene() {
                 : d,
             ),
           );
-          // Notificar en el chat que falló
+          // Notificar en el chat + browser que falló
           setMessages((prev) => [
             ...prev,
             {
@@ -497,6 +635,7 @@ export default function AgentsScene() {
               ts: Date.now(),
             },
           ]);
+          sendBrowserNotification(`❌ ${agentName} falló`, json.error || "Error desconocido");
           setAgentAnim(agentId, "idle");
           return;
         }
@@ -529,6 +668,12 @@ export default function AgentsScene() {
             ts: Date.now(),
           },
         ]);
+        sendBrowserNotification(
+          `✅ ${agentName} terminó`,
+          json.filesWritten?.length > 0
+            ? `Escribió ${json.filesWritten.length} archivo(s)`
+            : summary.slice(0, 100),
+        );
         setAgentAnim(agentId, "idle");
         loadState();
       } catch (err) {
@@ -1453,6 +1598,40 @@ export default function AgentsScene() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* YouTube iframe invisible — Back In Black (AC/DC). Sirve como fuente
+          de audio controlada por postMessage desde toggleMusic(). */}
+      <iframe
+        ref={youtubeRef}
+        title="Back In Black"
+        src="https://www.youtube.com/embed/pAgnJDJN4VA?enablejsapi=1&autoplay=1&playsinline=1&rel=0"
+        allow="autoplay; encrypted-media"
+        className="pointer-events-none opacity-0 absolute -z-10"
+        width={1}
+        height={1}
+      />
+
+      {/* Controles flotantes: pausar música + toggle de aplauso */}
+      <div className="fixed bottom-4 left-4 z-[60] flex gap-2">
+        <button
+          onClick={toggleMusic}
+          title={musicPlaying ? "Pausar Back In Black" : "Reanudar Back In Black"}
+          className="w-10 h-10 rounded-full bg-white/10 border border-white/20 backdrop-blur flex items-center justify-center text-white hover:bg-white/20 transition"
+        >
+          <span className="text-sm leading-none">{musicPlaying ? "⏸" : "▶"}</span>
+        </button>
+        <button
+          onClick={() => setClapEnabled((v) => !v)}
+          title={clapEnabled ? "Aplauso activo — clic para apagar" : "Activar toggle por aplauso"}
+          className={`w-10 h-10 rounded-full border backdrop-blur flex items-center justify-center transition ${
+            clapEnabled
+              ? "bg-emerald-400/25 border-emerald-400/70 text-emerald-100 shadow-[0_0_12px_rgba(16,185,129,0.45)]"
+              : "bg-white/10 border-white/20 text-white hover:bg-white/20"
+          }`}
+        >
+          <span className="text-sm leading-none">👏</span>
+        </button>
+      </div>
 
       {/* Lightbox for chat images */}
       <AnimatePresence>
