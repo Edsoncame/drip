@@ -644,7 +644,7 @@ export default function AgentsScene() {
     }
   }, []);
 
-  const sendMessage = async () => {
+  const sendMessage = async (retryCount = 0) => {
     const text = input.trim();
     if (!text || streaming) return;
     const userMsg: ChatMessage = { id: `u-${Date.now()}`, role: "user", content: text, ts: Date.now() };
@@ -725,16 +725,47 @@ export default function AgentsScene() {
       setAgentAnim("orquestador", "idle");
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+
+      // Auto-retry una vez si es network error
+      if (retryCount < 1 && (msg.includes("network") || msg.includes("fetch") || msg.includes("Failed"))) {
+        console.log("[chat] auto-retry #" + (retryCount + 1));
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMsg.id
+              ? { ...m, content: "🔄 Reintentando conexión…" }
+              : m,
+          ),
+        );
+        setAgentAnim("orquestador", "thinking", 30000);
+        setTimeout(() => {
+          setStreaming(false);
+          sendMessage(retryCount + 1);
+        }, 2000);
+        return;
+      }
+
       setMessages((prev) =>
         prev.map((m) =>
           m.id === assistantMsg.id
             ? {
                 ...m,
-                content: `⚠️ **Error del servidor**\n\n\`\`\`\n${msg}\n\`\`\`\n\nRevisá los logs en Vercel → drip → Logs → filtro \`/api/admin/agents/chat\` para más detalle.`,
+                content: `⚠️ **Error del servidor**\n\n\`\`\`\n${msg}\n\`\`\``,
+                // Marcamos que tiene retry disponible
+                id: `error-${Date.now()}`,
               }
             : m,
         ),
       );
+      // Agregar botón de retry como mensaje separado
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `retry-btn-${Date.now()}`,
+          role: "assistant" as const,
+          content: "__RETRY_BUTTON__",
+          ts: Date.now(),
+        },
+      ]);
       setAgentAnim("orquestador", "idle");
     } finally {
       setStreaming(false);
@@ -1176,9 +1207,35 @@ export default function AgentsScene() {
           </div>
         </div>
         <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
-          {messages.map((m) => (
-            <ChatBubble key={m.id} msg={m} onImageClick={setLightbox} />
-          ))}
+          {messages.map((m) =>
+            m.content === "__RETRY_BUTTON__" ? (
+              <div key={m.id} className="flex justify-start">
+                <button
+                  onClick={() => {
+                    // Quitar el error + retry button y re-enviar
+                    setMessages((prev) =>
+                      prev.filter(
+                        (p) =>
+                          p.id !== m.id &&
+                          !String(p.id).startsWith("error-"),
+                      ),
+                    );
+                    // Re-inyectar el último texto del user al input y mandar
+                    const lastUser = messages.filter((p) => p.role === "user").pop();
+                    if (lastUser) {
+                      setInput(lastUser.content);
+                      setTimeout(() => sendMessage(0), 100);
+                    }
+                  }}
+                  className="px-4 py-2 rounded-xl bg-amber-400/20 border border-amber-400/50 text-amber-200 text-sm font-semibold hover:bg-amber-400/30 transition-colors flex items-center gap-2"
+                >
+                  🔄 Reintentar
+                </button>
+              </div>
+            ) : (
+              <ChatBubble key={m.id} msg={m} onImageClick={setLightbox} />
+            ),
+          )}
           {streaming && messages[messages.length - 1]?.content === "" && (
             <div className="flex items-center gap-1 text-white/40 text-xs">
               <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce" />
