@@ -216,7 +216,7 @@ export default function AgentsScene() {
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<
-    { id: number; title: string; filename: string; size: number; contentType: string | null }[]
+    { id: number; title: string; filename: string; size: number; contentType: string | null; blobUrl: string | null }[]
   >([]);
   const [globalDragging, setGlobalDragging] = useState(false);
   const globalDragCounterRef = useRef(0);
@@ -547,6 +547,7 @@ export default function AgentsScene() {
             filename: json.attachment.filename,
             size: json.attachment.size_bytes,
             contentType: json.attachment.content_type,
+            blobUrl: json.attachment.blob_url,
           },
         ]);
         // Metemos una mini-línea al input con referencia al archivo
@@ -663,6 +664,10 @@ export default function AgentsScene() {
             .filter((m) => m.id !== "welcome")
             .slice(-6)
             .map((m) => ({ role: m.role, content: m.content.slice(0, 8000) })),
+          // URLs de imágenes adjuntadas para pasarlas como vision input a Claude
+          imageUrls: attachedFiles
+            .filter((f) => f.contentType?.startsWith("image/") && f.blobUrl)
+            .map((f) => f.blobUrl),
         }),
       });
       if (!res.ok) {

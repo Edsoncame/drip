@@ -22,6 +22,7 @@ export async function POST(req: Request) {
 
     const body = await req.json().catch(() => ({}));
     const messages = body.messages as { role: "user" | "assistant"; content: string }[] | undefined;
+    const imageUrls = (body.imageUrls as string[] | undefined) ?? [];
     if (!messages || !Array.isArray(messages)) {
       return NextResponse.json({ error: "missing messages" }, { status: 400 });
     }
@@ -37,8 +38,31 @@ export async function POST(req: Request) {
     const agent = await buildGrowthAgent(session.email);
     console.log("[chat] streaming response...");
 
+    // Construir mensajes — el último user message puede tener imágenes adjuntas
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const builtMessages: any[] = messages.map((m, i) => {
+      // Si es el último mensaje del usuario y hay imágenes adjuntas,
+      // lo convertimos a multimodal con content array
+      if (
+        m.role === "user" &&
+        i === messages.length - 1 &&
+        imageUrls.length > 0
+      ) {
+        return {
+          role: "user",
+          content: [
+            { type: "text", text: m.content },
+            ...imageUrls.map((url) => ({ type: "image", image: new URL(url) })),
+          ],
+        };
+      }
+      return { role: m.role, content: m.content };
+    });
+
+    console.log("[chat] sending with", imageUrls.length, "images");
+
     const result = await agent.stream({
-      messages: messages.map((m) => ({ role: m.role, content: m.content })),
+      messages: builtMessages,
     });
 
     return result.toTextStreamResponse();
