@@ -11,8 +11,8 @@
  */
 
 import { ToolLoopAgent, tool, stepCountIs } from "ai";
-import { anthropic } from "@ai-sdk/anthropic";
 import { z } from "zod";
+import { modelForAgent } from "./agent-models";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { AGENTS_ROOT, AGENTS, type AgentId } from "./agents";
@@ -207,7 +207,7 @@ ${existingContext}
 
   const agent = new ToolLoopAgent({
     id: agentId,
-    model: anthropic("claude-sonnet-4-6"),
+    model: modelForAgent(agentId),
     instructions,
     tools: allTools,
     stopWhen: stepCountIs(maxSteps),
@@ -278,7 +278,7 @@ export async function runAgent({
     const durationMs = Date.now() - start;
     const inputTokens = result.usage?.inputTokens ?? 0;
     const outputTokens = result.usage?.outputTokens ?? 0;
-    const costUsd = calculateCost(inputTokens, outputTokens);
+    const costUsd = calculateCost(inputTokens, outputTokens, agentId);
 
     await finishRun(runRecord.id, {
       status: "done",
@@ -380,7 +380,7 @@ ${claudeMd}${strategyBlock}${attachmentsBlock}${recentOutputsBlock}`;
 
   return new ToolLoopAgent({
     id: "growth",
-    model: anthropic("claude-sonnet-4-6"),
+    model: modelForAgent("orquestador"),
     instructions,
     tools,
     stopWhen: stepCountIs(12),

@@ -154,12 +154,21 @@ export async function finishRun(
   );
 }
 
-/** Costos de Claude Sonnet 4.6 */
-const COST_PER_INPUT_TOKEN = 3.0 / 1_000_000; // $3/M tokens
-const COST_PER_OUTPUT_TOKEN = 15.0 / 1_000_000; // $15/M tokens
-
-export function calculateCost(inputTokens: number, outputTokens: number): number {
-  return inputTokens * COST_PER_INPUT_TOKEN + outputTokens * COST_PER_OUTPUT_TOKEN;
+/**
+ * Costo por agente — depende del modelo asignado en agent-models.ts.
+ * Opus 4.7 ($15/$75) para razonamiento pesado, Sonnet 4.6 ($3/$15) para ejecución.
+ */
+export function calculateCost(
+  inputTokens: number,
+  outputTokens: number,
+  agentId?: string,
+): number {
+  // Import dinámico evita ciclo con flux-agents (que importa de este archivo)
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { modelSlugForAgent, MODEL_PRICING } = require("./agent-models") as typeof import("./agent-models");
+  const slug = agentId ? modelSlugForAgent(agentId) : "claude-sonnet-4-6";
+  const p = MODEL_PRICING[slug];
+  return inputTokens * p.inputPerToken + outputTokens * p.outputPerToken;
 }
 
 export interface AgentFinanceSummary {

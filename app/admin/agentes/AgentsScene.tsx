@@ -2300,7 +2300,7 @@ function FinanceModal({
           <div>
             <h2 className="text-xl font-bold text-white">💰 Finanzas del equipo</h2>
             <p className="text-[11px] text-white/50">
-              Gasto en tokens AI (Claude Sonnet 4.6: $3/M input · $15/M output)
+              Gasto en tokens AI · Opus 4.7 $15/$75 (orquestador, estratega, data, research, fullstack) · Sonnet 4.6 $3/$15 (resto)
               {data?.budget.strategy_name && ` + budget de "${data.budget.strategy_name}"`}
             </p>
           </div>
@@ -2421,8 +2421,9 @@ function FinanceModal({
 
               {/* Info */}
               <div className="text-[9px] text-white/30 pt-4 border-t border-white/10">
-                Precios: Claude Sonnet 4.6 — $3.00 por millón de tokens de entrada · $15.00 por millón de tokens de salida.
-                Los costos se registran por cada ejecución de agente (delegaciones, autopilot, chat del Growth, blocker chat).
+                Precios por modelo: Claude Opus 4.7 — $15 / $75 por M tokens (input / output). Claude Sonnet 4.6 — $3 / $15.
+                Opus corre en: orquestador (Growth), estratega-oferta, data-analyst, market-researcher, programador-fullstack.
+                El resto del equipo sigue en Sonnet para optimizar costo. Los costos se registran por cada ejecución de agente (delegaciones, autopilot, chat del Growth, blocker chat).
                 El presupuesto de marketing es lo que el Growth asigna con allocate_budget en la estrategia activa.
               </div>
             </div>
