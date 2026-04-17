@@ -469,6 +469,7 @@ export default function AgentsScene() {
           body: JSON.stringify({ agent: agentId, task }),
         });
         const json = await res.json();
+        const agentName = agentMap[agentId]?.name ?? agentId;
         if (!res.ok || !json.success) {
           setDelegations((prev) =>
             prev.map((d) =>
@@ -486,6 +487,16 @@ export default function AgentsScene() {
                 : d,
             ),
           );
+          // Notificar en el chat que falló
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `del-err-${Date.now()}-${agentId}`,
+              role: "assistant",
+              content: `❌ **${agentName}** falló: \`${json.error || "error desconocido"}\``,
+              ts: Date.now(),
+            },
+          ]);
           setAgentAnim(agentId, "idle");
           return;
         }
@@ -504,8 +515,21 @@ export default function AgentsScene() {
               : d,
           ),
         );
+        // Notificar en el chat que terminó con resultado
+        const filesInfo = json.filesWritten?.length > 0
+          ? `\n📝 Archivos: ${json.filesWritten.map((f: { relPath: string; size: number }) => `\`${f.relPath}\` (${(f.size / 1024).toFixed(1)}kb)`).join(", ")}`
+          : "";
+        const summary = json.text?.slice(0, 300) || "(sin resumen)";
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `del-ok-${Date.now()}-${agentId}`,
+            role: "assistant",
+            content: `✅ **${agentName}** terminó (${(json.durationMs / 1000).toFixed(1)}s)${filesInfo}\n\n> ${summary}${json.text?.length > 300 ? "…" : ""}`,
+            ts: Date.now(),
+          },
+        ]);
         setAgentAnim(agentId, "idle");
-        // refrescar estado para que los archivos nuevos aparezcan
         loadState();
       } catch (err) {
         setDelegations((prev) =>
