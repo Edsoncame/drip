@@ -219,6 +219,8 @@ export default function AgentsScene() {
   const [attachedFiles, setAttachedFiles] = useState<
     { id: number; title: string; filename: string; size: number; contentType: string | null; blobUrl: string | null }[]
   >([]);
+  // Múltiples imágenes pendientes de subir en el chat principal
+  const [pendingImages, setPendingImages] = useState<File[]>([]);
   const [globalDragging, setGlobalDragging] = useState(false);
   const globalDragCounterRef = useRef(0);
   const [recording, setRecording] = useState(false);
@@ -296,10 +298,12 @@ export default function AgentsScene() {
       e.preventDefault();
       globalDragCounterRef.current = 0;
       setGlobalDragging(false);
-      const file = e.dataTransfer?.files?.[0];
-      if (!file) return;
-      // Si es una imagen, se trata como adjunto al chat del Growth
-      uploadFile(file, "reference");
+      const files = e.dataTransfer?.files;
+      if (!files || files.length === 0) return;
+      // Subir TODOS los archivos droppeados
+      for (let i = 0; i < files.length; i++) {
+        uploadFile(files[i], "reference");
+      }
     };
     window.addEventListener("dragenter", onDragEnter);
     window.addEventListener("dragleave", onDragLeave);
@@ -1255,17 +1259,20 @@ export default function AgentsScene() {
                     className={`w-10 h-10 rounded-full bg-white/10 text-white hover:bg-emerald-500/20 hover:text-emerald-300 border border-white/15 hover:border-emerald-400/50 disabled:opacity-30 flex items-center justify-center text-lg transition-colors cursor-pointer ${
                       uploadingFile ? "animate-pulse" : ""
                     }`}
-                    title="Adjuntar archivo (PDF/XLSX/CSV/imagen)"
+                    title="Adjuntar archivos (múltiples, PDF/XLSX/CSV/imagen)"
                   >
                     📎
                     <input
                       type="file"
                       className="hidden"
                       accept=".pdf,.xlsx,.xls,.csv,.txt,.md,.jpg,.jpeg,.png,.webp"
+                      multiple
                       onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          uploadFile(file);
+                        const files = e.target.files;
+                        if (files) {
+                          for (let i = 0; i < files.length; i++) {
+                            uploadFile(files[i]);
+                          }
                           e.target.value = "";
                         }
                       }}
@@ -1577,7 +1584,7 @@ function BlockerChatCard({
 }) {
   const [messages, setMessages] = useState<BlockerMessage[]>([]);
   const [input, setInput] = useState("");
-  const [image, setImage] = useState<File | null>(null);
+  const [images, setImages] = useState<File[]>([]);
   const [sending, setSending] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [streamingText, setStreamingText] = useState("");
@@ -1610,7 +1617,7 @@ function BlockerChatCard({
     setDragging(false);
     const file = e.dataTransfer.files?.[0];
     if (file && file.type.startsWith("image/")) {
-      setImage(file);
+      setImages((prev) => [...prev, file]);
     }
   };
 
@@ -1645,27 +1652,28 @@ function BlockerChatCard({
   const sendMessage = async () => {
     if (sending) return;
     const text = input.trim();
-    if (!text && !image) return;
+    if (!text && images.length === 0) return;
 
     setSending(true);
     const userMsg: BlockerMessage = {
       id: Date.now(),
       role: "user",
-      content: text || "(imagen adjunta)",
-      image_url: image ? URL.createObjectURL(image) : null,
+      content: text || `(${images.length} imagen${images.length > 1 ? "es" : ""} adjunta${images.length > 1 ? "s" : ""})`,
+      image_url: images.length > 0 ? URL.createObjectURL(images[0]) : null,
       created_at: Date.now(),
     };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
-    const fileToSend = image;
-    setImage(null);
+    const filesToSend = [...images];
+    setImages([]);
     setStreamingText("");
 
     try {
       const form = new FormData();
       form.append("blocker_id", String(blocker.id));
       form.append("message", text);
-      if (fileToSend) form.append("image", fileToSend);
+      // Solo manda la primera imagen al endpoint (limitación del endpoint actual)
+      if (filesToSend.length > 0) form.append("image", filesToSend[0]);
 
       const res = await fetch("/api/admin/agents/blockers/chat", {
         method: "POST",
@@ -1873,19 +1881,24 @@ function BlockerChatCard({
 
           {/* Input area — mas grande y prominente */}
           <div className="p-4 border-t border-white/10 bg-black/50">
-            {image && (
-              <div className="mb-3 flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500/15 border border-emerald-400/40 text-[11px]">
-                <span className="text-base">🖼</span>
-                <span className="text-emerald-200 truncate flex-1">{image.name}</span>
-                <span className="text-white/40 text-[10px]">
-                  {(image.size / 1024).toFixed(0)}kb
-                </span>
-                <button
-                  onClick={() => setImage(null)}
-                  className="text-white/40 hover:text-white text-lg leading-none"
-                >
-                  ×
-                </button>
+            {images.length > 0 && (
+              <div className="mb-3 flex flex-wrap gap-1.5">
+                {images.map((img, i) => (
+                  <div
+                    key={`${img.name}-${i}`}
+                    className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-400/40 text-[10px]"
+                  >
+                    <span>🖼</span>
+                    <span className="text-emerald-200 truncate max-w-[100px]">{img.name}</span>
+                    <span className="text-white/40">{(img.size / 1024).toFixed(0)}kb</span>
+                    <button
+                      onClick={() => setImages((prev) => prev.filter((_, j) => j !== i))}
+                      className="text-white/40 hover:text-white"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
             <div className="flex gap-2 items-center">
@@ -1911,9 +1924,12 @@ function BlockerChatCard({
                   type="file"
                   className="hidden"
                   accept="image/*"
+                  multiple
                   onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) setImage(f);
+                    const files = e.target.files;
+                    if (files) {
+                      setImages((prev) => [...prev, ...Array.from(files)]);
+                    }
                     e.target.value = "";
                   }}
                   disabled={sending}
@@ -1921,7 +1937,7 @@ function BlockerChatCard({
               </label>
               <button
                 onClick={sendMessage}
-                disabled={sending || (!input.trim() && !image)}
+                disabled={sending || (!input.trim() && images.length === 0)}
                 className="w-11 h-11 rounded-full bg-amber-400 text-black text-lg font-bold disabled:opacity-30 hover:bg-amber-300 flex items-center justify-center shrink-0"
               >
                 ↑
