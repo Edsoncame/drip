@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { streamText } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { put } from "@vercel/blob";
@@ -9,6 +9,8 @@ import {
   getBlockerById,
   resolveBlocker,
 } from "@/lib/agent-blockers";
+import { runAgent } from "@/lib/flux-agents";
+import type { AgentId } from "@/lib/agents";
 import { AGENTS } from "@/lib/agents";
 
 export const runtime = "nodejs";
@@ -44,19 +46,32 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "blocker not found" }, { status: 404 });
   }
 
-  // Acción rápida: marcar resuelto sin chat
+  // Acción rápida: marcar resuelto + auto-verificación + reanudación
   if (action === "mark-resolved") {
-    await addBlockerMessage(
-      blockerId,
-      "user",
-      "✓ Lo resolví, marcando como cerrado.",
-      null,
-    );
+    await addBlockerMessage(blockerId, "user", "✓ Lo resolví, marcando como cerrado.", null);
     await resolveBlocker(blockerId, session.email);
-    return NextResponse.json({
-      ok: true,
-      resolved: true,
+
+    // El agente verifica el fix y retoma tareas pendientes en background
+    after(async () => {
+      try {
+        await runAgent({
+          agentId: blocker.agent_id as AgentId,
+          task: `BLOCKER RESUELTO — "${blocker.title}" fue marcado como cerrado por Edson.
+
+1. VERIFICÁ que funciona — probá la funcionalidad que estaba bloqueada
+2. Si funciona → confirmá en un archivo y buscá tareas pendientes tuyas con get_strategy_context
+3. Si hay tasks pending con tu owner_agent_id → EJECUTÁ la más urgente ahora
+4. Si no hay tasks → trabajá en lo más valioso según tu rol (modo autopilot)
+5. Si el fix NO funcionó → reportá con report_blocker explicando qué falla`,
+          actor: `blocker-resolved:${session.email}`,
+          maxSteps: 8,
+        });
+      } catch (err) {
+        console.error("[blocker-chat] auto-verify failed", err);
+      }
     });
+
+    return NextResponse.json({ ok: true, resolved: true });
   }
 
   if (!message && !file) {

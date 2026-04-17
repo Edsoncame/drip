@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import {
   listOpenBlockers,
@@ -6,7 +6,9 @@ import {
   ignoreBlocker,
   autoDetectBlockers,
   reportBlocker,
+  getBlockerById,
 } from "@/lib/agent-blockers";
+import { runAgent } from "@/lib/flux-agents";
 import type { AgentId } from "@/lib/agents";
 import { AGENTS } from "@/lib/agents";
 
@@ -57,7 +59,41 @@ export async function POST(req: Request) {
   };
 
   if (body.action === "resolve" && body.blocker_id) {
+    const blocker = await getBlockerById(body.blocker_id);
     await resolveBlocker(body.blocker_id, session.email);
+
+    // Auto-verificación + reanudación: el agente verifica que el fix
+    // funcionó y retoma las tareas pendientes
+    if (blocker && AGENTS.some((a) => a.id === blocker.agent_id)) {
+      after(async () => {
+        try {
+          await runAgent({
+            agentId: blocker.agent_id as AgentId,
+            task: `BLOCKER RESUELTO — Edson acaba de resolver el bloqueo "${blocker.title}".
+
+Tu trabajo ahora:
+1. VERIFICÁ que el fix funciona — probá usar la funcionalidad que estaba bloqueada (ej: si faltaba GITHUB_TOKEN, intentá github_list_files; si faltaba META_ADS_ACCESS_TOKEN, intentá una query de prueba; si faltaba GA4, verificá la config)
+2. Si funciona → escribí un archivo de confirmación en tu workspace con el resultado del test
+3. Si NO funciona → reportá un nuevo blocker con report_blocker explicando qué sigue fallando
+4. Después de verificar, llamá a get_strategy_context para ver si hay tareas pendientes tuyas
+5. Si hay una tarea con tu owner_agent_id que está pending, EJECUTALA ahora
+6. Si no hay tareas pending, hacé lo más valioso según tu CLAUDE.md (modo autopilot)
+
+Contexto del blocker resuelto:
+- Título: ${blocker.title}
+- Descripción: ${blocker.description}
+- Severidad: ${blocker.severity}
+- Fuente: ${blocker.source}`,
+            actor: `blocker-resolved:${session.email}`,
+            maxSteps: 8,
+            depth: 0,
+          });
+        } catch (err) {
+          console.error("[blocker-resolve] auto-verify failed", err);
+        }
+      });
+    }
+
     return NextResponse.json({ ok: true });
   }
   if (body.action === "ignore" && body.blocker_id) {
