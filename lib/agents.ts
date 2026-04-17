@@ -36,9 +36,22 @@ export type AgentId =
   | "data-analyst"
   | "lead-qualifier"
   | "market-researcher"
-  | "programador-fullstack";
+  | "programador-fullstack"
+  | "customer-success"
+  | "finance-controller";
 
-export type AgentRole = "orchestrator" | "strategy" | "copy" | "design" | "growth" | "data" | "leads" | "research" | "engineering";
+export type AgentRole =
+  | "orchestrator"
+  | "strategy"
+  | "copy"
+  | "design"
+  | "growth"
+  | "data"
+  | "leads"
+  | "research"
+  | "engineering"
+  | "retention"
+  | "finance";
 
 export type AgentAccessory =
   | "crown"
@@ -64,7 +77,7 @@ export interface AgentMeta {
   colorDark: string;
   x: number; // 0-100 grid position
   y: number;
-  cluster: "pipeline" | "growth" | "data" | "research" | "engineering";
+  cluster: "pipeline" | "growth" | "data" | "research" | "engineering" | "retention" | "finance";
   accessory: AgentAccessory;
   catchphrases: string[];
 }
@@ -282,6 +295,44 @@ export const AGENTS: AgentMeta[] = [
       "Menos charla, más código",
       "Commit + push automático",
       "Zod + tool loop, fácil",
+    ],
+  },
+  {
+    id: "customer-success",
+    name: "CS",
+    role: "retention",
+    title: "Customer Success",
+    tagline: "Onboarding, health score, upsell y anti-churn",
+    color: "#2DD4BF",
+    colorDark: "#0F766E",
+    x: 86, y: 14, cluster: "retention",
+    accessory: "phone",
+    catchphrases: [
+      "Este cliente está en risk zone",
+      "Upsell de Air a Pro lo aprueban",
+      "NPS subió 9 puntos",
+      "Onboarding semana 1 completo",
+      "Churn proyectado -3% este mes",
+      "El cliente no usó la mac en 14 días",
+    ],
+  },
+  {
+    id: "finance-controller",
+    name: "Finance",
+    role: "finance",
+    title: "Finance Controller",
+    tagline: "MRR, cohorts, reconcile Culqi↔SUNAT, forecast",
+    color: "#FDBA74",
+    colorDark: "#C2410C",
+    x: 12, y: 82, cluster: "finance",
+    accessory: "chart",
+    catchphrases: [
+      "MRR cerró en $8.4K",
+      "Hay un refund anómalo de ayer",
+      "Forecast Q2 → $14K MRR",
+      "CAC subió 12%, alerta",
+      "Cohort abril retiene 82%",
+      "Culqi y SUNAT cuadrados",
     ],
   },
 ];

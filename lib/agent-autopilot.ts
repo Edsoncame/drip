@@ -11,12 +11,21 @@
 
 import { runAgent, type AgentRunResult } from "./agent-runner";
 import { AGENTS, type AgentId } from "./agents";
-import { latestRunForAgent, runningAgents } from "./agents-db";
+import { latestRunForAgent, runningAgents, getFinanceSummary } from "./agents-db";
 import { runSchedulerTick } from "./task-scheduler";
 import { autoDetectBlockers } from "./agent-blockers";
 
 const COOLDOWN_MS = 6 * 60 * 60 * 1000; // 6 horas
 const MAX_AGENTS_PER_TICK = 3;
+
+/**
+ * Techo de gasto diario del autopilot. Si el costo acumulado del día
+ * ya excedió este valor, el tick termina sin correr agentes.
+ * Configurable via env DAILY_AUTOPILOT_COST_CAP_USD. Default $20/día.
+ */
+const DAILY_COST_CAP_USD = Number(
+  process.env.DAILY_AUTOPILOT_COST_CAP_USD ?? "20",
+);
 
 /**
  * Prompt proactivo genérico. El CLAUDE.md del agente ya está en el system
@@ -58,6 +67,11 @@ export interface AutopilotResult {
   tickedAt: string;
   agentsConsidered: number;
   agentsExecuted: number;
+  costGuard?: {
+    spentTodayUsd: number;
+    capUsd: number;
+    skipped: boolean;
+  };
   scheduledTasks: {
     checked: number;
     executed: number;
@@ -65,7 +79,7 @@ export interface AutopilotResult {
   };
   results: {
     agent: AgentId;
-    status: "executed" | "cooldown" | "busy" | "skipped";
+    status: "executed" | "cooldown" | "busy" | "skipped" | "cost_cap";
     reason?: string;
     run?: AgentRunResult;
   }[];
@@ -86,9 +100,35 @@ export async function runAutopilotTick(opts?: {
   const now = Date.now();
   const results: AutopilotResult["results"] = [];
 
-  // 0. Auto-detectar blockers (env vars faltantes, etc). Si aparecen
-  //    nuevos, se reportan solos; si el user configuró algo que faltaba,
-  //    el blocker correspondiente se marca como resuelto.
+  // 0a. Cost guard — si ya gastamos el cap del día, abortamos antes de
+  //     correr cualquier agente. Esto protege contra runaways por bugs
+  //     o loops de delegación costosos.
+  const todaySpend = await getFinanceSummary("today").catch(() => null);
+  const spentTodayUsd = todaySpend?.totals.costUsd ?? 0;
+  if (spentTodayUsd >= DAILY_COST_CAP_USD) {
+    return {
+      tickedAt: new Date().toISOString(),
+      agentsConsidered: 0,
+      agentsExecuted: 0,
+      costGuard: {
+        spentTodayUsd,
+        capUsd: DAILY_COST_CAP_USD,
+        skipped: true,
+      },
+      scheduledTasks: { checked: 0, executed: 0, rescheduled: 0 },
+      results: [
+        {
+          agent: "orquestador",
+          status: "cost_cap",
+          reason: `Gasto del día $${spentTodayUsd.toFixed(2)} alcanzó el cap de $${DAILY_COST_CAP_USD.toFixed(2)}. Subí DAILY_AUTOPILOT_COST_CAP_USD si querés más.`,
+        },
+      ],
+    };
+  }
+
+  // 0b. Auto-detectar blockers (env vars faltantes, etc). Si aparecen
+  //     nuevos, se reportan solos; si el user configuró algo que faltaba,
+  //     el blocker correspondiente se marca como resuelto.
   await autoDetectBlockers().catch((err) => {
     console.error("[autopilot] blocker detection error", err);
   });
@@ -152,6 +192,11 @@ export async function runAutopilotTick(opts?: {
     tickedAt: new Date().toISOString(),
     agentsConsidered: candidates.length,
     agentsExecuted: toRun.length,
+    costGuard: {
+      spentTodayUsd,
+      capUsd: DAILY_COST_CAP_USD,
+      skipped: false,
+    },
     scheduledTasks: {
       checked: scheduled.checked,
       executed: scheduled.executed,

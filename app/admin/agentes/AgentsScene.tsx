@@ -163,6 +163,8 @@ const AGENT_EMOJI: Record<AgentId, string> = {
   "lead-qualifier": "🎯",
   "market-researcher": "🔬",
   "programador-fullstack": "💻",
+  "customer-success": "🎧",
+  "finance-controller": "💰",
 };
 
 // ═══════════════════════════════════════════════════════════════════════════

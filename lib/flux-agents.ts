@@ -13,6 +13,8 @@
 import { ToolLoopAgent, tool, stepCountIs } from "ai";
 import { z } from "zod";
 import { modelForAgent } from "./agent-models";
+import { listOpenBlockers } from "./agent-blockers";
+import { runningAgents } from "./agents-db";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { AGENTS_ROOT, AGENTS, type AgentId } from "./agents";
@@ -53,20 +55,40 @@ async function filesContext(agentId: AgentId): Promise<string> {
     .join("\n");
 }
 
-/** Tools extra por tipo de agente (web, imágenes). */
+/** Tools extra por tipo de agente (web, imágenes, Meta). */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function extraToolsForAgent(agentId: AgentId): Record<string, any> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const extras: Record<string, any> = {};
-  if (["market-researcher", "seo-specialist", "data-analyst"].includes(agentId)) {
+  if (
+    ["market-researcher", "seo-specialist", "data-analyst", "finance-controller"].includes(
+      agentId,
+    )
+  ) {
     extras.web_fetch = webFetchTool;
     extras.web_search = webSearchTool;
   }
   if (agentId === "disenador-creativo") {
     extras.generate_image = generateImageTool;
   }
-  if (["sem-manager", "content-creator"].includes(agentId)) {
+  if (["sem-manager", "content-creator", "customer-success"].includes(agentId)) {
     extras.web_fetch = webFetchTool;
+  }
+  // Meta Ads — se inyecta solo si hay credenciales. Si falta, el blocker
+  // del env var correspondiente lo reporta y el agente lo ve.
+  if (agentId === "sem-manager") {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const meta = require("./meta-ads") as typeof import("./meta-ads");
+      if (meta.metaAdsReady()) Object.assign(extras, meta.metaSemTools());
+    } catch {}
+  }
+  if (agentId === "community-manager") {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const meta = require("./meta-ads") as typeof import("./meta-ads");
+      if (meta.metaCommunityReady()) Object.assign(extras, meta.metaCommunityTools());
+    } catch {}
   }
   return extras;
 }
@@ -265,9 +287,10 @@ export async function runAgent({
       prompt: `Tarea: ${task}`,
     });
 
-    // Handoffs en cascada
+    // Handoffs en cascada — profundidad 4 permite pipelines largos
+    // (ej. market-researcher → estratega → copy → diseñador → community)
     const triggeredHandoffs: { agent: AgentId; task: string }[] = [];
-    if (depth < 2 && filesWritten.length > 0) {
+    if (depth < 4 && filesWritten.length > 0) {
       const matches = matchHandoffs(agentId, filesWritten);
       for (const { rule, sourcePath } of matches) {
         const handoffTask = rule.then.taskTemplate({ sourceAgent: agentId, sourcePath });
@@ -334,6 +357,8 @@ export async function buildGrowthAgent(actor: string): Promise<ToolLoopAgent<nev
   let strategyBlock = "";
   let attachmentsBlock = "";
   let recentOutputsBlock = "";
+  let blockersBlock = "";
+  let runningBlock = "";
   try {
     const active = await getActiveStrategy();
     const { listAttachments } = await import("./strategy-db");
@@ -354,6 +379,31 @@ export async function buildGrowthAgent(actor: string): Promise<ToolLoopAgent<nev
     if (recentFiles.length > 0) {
       recentOutputsBlock = `\n\n# OUTPUTS RECIENTES DEL EQUIPO\n${recentFiles.map((f) => `- [${f.agent_id}] ${f.rel_path} (${f.size}b)`).join("\n")}`;
     }
+
+    // Blockers abiertos — el Growth tiene que saberlos ANTES de delegar
+    const openBlockers = await listOpenBlockers();
+    if (openBlockers.length > 0) {
+      const byAgent = new Map<string, typeof openBlockers>();
+      for (const b of openBlockers) {
+        const arr = byAgent.get(b.agent_id) ?? [];
+        arr.push(b);
+        byAgent.set(b.agent_id, arr);
+      }
+      const lines = Array.from(byAgent.entries()).map(([agent, list]) => {
+        const items = list
+          .slice(0, 3)
+          .map((b) => `  - [${b.severity}] ${b.title}`)
+          .join("\n");
+        return `- \`${agent}\` (${list.length}):\n${items}`;
+      });
+      blockersBlock = `\n\n# ⚠️ BLOCKERS ABIERTOS (${openBlockers.length})\nEstos agentes tienen alertas activas. Evitá delegarles tareas que requieran el recurso bloqueado, o abrí el panel para resolver:\n${lines.join("\n")}`;
+    }
+
+    // Agentes corriendo AHORA — evitar dobles delegaciones
+    const busy = await runningAgents();
+    if (busy.length > 0) {
+      runningBlock = `\n\n# 🏃 AGENTES EN EJECUCIÓN (${busy.length})\n${busy.map((a) => `- \`${a}\``).join("\n")}\nNO deleges tareas adicionales a estos agentes hasta que terminen (usá list_running_agents para verificar).`;
+    }
   } catch {}
 
   const instructions = `Eres el HEAD OF GROWTH de FLUX (fluxperu.com, alquiler mensual MacBooks, Perú).
@@ -372,9 +422,40 @@ FORMATO:
 - [[plan]]pasos[[/plan]] para planes — [[flow]]diagrama[[/flow]] para flujos
 - Markdown, imágenes con ![alt](url), archivos con [[file:path|label]]
 
-${claudeMd}${strategyBlock}${attachmentsBlock}${recentOutputsBlock}`;
+${claudeMd}${strategyBlock}${blockersBlock}${runningBlock}${attachmentsBlock}${recentOutputsBlock}`;
 
-  const tools = strategyToolsForAgent("orquestador", actor);
+  const tools = {
+    ...strategyToolsForAgent("orquestador", actor),
+    list_running_agents: tool({
+      description:
+        "Devuelve los agentes que están corriendo AHORA (status=running). Usá esto ANTES de delegar para evitar doble ejecución.",
+      inputSchema: z.object({}),
+      execute: async () => {
+        const busy = await runningAgents();
+        return { running: busy, count: busy.length };
+      },
+    }),
+    list_open_blockers: tool({
+      description:
+        "Lista los blockers abiertos de todos los agentes (o de uno específico). Útil para entender por qué un agente no puede progresar.",
+      inputSchema: z.object({
+        agent_id: z.string().optional().describe("Filtrar por agente (opcional)"),
+      }),
+      execute: async ({ agent_id }) => {
+        const list = await listOpenBlockers(agent_id as AgentId | undefined);
+        return {
+          count: list.length,
+          blockers: list.map((b) => ({
+            id: b.id,
+            agent: b.agent_id,
+            severity: b.severity,
+            title: b.title,
+            context_key: b.context_key,
+          })),
+        };
+      },
+    }),
+  };
 
   console.log("[growth-agent] built with", Object.keys(tools).length, "tools, instructions:", instructions.length, "chars");
 
