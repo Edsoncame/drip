@@ -2796,6 +2796,51 @@ function AgentAvatar({
  *   - [[file:path|label]]    → tarjeta de archivo descargable
  *   - [[flow]]…[[/flow]]     → diagrama ASCII en caja
  */
+/** Inline code clickeable — click copia al clipboard con feedback visual */
+function CopyableCode({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      className={`px-1.5 py-0.5 rounded font-mono text-[11px] cursor-copy transition-all duration-200 inline-flex items-center gap-1 ${
+        copied
+          ? "bg-emerald-500/30 text-emerald-100 border border-emerald-400/50"
+          : "bg-black/50 text-emerald-200 hover:bg-emerald-500/20 hover:text-emerald-100 border border-transparent hover:border-emerald-400/40"
+      }`}
+      title="Click para copiar"
+      onClick={(e) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }}
+    >
+      {copied ? "✓ copiado" : text}
+    </button>
+  );
+}
+
+/** Botón copiar para code blocks (top-right, aparece en hover) */
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      className={`absolute top-2 right-2 z-10 px-2 py-1 rounded text-[9px] font-bold transition-all duration-200 ${
+        copied
+          ? "bg-emerald-500 text-white"
+          : "bg-white/10 text-white/60 hover:bg-white/20 hover:text-white opacity-0 group-hover:opacity-100"
+      }`}
+      onClick={(e) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(text.trim());
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }}
+    >
+      {copied ? "✓ copiado" : "📋 copiar"}
+    </button>
+  );
+}
+
 function MarkdownLite({ text, onImageClick }: { text: string; onImageClick: (url: string) => void }) {
   const blocks: React.ReactNode[] = [];
   let key = 0;
@@ -2833,25 +2878,25 @@ function MarkdownLite({ text, onImageClick }: { text: string; onImageClick: (url
   for (const part of expanded) {
     if (part.type === "code") {
       blocks.push(
-        <pre
-          key={`c-${key++}`}
-          className="my-2 p-2 rounded-lg bg-black/60 border border-white/10 text-[10px] text-emerald-200 overflow-x-auto font-mono"
-        >
-          {part.lang && <div className="text-[8px] uppercase text-white/40 mb-1">{part.lang}</div>}
-          {part.content}
-        </pre>,
+        <div key={`c-${key++}`} className="relative my-2 group">
+          <CopyButton text={part.content} />
+          <pre className="p-3 rounded-lg bg-black/60 border border-white/10 text-[10px] text-emerald-200 overflow-x-auto font-mono pr-12">
+            {part.lang && <div className="text-[8px] uppercase text-white/40 mb-1">{part.lang}</div>}
+            {part.content}
+          </pre>
+        </div>,
       );
       continue;
     }
     if (part.type === "flow") {
       blocks.push(
-        <pre
-          key={`f-${key++}`}
-          className="my-2 p-3 rounded-lg bg-gradient-to-br from-amber-400/10 to-transparent border border-amber-400/30 text-[10px] text-amber-100 font-mono whitespace-pre overflow-x-auto"
-        >
-          <div className="text-[8px] uppercase text-amber-400 mb-1">Flujo</div>
-          {part.content}
-        </pre>,
+        <div key={`f-${key++}`} className="relative my-2 group">
+          <CopyButton text={part.content} />
+          <pre className="p-3 rounded-lg bg-gradient-to-br from-amber-400/10 to-transparent border border-amber-400/30 text-[10px] text-amber-100 font-mono whitespace-pre overflow-x-auto pr-12">
+            <div className="text-[8px] uppercase text-amber-400 mb-1">Flujo</div>
+            {part.content}
+          </pre>
+        </div>,
       );
       continue;
     }
@@ -2963,9 +3008,7 @@ function renderInline(text: string, baseKey: number, onImageClick: (url: string)
     {
       re: /`([^`]+)`/,
       handle: (m) => (
-        <code key={`c-${k++}`} className="px-1 py-0.5 rounded bg-black/40 text-emerald-200 text-[11px]">
-          {m[1]}
-        </code>
+        <CopyableCode key={`c-${k++}`} text={m[1]} />
       ),
     },
   ];
