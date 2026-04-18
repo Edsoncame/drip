@@ -253,17 +253,39 @@ function Step2({
   const handleFileUpload = async (file: File, type: "dni" | "selfie") => {
     if (type === "dni") setUploadingDni(true);
     else setUploadingSelfie(true);
+    // Limpiar errores previos
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next[type === "dni" ? "dniPhoto" : "selfiePhoto"];
+      return next;
+    });
 
     const form = new FormData();
     form.append("file", file);
     try {
       const res = await fetch("/api/upload", { method: "POST", body: form });
       const data = await res.json();
-      if (data.dataUrl) {
+      if (!res.ok) {
+        setErrors((prev) => ({
+          ...prev,
+          [type === "dni" ? "dniPhoto" : "selfiePhoto"]: data.error ?? "Error al subir",
+        }));
+      } else if (data.dataUrl) {
         if (type === "dni") onIdentityChange({ ...identity, dniPhoto: data.dataUrl });
         else onIdentityChange({ ...identity, selfiePhoto: data.dataUrl });
+      } else {
+        setErrors((prev) => ({
+          ...prev,
+          [type === "dni" ? "dniPhoto" : "selfiePhoto"]: "Respuesta inesperada del servidor",
+        }));
       }
-    } catch { /* ignore */ }
+    } catch (err) {
+      setErrors((prev) => ({
+        ...prev,
+        [type === "dni" ? "dniPhoto" : "selfiePhoto"]:
+          err instanceof Error ? err.message : "Error de red al subir",
+      }));
+    }
     if (type === "dni") setUploadingDni(false);
     else setUploadingSelfie(false);
   };
@@ -494,7 +516,7 @@ function Step2({
                 <label className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${
                   errors.dniPhoto ? "border-red-400 bg-red-50" : "border-dashed border-[#CCCCCC] hover:border-[#1B4FFF] hover:bg-[#F5F8FF]"
                 }`}>
-                  <input type="file" accept="image/*" capture="environment" className="sr-only" disabled={uploadingDni}
+                  <input type="file" accept="image/*,.heic,.heif" className="sr-only" disabled={uploadingDni}
                     onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, "dni"); }} />
                   <div className="w-12 h-12 bg-[#F0F0F0] rounded-xl flex items-center justify-center flex-shrink-0">
                     {uploadingDni ? (
@@ -539,7 +561,7 @@ function Step2({
                 <label className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${
                   errors.selfiePhoto ? "border-red-400 bg-red-50" : "border-dashed border-[#CCCCCC] hover:border-[#1B4FFF] hover:bg-[#F5F8FF]"
                 }`}>
-                  <input type="file" accept="image/*" capture="user" className="sr-only" disabled={uploadingSelfie}
+                  <input type="file" accept="image/*,.heic,.heif" className="sr-only" disabled={uploadingSelfie}
                     onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, "selfie"); }} />
                   <div className="w-12 h-12 bg-[#F0F0F0] rounded-xl flex items-center justify-center flex-shrink-0">
                     {uploadingSelfie ? (
