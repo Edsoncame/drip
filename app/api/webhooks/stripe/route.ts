@@ -82,9 +82,26 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ received: true });
   } catch (err) {
-    console.error(`${tag} error processing ${event.type}`, err);
-    // 200 para no triggerear retries — ya loggeamos el error
-    return NextResponse.json({ received: true, error: String(err) });
+    // Desenrollo recursivo de error.cause — el stack real suele estar adentro.
+    function flatten(e: unknown, depth = 0): string {
+      if (depth > 4 || !e) return "";
+      if (e instanceof Error) {
+        const cause = (e as Error & { cause?: unknown }).cause;
+        return `${e.name}: ${e.message}${cause ? " → " + flatten(cause, depth + 1) : ""}`;
+      }
+      return String(e);
+    }
+    const flat = flatten(err);
+    const stack = err instanceof Error ? err.stack?.slice(0, 800) : "";
+    console.error(`${tag} error processing ${event.type} id=${event.id}`, flat, stack);
+    // 200 para no triggerear retries — ya loggeamos. Incluimos debug en la
+    // respuesta para poder inspeccionar con curl/Stripe dashboard.
+    return NextResponse.json({
+      received: true,
+      error: flat,
+      stack: stack?.slice(0, 500),
+      event_id: event.id,
+    });
   }
 }
 
@@ -93,6 +110,7 @@ export async function POST(req: NextRequest) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promise<void> {
+  console.log(`${tag} [1/8] handleCheckoutCompleted start session=${session.id}`);
   const stripeSubscriptionId =
     typeof session.subscription === "string"
       ? session.subscription
@@ -110,6 +128,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
     return;
   }
 
+  console.log(`${tag} [2/8] dedupe check sub=${stripeSubscriptionId} email=${customerEmail}`);
   // Dedupe: si ya procesamos esta subscription antes, salimos.
   const existing = await query<{ id: string }>(
     `SELECT id FROM subscriptions WHERE mp_subscription_id = $1 LIMIT 1`,
@@ -127,6 +146,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
   const appleCare = meta.apple_care === "true";
   const monthlyPrice = parseFloat(meta.monthly_price ?? "0");
 
+  console.log(`${tag} [3/8] ensure user email=${customerEmail}`);
   // ── Ensure user exists ──
   let userId: string | null = null;
   const existingUser = await query<{ id: string }>(
@@ -178,6 +198,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
     }).catch(() => {});
   }
 
+  console.log(`${tag} [4/8] hydrate KYC corr=${meta.kyc_correlation_id}`);
   // ── Hidratar URLs de imágenes desde KYC (si vino kyc_correlation_id) ──
   // Las fotos ya no viajan en metadata — buscamos las URLs reales en las
   // tablas kyc_*. Si no hay corr_id (usuario ya verificado previamente),
@@ -201,6 +222,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
     selfieUrl = faceRow.rows[0]?.selfie_key ?? null;
   }
 
+  console.log(`${tag} [5/8] insert subscription slug=${slug} months=${months}`);
   // ── Create subscription row ──
   const endsAt = new Date();
   endsAt.setMonth(endsAt.getMonth() + months);
@@ -265,6 +287,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
     );
   }
 
+  console.log(`${tag} [6/8] auto-assign equipment slug=${slug}`);
   // ── Auto-assign equipment ──
   const SLUG_TO_MODEL: Record<string, string> = {
     "macbook-air-13-m4": "MacBook Air",
@@ -296,6 +319,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
     }
   }
 
+  console.log(`${tag} [7/8] insert first payment`);
   // ── First payment record (Stripe charge covers month 1) ──
   if (userId) {
     const monthLabel = new Date().toLocaleDateString("es-PE", { month: "long", year: "numeric" });
@@ -307,6 +331,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
     );
   }
 
+  console.log(`${tag} [8/8] send confirmation email`);
   // ── Confirmation email ──
   sendConfirmationEmail({
     to: customerEmail,
