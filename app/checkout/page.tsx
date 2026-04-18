@@ -10,6 +10,7 @@ import DniCaptureGuided from "@/components/kyc/DniCaptureGuided";
 import SelfieLiveness from "@/components/kyc/SelfieLiveness";
 import AddressAutocomplete from "@/components/checkout/AddressAutocomplete";
 import { quoteShipping } from "@/lib/shipping/lima-rates";
+import PhoneInput from "@/components/PhoneInput";
 
 // ─── Step indicator ────────────────────────────────────────────────────────────
 function Steps({ current }: { current: number }) {
@@ -472,7 +473,9 @@ function Step2({
     const e: Record<string, string> = {};
     if (!data.name.trim()) e.name = "Requerido";
     if (!data.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) e.email = "Email inválido";
-    if (!data.phone.trim()) e.phone = "Requerido";
+    if (!/^\+\d{7,15}$/.test(data.phone.trim())) {
+      e.phone = "Ingresa un número válido con código de país";
+    }
     if (isLoggedIn === false && guestPassword.length < 8) {
       e.password = "Mínimo 8 caracteres";
     }
@@ -767,9 +770,12 @@ function Step2({
           <label className="block text-sm font-600 text-[#333333] mb-1">
             Teléfono / WhatsApp <span className="text-[#1B4FFF]">*</span>
           </label>
-          <input type="tel" value={data.phone} onChange={(e) => onChange({ ...data, phone: e.target.value })}
-            placeholder="+51 999 000 000"
-            className={`w-full px-4 py-3 rounded-xl border text-sm outline-none transition-all ${errors.phone ? "border-red-400 bg-red-50" : "border-[#E5E5E5] focus:border-[#1B4FFF] focus:ring-2 focus:ring-[#1B4FFF]/10"}`} />
+          <PhoneInput
+            value={data.phone}
+            onChange={(v) => onChange({ ...data, phone: v })}
+            error={!!errors.phone}
+            placeholder="999 000 000"
+          />
           {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
         </div>
 

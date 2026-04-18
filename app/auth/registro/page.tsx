@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { trackSignUp } from "@/lib/analytics";
 import Link from "next/link";
 import GoogleAuthButton, { isGoogleOAuthEnabled } from "@/components/GoogleAuthButton";
+import PhoneInput from "@/components/PhoneInput";
 
 function RegisterForm() {
   const router = useRouter();
@@ -51,7 +52,9 @@ function RegisterForm() {
     if (!form.name.trim()) e.name = "Requerido";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = "Email inválido";
     if (form.password.length < 8) e.password = "Mínimo 8 caracteres";
-    if (!form.phone.trim()) e.phone = "Requerido";
+    if (!/^\+\d{7,15}$/.test(form.phone.trim())) {
+      e.phone = "Ingresa un número válido con código de país";
+    }
     if (customerType === "empresa") {
       if (!form.company.trim()) e.company = "Razón social requerida";
       const ruc = form.ruc.trim();
@@ -169,8 +172,12 @@ function RegisterForm() {
             </Field>
 
             <Field label="Teléfono / WhatsApp" required error={errors.phone}>
-              <input type="tel" value={form.phone} onChange={set("phone")}
-                placeholder="+51 999 000 000" className={inputClass(!!errors.phone)} autoComplete="tel" />
+              <PhoneInput
+                value={form.phone}
+                onChange={(v) => setForm((f) => ({ ...f, phone: v }))}
+                error={!!errors.phone}
+                placeholder="999 000 000"
+              />
             </Field>
 
             {customerType === "empresa" && (
