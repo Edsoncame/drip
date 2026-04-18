@@ -356,6 +356,9 @@ function Step2({
   onDeliveryChange,
   identity,
   onIdentityChange,
+  kycCorrelationId,
+  isLoggedIn,
+  onGuestSignup,
 }: {
   onNext: () => void;
   onBack: () => void;
@@ -365,6 +368,10 @@ function Step2({
   onDeliveryChange: (d: DeliveryData) => void;
   identity: IdentityData;
   onIdentityChange: (d: IdentityData) => void;
+  kycCorrelationId: string;
+  isLoggedIn: boolean | null;
+  /** Crea cuenta inline con email+password. Devuelve true si OK, o un mensaje de error. */
+  onGuestSignup: (password: string) => Promise<true | string>;
 }) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -372,11 +379,12 @@ function Step2({
   const [uploadingDni, setUploadingDni] = useState(false);
   const [uploadingSelfie, setUploadingSelfie] = useState(false);
   const [cameraMode, setCameraMode] = useState<"dni" | "selfie" | null>(null);
-  // KYC state machine
-  const kycCorrIdRef = useRef<string>("");
-  if (!kycCorrIdRef.current && typeof window !== "undefined") {
-    kycCorrIdRef.current = (window.crypto?.randomUUID?.() ?? String(Date.now()));
-  }
+  // Guest signup inline
+  const [guestPassword, setGuestPassword] = useState("");
+  const [guestPasswordShow, setGuestPasswordShow] = useState(false);
+  const [signingUp, setSigningUp] = useState(false);
+  // Alias al corr id propagado desde CheckoutContent
+  const kycCorrIdRef = { current: kycCorrelationId };
   const [kycScanId, setKycScanId] = useState<number | null>(null);
   const [kycSelfieScore, setKycSelfieScore] = useState<number | null>(null);
   const [kycSelfieOk, setKycSelfieOk] = useState(false);
@@ -454,6 +462,9 @@ function Step2({
     if (!data.name.trim()) e.name = "Requerido";
     if (!data.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) e.email = "Email inválido";
     if (!data.phone.trim()) e.phone = "Requerido";
+    if (isLoggedIn === false && guestPassword.length < 8) {
+      e.password = "Mínimo 8 caracteres";
+    }
     if (data.customerType === "empresa") {
       if (!data.company.trim()) e.company = "Razón social requerida";
       const ruc = data.ruc.trim();
@@ -481,6 +492,22 @@ function Step2({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
+
+    // Guest → crear cuenta inline antes del KYC (los endpoints /api/kyc/* requieren sesión).
+    if (isLoggedIn === false) {
+      setSigningUp(true);
+      const result = await onGuestSignup(guestPassword);
+      setSigningUp(false);
+      if (result !== true) {
+        // Email ya existe → el usuario tiene cuenta; pista al campo email y CTA a login.
+        const alreadyExists = /ya existe/i.test(result);
+        setErrors((prev) => ({
+          ...prev,
+          [alreadyExists ? "email" : "password"]: result,
+        }));
+        return;
+      }
+    }
 
     // Si el usuario ya se había verificado previamente (flag "verified" del backend)
     // no re-hacemos las checks KYC.
@@ -670,9 +697,55 @@ function Step2({
           </label>
           <input type="email" value={data.email} onChange={(e) => onChange({ ...data, email: e.target.value })}
             placeholder={data.customerType === "empresa" ? "juan@empresa.com" : "juan@gmail.com"}
+            autoComplete="email"
             className={`w-full px-4 py-3 rounded-xl border text-sm outline-none transition-all ${errors.email ? "border-red-400 bg-red-50" : "border-[#E5E5E5] focus:border-[#1B4FFF] focus:ring-2 focus:ring-[#1B4FFF]/10"}`} />
-          {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+          {errors.email && (
+            <p className="text-red-500 text-xs mt-1">
+              {errors.email}
+              {/ya existe/i.test(errors.email) && (
+                <>
+                  {" "}
+                  <a
+                    href={`/auth/login?redirect=${encodeURIComponent(typeof window !== "undefined" ? window.location.pathname + window.location.search : "/checkout")}&email=${encodeURIComponent(data.email)}`}
+                    className="underline font-600 text-[#1B4FFF]"
+                  >
+                    Iniciar sesión
+                  </a>
+                </>
+              )}
+            </p>
+          )}
         </div>
+
+        {/* Password inline — solo guest. Crea la cuenta al submit del form. */}
+        {isLoggedIn === false && (
+          <div>
+            <label className="block text-sm font-600 text-[#333333] mb-1">
+              Contraseña <span className="text-[#1B4FFF]">*</span>
+              <span className="text-[#999999] font-400 ml-1">(crearemos tu cuenta con este email)</span>
+            </label>
+            <div className="relative">
+              <input
+                type={guestPasswordShow ? "text" : "password"}
+                value={guestPassword}
+                onChange={(e) => setGuestPassword(e.target.value)}
+                placeholder="Mínimo 8 caracteres"
+                autoComplete="new-password"
+                className={`w-full px-4 py-3 pr-12 rounded-xl border text-sm outline-none transition-all ${errors.password ? "border-red-400 bg-red-50" : "border-[#E5E5E5] focus:border-[#1B4FFF] focus:ring-2 focus:ring-[#1B4FFF]/10"}`}
+              />
+              <button
+                type="button"
+                onClick={() => setGuestPasswordShow((v) => !v)}
+                aria-label={guestPasswordShow ? "Ocultar contraseña" : "Mostrar contraseña"}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-[#999999] hover:text-[#333333]"
+              >
+                {guestPasswordShow ? "🙈" : "👁"}
+              </button>
+            </div>
+            {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
+          </div>
+        )}
+
         <div>
           <label className="block text-sm font-600 text-[#333333] mb-1">
             Teléfono / WhatsApp <span className="text-[#1B4FFF]">*</span>
@@ -1074,10 +1147,17 @@ function Step2({
 
       <button
         type="submit"
-        disabled={kycVerifying}
+        disabled={kycVerifying || signingUp}
         className="w-full mt-6 py-4 rounded-full bg-[#1B4FFF] text-white font-700 text-lg hover:bg-[#1340CC] transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-wait flex items-center justify-center gap-2"
       >
-        {kycVerifying ? (
+        {signingUp ? (
+          <>
+            <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="30 70" />
+            </svg>
+            Creando tu cuenta…
+          </>
+        ) : kycVerifying ? (
           <>
             <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none">
               <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="30 70" />
@@ -1114,6 +1194,7 @@ function PaymentForm({
   customer,
   delivery,
   identity,
+  kycCorrelationId,
   onBack,
 }: {
   product: Product;
@@ -1123,6 +1204,7 @@ function PaymentForm({
   customer: CustomerData;
   delivery: DeliveryData;
   identity: IdentityData;
+  kycCorrelationId: string;
   onBack: () => void;
 }) {
   const [error, setError] = useState<string | null>(null);
@@ -1147,8 +1229,7 @@ function PaymentForm({
           delivery,
           identity: {
             dniNumber: identity.dniNumber,
-            dniPhoto: identity.dniPhoto,
-            selfiePhoto: identity.selfiePhoto,
+            kycCorrelationId,
           },
         }),
       });
@@ -1245,6 +1326,12 @@ function CheckoutContent() {
   const [appleCare, setAppleCare] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null); // null = loading
+  // Correlation ID único para este checkout — agrupa DNI scan + face match
+  // para que el webhook Stripe pueda hidratar las URLs desde las tablas kyc_*.
+  const kycCorrIdRef = useRef<string>("");
+  if (!kycCorrIdRef.current && typeof window !== "undefined") {
+    kycCorrIdRef.current = window.crypto?.randomUUID?.() ?? String(Date.now());
+  }
   const [customer, setCustomer] = useState<CustomerData>({
     name: "",
     email: "",
@@ -1296,6 +1383,34 @@ function CheckoutContent() {
       .catch(() => setIsLoggedIn(false));
   }, []);
 
+  // Guest signup inline — se llama antes del KYC submit si el user no está logged-in.
+  // Devuelve true si OK, o un mensaje de error legible para mostrar en el form.
+  const handleGuestSignup = async (password: string): Promise<true | string> => {
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: customer.name,
+          email: customer.email,
+          password,
+          phone: customer.phone,
+          company: customer.customerType === "empresa" ? customer.company : "",
+          ruc: customer.customerType === "empresa" ? customer.ruc : "",
+          customerType: customer.customerType,
+        }),
+      });
+      if (res.ok) {
+        setIsLoggedIn(true);
+        return true;
+      }
+      const data = await res.json().catch(() => ({}));
+      return data.error ?? "No pudimos crear la cuenta. Revisá los datos.";
+    } catch {
+      return "Error de conexión. Intentá de nuevo.";
+    }
+  };
+
   if (!product) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -1346,9 +1461,10 @@ function CheckoutContent() {
               </div>
               <div className="flex-1">
                 <p className="text-xs text-[#333333]">
+                  Vamos a crear tu cuenta con este email.{" "}
                   <strong>¿Ya tienes cuenta?</strong>{" "}
                   <a href={`/auth/login?redirect=${encodeURIComponent(`/checkout?slug=${slug}&months=${months}`)}`}
-                    className="text-[#1B4FFF] font-600 hover:underline">Inicia sesión</a> para llenar tus datos automáticamente.
+                    className="text-[#1B4FFF] font-600 hover:underline">Inicia sesión</a>.
                 </p>
               </div>
             </div>
@@ -1362,6 +1478,9 @@ function CheckoutContent() {
               onDeliveryChange={setDelivery}
               identity={identity}
               onIdentityChange={setIdentity}
+              kycCorrelationId={kycCorrIdRef.current}
+              isLoggedIn={isLoggedIn}
+              onGuestSignup={handleGuestSignup}
               onBack={() => setStep(1)}
               onNext={() => setStep(3)}
             />
@@ -1373,6 +1492,7 @@ function CheckoutContent() {
               months={months}
               appleCare={appleCare}
               quantity={quantity}
+              kycCorrelationId={kycCorrIdRef.current}
               customer={customer}
               delivery={delivery}
               identity={identity}

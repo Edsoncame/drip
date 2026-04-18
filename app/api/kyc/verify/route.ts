@@ -89,7 +89,8 @@ export async function POST(req: NextRequest) {
     reason = "all_checks_passed";
   }
 
-  // Update users si está logueado
+  // Update users si está logueado. La URL de las imágenes queda en kyc_dni_scans
+  // y kyc_face_matches — no duplicamos en users.
   if (userId) {
     await query(
       `UPDATE users SET
@@ -98,18 +99,9 @@ export async function POST(req: NextRequest) {
         kyc_verified_at = CASE WHEN $2 = 'verified' THEN NOW() ELSE kyc_verified_at END,
         identity_verified = CASE WHEN $2 = 'verified' THEN true ELSE identity_verified END,
         dni_number = COALESCE($4, dni_number),
-        dni_photo_url = COALESCE($5, dni_photo_url),
-        selfie_url = COALESCE($6, selfie_url),
         updated_at = NOW()
        WHERE id = $1`,
-      [
-        userId,
-        status,
-        correlation_id,
-        scan.dni_number,
-        scan.imagen_anverso_key,
-        face.selfie_key,
-      ],
+      [userId, status, correlation_id, scan.dni_number],
     );
   }
 

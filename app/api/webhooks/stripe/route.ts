@@ -178,6 +178,29 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
     }).catch(() => {});
   }
 
+  // ── Hidratar URLs de imágenes desde KYC (si vino kyc_correlation_id) ──
+  // Las fotos ya no viajan en metadata — buscamos las URLs reales en las
+  // tablas kyc_*. Si no hay corr_id (usuario ya verificado previamente),
+  // las columnas snapshot quedan null — el admin igual puede consultar el
+  // historial en /admin/kyc o en las tablas kyc_*.
+  let dniPhotoUrl: string | null = null;
+  let selfieUrl: string | null = null;
+  const kycCorrId = meta.kyc_correlation_id;
+  if (kycCorrId) {
+    const scanRow = await query<{ imagen_anverso_key: string | null }>(
+      `SELECT imagen_anverso_key FROM kyc_dni_scans
+       WHERE correlation_id = $1 ORDER BY created_at DESC LIMIT 1`,
+      [kycCorrId],
+    );
+    const faceRow = await query<{ selfie_key: string | null }>(
+      `SELECT selfie_key FROM kyc_face_matches
+       WHERE correlation_id = $1 ORDER BY created_at DESC LIMIT 1`,
+      [kycCorrId],
+    );
+    dniPhotoUrl = scanRow.rows[0]?.imagen_anverso_key ?? null;
+    selfieUrl = faceRow.rows[0]?.selfie_key ?? null;
+  }
+
   // ── Create subscription row ──
   const endsAt = new Date();
   endsAt.setMonth(endsAt.getMonth() + months);
@@ -210,8 +233,8 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
       meta.delivery_distrito || null,
       meta.delivery_reference || null,
       meta.dni_number || null,
-      meta.dni_photo_url || null,
-      meta.selfie_url || null,
+      dniPhotoUrl,
+      selfieUrl,
     ],
   );
   const dbSubscriptionId = subResult.rows[0].id;

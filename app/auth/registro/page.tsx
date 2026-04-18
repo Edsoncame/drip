@@ -23,17 +23,10 @@ function RegisterForm() {
     ruc: "",
     referralCode: refParam,
   });
-  const [identity, setIdentity] = useState({
-    dniNumber: "",
-    dniPhoto: "",
-    selfiePhoto: "",
-  });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [rucStatus, setRucStatus] = useState<{ valid?: boolean; razonSocial?: string; loading?: boolean }>({});
-  const [uploadingDni, setUploadingDni] = useState(false);
-  const [uploadingSelfie, setUploadingSelfie] = useState(false);
 
   const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [key]: e.target.value }));
@@ -53,21 +46,6 @@ function RegisterForm() {
     }
   };
 
-  const handleFileUpload = async (file: File, type: "dni" | "selfie") => {
-    if (type === "dni") setUploadingDni(true); else setUploadingSelfie(true);
-    const fd = new FormData();
-    fd.append("file", file);
-    try {
-      const res = await fetch("/api/upload", { method: "POST", body: fd });
-      const data = await res.json();
-      if (data.dataUrl) {
-        if (type === "dni") setIdentity(p => ({ ...p, dniPhoto: data.dataUrl }));
-        else setIdentity(p => ({ ...p, selfiePhoto: data.dataUrl }));
-      }
-    } catch { /* */ }
-    if (type === "dni") setUploadingDni(false); else setUploadingSelfie(false);
-  };
-
   const validate = () => {
     const e: Record<string, string> = {};
     if (!form.name.trim()) e.name = "Requerido";
@@ -75,12 +53,14 @@ function RegisterForm() {
     if (form.password.length < 8) e.password = "Mínimo 8 caracteres";
     if (!form.phone.trim()) e.phone = "Requerido";
     if (customerType === "empresa") {
-      if (!form.company.trim()) e.company = "Requerido";
-      if (!form.ruc.trim() || form.ruc.length !== 11) e.ruc = "RUC válido requerido";
+      if (!form.company.trim()) e.company = "Razón social requerida";
+      const ruc = form.ruc.trim();
+      if (!/^\d{11}$/.test(ruc)) {
+        e.ruc = "RUC debe tener 11 dígitos";
+      } else if (!/^(10|15|17|20)/.test(ruc)) {
+        e.ruc = "RUC inválido. Debe empezar con 10, 15, 17 o 20";
+      }
     }
-    if (!identity.dniNumber.trim() || !/^\d{8,12}$/.test(identity.dniNumber.trim())) e.dniNumber = "DNI o CE válido (8-12 dígitos)";
-    if (!identity.dniPhoto) e.dniPhoto = "Foto del DNI requerida";
-    if (!identity.selfiePhoto) e.selfiePhoto = "Selfie con DNI requerida";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -96,13 +76,7 @@ function RegisterForm() {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...form,
-          customerType,
-          dniNumber: identity.dniNumber,
-          dniPhoto: identity.dniPhoto,
-          selfiePhoto: identity.selfiePhoto,
-        }),
+        body: JSON.stringify({ ...form, customerType }),
       });
       const data = await res.json();
 
@@ -150,26 +124,30 @@ function RegisterForm() {
 
           {/* Customer type toggle */}
           <div className="flex gap-3 mb-5">
-            <button type="button" onClick={() => setCustomerType("persona")}
+            <button type="button" onClick={() => {
+              setCustomerType("persona");
+              setForm(f => ({ ...f, ruc: "", company: "" }));
+              setRucStatus({});
+            }}
               className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-700 transition-all cursor-pointer ${
                 customerType === "persona" ? "border-[#1B4FFF] bg-[#EEF2FF] text-[#1B4FFF]" : "border-[#E5E5E5] text-[#666666] hover:border-[#BBCAFF]"
               }`}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-              Persona
+              Persona natural
             </button>
             <button type="button" onClick={() => setCustomerType("empresa")}
               className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-700 transition-all cursor-pointer ${
                 customerType === "empresa" ? "border-[#1B4FFF] bg-[#EEF2FF] text-[#1B4FFF]" : "border-[#E5E5E5] text-[#666666] hover:border-[#BBCAFF]"
               }`}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v3"/></svg>
-              Empresa
+              Persona jurídica
             </button>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <Field label="Nombre completo" required error={errors.name}>
               <input type="text" value={form.name} onChange={set("name")}
-                placeholder="Juan Pérez" className={inputClass(!!errors.name)} />
+                placeholder="Juan Pérez" className={inputClass(!!errors.name)} autoComplete="name" />
             </Field>
 
             <Field label="Correo electrónico" required error={errors.email}>
@@ -183,6 +161,7 @@ function RegisterForm() {
                 <input type={showPassword ? "text" : "password"} value={form.password} onChange={set("password")}
                   placeholder="Mínimo 8 caracteres" className={`${inputClass(!!errors.password)} pr-12`} autoComplete="new-password" />
                 <button type="button" onClick={() => setShowPassword(v => !v)}
+                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-[#999999] hover:text-[#333333]">
                   {showPassword ? "🙈" : "👁"}
                 </button>
@@ -191,13 +170,13 @@ function RegisterForm() {
 
             <Field label="Teléfono / WhatsApp" required error={errors.phone}>
               <input type="tel" value={form.phone} onChange={set("phone")}
-                placeholder="+51 999 000 000" className={inputClass(!!errors.phone)} />
+                placeholder="+51 999 000 000" className={inputClass(!!errors.phone)} autoComplete="tel" />
             </Field>
 
             {customerType === "empresa" && (
               <>
                 <Field label="RUC" required error={errors.ruc}>
-                  <input type="text" value={form.ruc}
+                  <input type="text" value={form.ruc} inputMode="numeric" maxLength={11}
                     onChange={(e) => {
                       const v = e.target.value.replace(/\D/g, "").slice(0, 11);
                       setForm(f => ({ ...f, ruc: v }));
@@ -205,93 +184,31 @@ function RegisterForm() {
                       else setRucStatus({});
                     }}
                     placeholder="20123456789" className={inputClass(!!errors.ruc || rucStatus.valid === false)} />
+                  {rucStatus.loading && <p className="text-xs text-[#999999] mt-1">Verificando en SUNAT…</p>}
                   {rucStatus.valid === true && (
                     <p className="text-xs text-green-600 mt-1 font-600">✓ {rucStatus.razonSocial}</p>
                   )}
-                  {rucStatus.valid === false && form.ruc.length === 11 && (
-                    <p className="text-xs text-red-500 mt-1">✕ RUC no válido en SUNAT</p>
+                  {!errors.ruc && rucStatus.valid === false && form.ruc.length === 11 && (
+                    <p className="text-xs text-red-500 mt-1">✕ RUC no activo o no habido en SUNAT</p>
                   )}
                 </Field>
 
-                <Field label="Empresa" required error={errors.company}>
+                <Field label="Razón social" required error={errors.company}>
                   <input type="text" value={form.company} onChange={set("company")}
-                    placeholder="Mi Empresa S.A.C." className={inputClass(!!errors.company)} />
+                    placeholder="Mi Empresa S.A.C." className={inputClass(!!errors.company)} autoComplete="organization" />
                 </Field>
               </>
             )}
-
-            {/* Identity verification */}
-            <div className="bg-[#F5F8FF] rounded-2xl p-4">
-              <div className="flex items-center gap-2 mb-1">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1B4FFF" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                <h3 className="text-sm font-700 text-[#18191F]">Verificación de identidad</h3>
-              </div>
-              <p className="text-xs text-[#666666]">3 datos para confirmar que eres tú. Tu información se guarda de forma segura.</p>
-            </div>
-
-            <Field label="N° de DNI o Carnet de Extranjería" required error={errors.dniNumber}>
-              <input type="text" inputMode="numeric" value={identity.dniNumber}
-                onChange={(e) => setIdentity(p => ({ ...p, dniNumber: e.target.value.replace(/\D/g, "").slice(0, 12) }))}
-                placeholder="Ej: 70123456" className={inputClass(!!errors.dniNumber)} />
-            </Field>
-
-            <div>
-              <label className="block text-sm font-600 text-[#333333] mb-1">Foto del DNI (frente) <span className="text-[#1B4FFF]">*</span></label>
-              {identity.dniPhoto ? (
-                <div className="relative rounded-xl overflow-hidden border-2 border-[#2D7D46]">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={identity.dniPhoto} alt="DNI" className="w-full h-32 object-cover" />
-                  <button type="button" onClick={() => setIdentity(p => ({ ...p, dniPhoto: "" }))}
-                    className="absolute top-2 right-2 w-6 h-6 bg-black/50 text-white rounded-full text-xs cursor-pointer">✕</button>
-                </div>
-              ) : (
-                <label className={`flex items-center gap-3 p-3 rounded-xl border-2 border-dashed cursor-pointer transition-all ${errors.dniPhoto ? "border-red-400 bg-red-50" : "border-[#CCCCCC] hover:border-[#1B4FFF] hover:bg-[#F5F8FF]"}`}>
-                  <input type="file" accept="image/*" capture="environment" className="sr-only" disabled={uploadingDni}
-                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, "dni"); }} />
-                  <div className="w-10 h-10 bg-[#F0F0F0] rounded-lg flex items-center justify-center flex-shrink-0">
-                    {uploadingDni ? <svg className="animate-spin w-4 h-4 text-[#1B4FFF]" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="30 70"/></svg>
-                      : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="1.5"><rect x="2" y="4" width="20" height="16" rx="3"/><circle cx="9" cy="11" r="2.5"/></svg>}
-                  </div>
-                  <div>
-                    <p className="text-sm font-600 text-[#333333]">{uploadingDni ? "Subiendo..." : "Subir foto del DNI"}</p>
-                    <p className="text-xs text-[#999999]">Toca para abrir cámara</p>
-                  </div>
-                </label>
-              )}
-              {errors.dniPhoto && <p className="text-red-500 text-xs mt-1">{errors.dniPhoto}</p>}
-            </div>
-
-            <div>
-              <label className="block text-sm font-600 text-[#333333] mb-1">Selfie con tu DNI <span className="text-[#1B4FFF]">*</span></label>
-              <p className="text-xs text-[#999999] mb-2">Tu cara junto a tu DNI en la misma foto</p>
-              {identity.selfiePhoto ? (
-                <div className="relative rounded-xl overflow-hidden border-2 border-[#2D7D46]">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={identity.selfiePhoto} alt="Selfie" className="w-full h-32 object-cover" />
-                  <button type="button" onClick={() => setIdentity(p => ({ ...p, selfiePhoto: "" }))}
-                    className="absolute top-2 right-2 w-6 h-6 bg-black/50 text-white rounded-full text-xs cursor-pointer">✕</button>
-                </div>
-              ) : (
-                <label className={`flex items-center gap-3 p-3 rounded-xl border-2 border-dashed cursor-pointer transition-all ${errors.selfiePhoto ? "border-red-400 bg-red-50" : "border-[#CCCCCC] hover:border-[#1B4FFF] hover:bg-[#F5F8FF]"}`}>
-                  <input type="file" accept="image/*" capture="user" className="sr-only" disabled={uploadingSelfie}
-                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, "selfie"); }} />
-                  <div className="w-10 h-10 bg-[#F0F0F0] rounded-lg flex items-center justify-center flex-shrink-0">
-                    {uploadingSelfie ? <svg className="animate-spin w-4 h-4 text-[#1B4FFF]" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="30 70"/></svg>
-                      : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="1.5"><circle cx="12" cy="10" r="4"/><path d="M20 21c0-4.4-3.6-8-8-8s-8 3.6-8 8"/></svg>}
-                  </div>
-                  <div>
-                    <p className="text-sm font-600 text-[#333333]">{uploadingSelfie ? "Subiendo..." : "Tomar selfie con DNI"}</p>
-                    <p className="text-xs text-[#999999]">Cámara frontal</p>
-                  </div>
-                </label>
-              )}
-              {errors.selfiePhoto && <p className="text-red-500 text-xs mt-1">{errors.selfiePhoto}</p>}
-            </div>
 
             <Field label="Código de referido" optional>
               <input type="text" value={form.referralCode} onChange={set("referralCode")}
                 placeholder="Ej. FLUX-ABC1234" className={inputClass(false)} autoCapitalize="characters" />
             </Field>
+
+            <div className="bg-[#F5F8FF] rounded-xl p-3 flex items-start gap-2 text-xs text-[#666666]">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1B4FFF" strokeWidth="2" className="mt-0.5 flex-shrink-0"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+              <p>Validaremos tu identidad (DNI + selfie) solo cuando quieras alquilar — toma ~2 minutos.</p>
+            </div>
 
             <button type="submit" disabled={loading}
               className="w-full mt-2 py-4 rounded-full bg-[#1B4FFF] text-white font-700 text-base hover:bg-[#1340CC] transition-colors disabled:opacity-60 cursor-pointer flex items-center justify-center gap-2">

@@ -46,8 +46,7 @@ export async function POST(req: NextRequest) {
       };
       identity?: {
         dniNumber: string;
-        dniPhoto: string;
-        selfiePhoto: string;
+        kycCorrelationId: string;
       };
     };
 
@@ -111,8 +110,7 @@ export async function POST(req: NextRequest) {
       },
       identity: {
         dniNumber: identity?.dniNumber ?? "",
-        dniPhotoUrl: identity?.dniPhoto ?? "",
-        selfieUrl: identity?.selfiePhoto ?? "",
+        kycCorrelationId: identity?.kycCorrelationId ?? "",
       },
       successUrl: `${APP_URL}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
       cancelUrl: `${APP_URL}/checkout?cancelled=1`,

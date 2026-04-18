@@ -68,8 +68,8 @@ export interface CreateCheckoutParams {
   };
   identity: {
     dniNumber: string;
-    dniPhotoUrl: string;
-    selfieUrl: string;
+    /** Correlation ID del flujo KYC — el webhook lo usa para hidratar imágenes desde kyc_dni_scans/kyc_face_matches */
+    kycCorrelationId: string;
   };
   successUrl: string;
   cancelUrl: string;
@@ -123,8 +123,7 @@ export async function createCheckoutSession(
       delivery_distrito: params.delivery.distrito.slice(0, 80),
       delivery_reference: params.delivery.reference.slice(0, 490),
       dni_number: params.identity.dniNumber.slice(0, 20),
-      dni_photo_url: params.identity.dniPhotoUrl.slice(0, 490),
-      selfie_url: params.identity.selfieUrl.slice(0, 490),
+      kyc_correlation_id: params.identity.kycCorrelationId.slice(0, 80),
     },
     // La subscription hereda metadata para que el webhook de invoices
     // recurrentes pueda recuperar el producto y flags.
