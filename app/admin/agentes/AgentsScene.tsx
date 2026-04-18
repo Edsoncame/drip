@@ -255,6 +255,9 @@ export default function AgentsScene() {
   const [autopilotRunning, setAutopilotRunning] = useState(false);
   const [autopilotContinuous, setAutopilotContinuous] = useState(false);
   const [autopilotNextTick, setAutopilotNextTick] = useState<number | null>(null);
+  const [autopilotToast, setAutopilotToast] = useState<{ kind: "ok" | "warn" | "err"; text: string } | null>(null);
+  const [kickRunning, setKickRunning] = useState(false);
+  const [showBlockerPanel, setShowBlockerPanel] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [financeOpen, setFinanceOpen] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
@@ -522,6 +525,7 @@ export default function AgentsScene() {
     if (autopilotRunning) return;
     setAutopilotRunning(true);
     setAutopilotNextTick(null);
+    setAutopilotToast(null);
     try {
       const res = await fetch("/api/admin/agents/autopilot", {
         method: "POST",
@@ -529,9 +533,12 @@ export default function AgentsScene() {
         body: JSON.stringify({ max: 3, ignoreCooldown: true }),
       });
       const json = await res.json();
+      const executed: string[] = [];
+      const skipped: { agent: string; status: string; reason?: string }[] = [];
       if (json.results) {
         for (const r of json.results) {
           if (r.status === "executed" && r.run) {
+            executed.push(r.agent);
             setDelegations((prev) => [
               ...prev,
               {
@@ -547,16 +554,77 @@ export default function AgentsScene() {
                 },
               },
             ]);
+          } else {
+            skipped.push({ agent: r.agent, status: r.status, reason: r.reason });
           }
         }
       }
+      // Feedback: qué pasó en este tick
+      if (json.costGuard?.skipped) {
+        setAutopilotToast({
+          kind: "err",
+          text: `🛑 Cost cap alcanzado ($${json.costGuard.spentTodayUsd?.toFixed?.(2) ?? "?"} / $${json.costGuard.capUsd?.toFixed?.(2) ?? "20"}). Subí DAILY_AUTOPILOT_COST_CAP_USD en Vercel.`,
+        });
+      } else if (executed.length === 0) {
+        const firstSkip = skipped[0];
+        setAutopilotToast({
+          kind: "warn",
+          text: firstSkip
+            ? `Ningún agente corrió. Ejemplo: ${firstSkip.agent} → ${firstSkip.status}${firstSkip.reason ? ` (${firstSkip.reason})` : ""}.`
+            : "Ningún agente corrió este tick.",
+        });
+      } else {
+        setAutopilotToast({
+          kind: "ok",
+          text: `✅ ${executed.length} agente${executed.length > 1 ? "s" : ""} ejecutado${executed.length > 1 ? "s" : ""}: ${executed.join(", ")}${skipped.length > 0 ? ` · ${skipped.length} en cooldown/busy` : ""}`,
+        });
+      }
       loadState();
-    } catch {
-      // swallow — ya se ve en el panel si falló
+    } catch (err) {
+      setAutopilotToast({
+        kind: "err",
+        text: `Error llamando al autopilot: ${err instanceof Error ? err.message : String(err)}`,
+      });
     } finally {
       setAutopilotRunning(false);
     }
   }, [autopilotRunning, loadState]);
+
+  /**
+   * Despierta al orquestador (Growth). El autopilot no lo agenda — él no
+   * ejecuta, solo delega. Este kick corre en background (after()) y el user
+   * ve los nuevos runs al hacer poll de state.
+   */
+  const kickOrquestador = useCallback(async () => {
+    if (kickRunning) return;
+    setKickRunning(true);
+    setAutopilotToast(null);
+    try {
+      const res = await fetch("/api/admin/agents/kick-orquestador", { method: "POST" });
+      const json = await res.json().catch(() => ({}));
+      if (json.started) {
+        setAutopilotToast({
+          kind: "ok",
+          text: "🧠 Orquestador disparado — va a evaluar y delegar. En ~20s verás los nuevos runs.",
+        });
+        // refresca el estado a los 25s para que aparezcan las delegaciones
+        setTimeout(() => loadState(), 25_000);
+      } else {
+        setAutopilotToast({
+          kind: "err",
+          text: json.error ?? "No se pudo disparar el orquestador",
+        });
+      }
+    } catch (err) {
+      setAutopilotToast({
+        kind: "err",
+        text: `Error: ${err instanceof Error ? err.message : String(err)}`,
+      });
+    } finally {
+      // El botón se habilita de nuevo rápido — el trabajo corre en background
+      setTimeout(() => setKickRunning(false), 2000);
+    }
+  }, [kickRunning, loadState]);
 
   // Loop continuo: cuando está activo, dispara un tick cada 10 min
   useEffect(() => {
@@ -1000,7 +1068,7 @@ export default function AgentsScene() {
             </div>
           )}
           <div className="absolute top-4 right-4 flex items-center gap-3 text-[10px] text-white/60">
-            {/* Campana global de blockers */}
+            {/* Toggle global de blockers — abre panel detallado abajo */}
             {(() => {
               const totalBlockers = (data?.states ?? []).reduce(
                 (acc, s) => acc + (s.openBlockers?.length ?? 0),
@@ -1013,13 +1081,7 @@ export default function AgentsScene() {
               const color = hasCritical ? "#EF4444" : "#F59E0B";
               return (
                 <motion.button
-                  onClick={() => {
-                    // Abrir el primer agente con blockers
-                    const first = (data?.states ?? []).find(
-                      (s) => (s.openBlockers?.length ?? 0) > 0,
-                    );
-                    if (first) setSelected(first.id);
-                  }}
+                  onClick={() => setShowBlockerPanel((v) => !v)}
                   animate={{
                     boxShadow: [
                       `0 0 0 0 ${color}00`,
@@ -1028,13 +1090,13 @@ export default function AgentsScene() {
                     ],
                   }}
                   transition={{ duration: 1.5, repeat: Infinity }}
-                  className="flex items-center gap-1.5 px-2 py-1 rounded-full font-bold text-[10px]"
+                  className="flex items-center gap-1.5 px-2 py-1 rounded-full font-bold text-[10px] cursor-pointer"
                   style={{
                     background: `${color}25`,
                     color,
                     border: `1px solid ${color}66`,
                   }}
-                  title="Hay bloqueos abiertos — click para ver"
+                  title="Ver / ocultar bloqueos"
                 >
                   🚨 {totalBlockers} bloqueo{totalBlockers > 1 ? "s" : ""}
                 </motion.button>
@@ -1043,6 +1105,79 @@ export default function AgentsScene() {
             <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
             {data ? `${data.agents.length} agentes · ${data.activity.length} eventos` : "cargando…"}
           </div>
+
+          {/* Panel detallado de blockers globales */}
+          {showBlockerPanel && data && (() => {
+            const blockers: { agent: AgentId; blocker: AgentBlocker }[] = [];
+            for (const s of data.states) {
+              for (const b of s.openBlockers ?? []) blockers.push({ agent: s.id, blocker: b });
+            }
+            if (blockers.length === 0) return null;
+            blockers.sort((a, b) => {
+              const order = { critical: 0, warning: 1, info: 2 } as const;
+              return order[a.blocker.severity] - order[b.blocker.severity];
+            });
+            return (
+              <motion.div
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="absolute top-14 right-4 z-40 w-[min(420px,calc(100vw-32px))] max-h-[70vh] overflow-y-auto bg-[#0D0F1C]/95 backdrop-blur border border-white/10 rounded-xl p-3 shadow-2xl"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[11px] font-bold text-white/90">🚨 Bloqueos del equipo</p>
+                  <button
+                    onClick={() => setShowBlockerPanel(false)}
+                    className="text-white/50 hover:text-white/90 text-xs cursor-pointer"
+                  >✕</button>
+                </div>
+                <div className="space-y-2">
+                  {blockers.map(({ agent, blocker }) => {
+                    const color = blocker.severity === "critical" ? "#EF4444" : blocker.severity === "warning" ? "#F59E0B" : "#60A5FA";
+                    const envMatch = blocker.contextKey?.startsWith("env:")
+                      ? blocker.contextKey.slice(4)
+                      : null;
+                    return (
+                      <button
+                        key={blocker.id}
+                        onClick={() => { setSelected(agent); setShowBlockerPanel(false); }}
+                        className="w-full text-left block bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg p-2.5 cursor-pointer transition-colors"
+                      >
+                        <div className="flex items-start gap-2">
+                          <span
+                            className="text-[9px] font-bold px-1.5 py-0.5 rounded uppercase flex-shrink-0 mt-0.5"
+                            style={{ background: `${color}25`, color, border: `1px solid ${color}44` }}
+                          >
+                            {blocker.severity}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[11px] font-semibold text-white/90 truncate">{blocker.title}</p>
+                            <p className="text-[10px] text-white/50 mt-0.5">
+                              👤 <span className="text-white/70">{agent}</span>
+                              {envMatch && (
+                                <> · falta env <code className="text-amber-300 bg-white/5 px-1 rounded">{envMatch}</code></>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="mt-3 pt-2 border-t border-white/10 flex gap-2 text-[10px]">
+                  <a
+                    href="https://vercel.com/edsoncames-projects/drip/settings/environment-variables"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-emerald-300 hover:text-emerald-200 underline"
+                  >
+                    ↗ Editar env vars en Vercel
+                  </a>
+                  <span className="text-white/40">·</span>
+                  <span className="text-white/50">Click en un blocker para abrir el agente</span>
+                </div>
+              </motion.div>
+            );
+          })()}
 
           {/* Cluster rings */}
           <ClusterRing label="Pipeline creativo" x={50} y={26} w={76} h={28} color="#A78BFA" />
@@ -1228,7 +1363,65 @@ export default function AgentsScene() {
                 })()}
               </div>
             )}
+
+            {/* Despertar Orquestador — el autopilot no lo agenda porque él no ejecuta, solo delega */}
+            <motion.button
+              onClick={kickOrquestador}
+              disabled={kickRunning}
+              whileHover={{ scale: 1.05, y: -1 }}
+              whileTap={{ scale: 0.96 }}
+              className="font-bold disabled:opacity-60 disabled:cursor-wait"
+              style={{
+                padding: "10px 18px",
+                borderRadius: 999,
+                background: "linear-gradient(135deg, #8B5CF6 0%, #6366F1 50%, #3B82F6 100%)",
+                color: "#fff",
+                fontSize: 12,
+                border: "2px solid rgba(255,255,255,0.25)",
+                boxShadow: "0 10px 30px rgba(99, 102, 241, 0.35), 0 2px 8px rgba(0,0,0,0.4)",
+              }}
+              title="Despierta al orquestador — evalúa el estado y delega a quien corresponda"
+            >
+              {kickRunning ? "🧠 despertando…" : "🧠 DESPERTAR ORQUESTADOR"}
+            </motion.button>
           </div>
+
+          {/* Toast feedback del autopilot / kick */}
+          {autopilotToast && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setAutopilotToast(null)}
+              className="absolute z-40 cursor-pointer"
+              style={{
+                top: 70,
+                left: "50%",
+                transform: "translateX(-50%)",
+                padding: "8px 14px",
+                borderRadius: 12,
+                fontSize: 11,
+                fontWeight: 600,
+                maxWidth: "min(560px, calc(100vw - 32px))",
+                background:
+                  autopilotToast.kind === "ok" ? "rgba(16, 185, 129, 0.15)" :
+                  autopilotToast.kind === "warn" ? "rgba(245, 158, 11, 0.15)" :
+                  "rgba(239, 68, 68, 0.15)",
+                color:
+                  autopilotToast.kind === "ok" ? "#6EE7B7" :
+                  autopilotToast.kind === "warn" ? "#FCD34D" :
+                  "#FCA5A5",
+                border:
+                  autopilotToast.kind === "ok" ? "1px solid rgba(16, 185, 129, 0.4)" :
+                  autopilotToast.kind === "warn" ? "1px solid rgba(245, 158, 11, 0.4)" :
+                  "1px solid rgba(239, 68, 68, 0.4)",
+                backdropFilter: "blur(12px)",
+              }}
+              title="Click para cerrar"
+            >
+              {autopilotToast.text}
+            </motion.div>
+          )}
 
           {/* Delegaciones en vivo — panel flotante top-right */}
           {delegations.length > 0 && (

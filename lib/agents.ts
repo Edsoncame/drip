@@ -370,6 +370,7 @@ export interface AgentBlocker {
   severity: "info" | "warning" | "critical";
   source: string;
   createdAt: number;
+  contextKey: string | null; // ej: "env:META_ADS_ACCESS_TOKEN", "meta:business-manager-access"
 }
 
 export interface AgentState {
@@ -459,6 +460,7 @@ export async function readAgentState(id: AgentId): Promise<AgentState> {
       severity: b.severity,
       source: b.source,
       createdAt: b.created_at.getTime(),
+      contextKey: b.context_key ?? null,
     }));
     dbFiles = rows.map((r) => ({
       path: `db://${id}/${r.rel_path}`,
