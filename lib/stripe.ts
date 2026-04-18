@@ -151,7 +151,11 @@ export async function createCheckoutSession(
     success_url: params.successUrl,
     cancel_url: params.cancelUrl,
     allow_promotion_codes: false,
-    billing_address_collection: "required",
+    // "auto" = solo pedimos billing address si Stripe la necesita según el
+    // emisor de la tarjeta (la mayoría de tarjetas peruanas no la requieren).
+    // Ya pedimos la dirección de entrega en el checkout propio — no tiene
+    // sentido volver a pedirla en Stripe para un uso distinto.
+    billing_address_collection: "auto",
     // Stripe colecta la tarjeta + la guarda automáticamente para recurring.
     payment_method_collection: "always",
   });

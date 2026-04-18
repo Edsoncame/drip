@@ -194,7 +194,16 @@ type CustomerData = {
 
 type DeliveryData = {
   method: "pickup" | "shipping";
+  /**
+   * Dirección final concatenada ("Jirón ... 265") — es lo que se guarda
+   * en BD y se imprime en la guía del courier. Se arma automáticamente
+   * a partir de street + streetNumber en el formulario.
+   */
   address: string;
+  /** Calle/Avenida (del autocomplete Nominatim). Ej: "Jirón Hermano Santos García" */
+  street: string;
+  /** Número de la puerta/calle. Ej: "265". OSM casi nunca tiene números en Lima. */
+  streetNumber: string;
   distrito: string;
   reference: string;
   /** Tipo de propiedad — ayuda al courier a saber si hay portería, etc. */
@@ -495,7 +504,8 @@ function Step2({
     if (!identity.dniPhoto) e.dniPhoto = "Foto del DNI requerida";
     if (!identity.selfiePhoto) e.selfiePhoto = "Selfie con DNI requerida";
     if (delivery.method === "shipping") {
-      if (!delivery.address.trim()) e.address = "Dinos dónde entregamos";
+      if (!delivery.street.trim()) e.address = "Dinos en qué calle entregamos";
+      if (!delivery.streetNumber.trim()) e.streetNumber = "Agrega el número";
       if (!delivery.placeType) e.placeType = "Dinos si es casa, depto u oficina";
       if (
         (delivery.placeType === "depto" || delivery.placeType === "edificio") &&
@@ -1078,33 +1088,42 @@ function Step2({
           >
             <div>
               <label className="block text-sm font-600 text-[#333333] mb-1">
-                ¿Dónde entregamos tu Mac? <span className="text-[#1B4FFF]">*</span>
+                Calle / Avenida <span className="text-[#1B4FFF]">*</span>
               </label>
               <p className="text-xs text-[#999999] mb-2">
-                Escribe el nombre de la calle y número, elige de la lista
+                Escribe el nombre y elige de la lista
               </p>
               <AddressAutocomplete
-                value={delivery.address}
-                onChange={(v) =>
+                value={delivery.street}
+                onChange={(v) => {
+                  // Edición manual — reseteamos coords + cost
+                  const nextStreet = v;
+                  const nextAddress = [nextStreet, delivery.streetNumber]
+                    .filter(Boolean)
+                    .join(" ");
                   onDeliveryChange({
                     ...delivery,
-                    address: v,
-                    // Si el user edita manualmente, reseteamos coords + cost
+                    street: nextStreet,
+                    address: nextAddress,
                     lat: undefined,
                     lng: undefined,
                     shippingCost: undefined,
                     shippingFree: undefined,
-                  })
-                }
+                  });
+                }}
                 onSelect={(s) => {
                   const quote = quoteShipping({
                     distrito: s.distrito,
                     lat: s.lat,
                     lng: s.lng,
                   });
+                  const nextAddress = [s.short, delivery.streetNumber]
+                    .filter(Boolean)
+                    .join(" ");
                   onDeliveryChange({
                     ...delivery,
-                    address: s.short,
+                    street: s.short,
+                    address: nextAddress,
                     distrito: s.distrito || delivery.distrito,
                     lat: s.lat,
                     lng: s.lng,
@@ -1113,9 +1132,40 @@ function Step2({
                   });
                 }}
                 error={!!errors.address}
+                placeholder="Ej: Jirón Hermano Santos García"
               />
               {errors.address && (
                 <p className="text-red-500 text-xs mt-1">{errors.address}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-600 text-[#333333] mb-1">
+                Número <span className="text-[#1B4FFF]">*</span>
+              </label>
+              <input
+                type="text"
+                value={delivery.streetNumber}
+                onChange={(e) => {
+                  const num = e.target.value.slice(0, 15);
+                  const nextAddress = [delivery.street, num]
+                    .filter(Boolean)
+                    .join(" ");
+                  onDeliveryChange({
+                    ...delivery,
+                    streetNumber: num,
+                    address: nextAddress,
+                  });
+                }}
+                placeholder="265"
+                className={`w-full px-4 py-3 rounded-xl border text-sm outline-none transition-all ${
+                  errors.streetNumber
+                    ? "border-red-400 bg-red-50"
+                    : "border-[#E5E5E5] focus:border-[#1B4FFF] focus:ring-2 focus:ring-[#1B4FFF]/10"
+                }`}
+              />
+              {errors.streetNumber && (
+                <p className="text-red-500 text-xs mt-1">{errors.streetNumber}</p>
               )}
             </div>
 
@@ -1509,6 +1559,8 @@ function CheckoutContent() {
   const [delivery, setDelivery] = useState<DeliveryData>({
     method: "shipping",
     address: "",
+    street: "",
+    streetNumber: "",
     distrito: "",
     reference: "",
     placeType: "",
