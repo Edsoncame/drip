@@ -2,11 +2,19 @@
  * Face-match + liveness con AWS Rekognition.
  *
  * Liveness:
- *   - Tomamos 3 frames (center, left, right) del lado cliente
- *   - DetectFaces en cada uno devuelve `Pose.Yaw` (rotación horizontal, -180..180)
- *   - Verificamos: yaw[center] ~ 0, yaw[left] < -10, yaw[right] > 10
- *     → la cabeza realmente giró = live
- *   - Si los 3 yaw son ~idénticos → photo spoof → fail
+ *   - Tomamos 3 frames (center, "usuario gira a SU izquierda", "usuario gira a
+ *     SU derecha") del lado cliente.
+ *   - DetectFaces en cada uno devuelve `Pose.Yaw` (rotación horizontal, -180..180).
+ *
+ *   Convención AWS Rekognition: yaw POSITIVO = cabeza rotada hacia la derecha
+ *   del observador (la cámara). Cuando el usuario gira a SU propia izquierda,
+ *   la cámara ve la cabeza girada hacia su derecha → yaw > 0.
+ *
+ *   Entonces:
+ *     yaw[center] ≈ 0
+ *     yaw[user-left]  > +umbral   (usuario giró a su izquierda)
+ *     yaw[user-right] < -umbral   (usuario giró a su derecha)
+ *   Si los 3 yaw son ~idénticos → photo estática → fail.
  *
  * Face-match:
  *   - CompareFaces(sourceImage=DNI, targetImage=frame_center)
@@ -23,7 +31,9 @@ import {
 } from "@aws-sdk/client-rekognition";
 
 const FACE_MATCH_MIN = Number(process.env.KYC_FACE_MATCH_MIN ?? "85");
-const LIVENESS_YAW_THRESHOLD = Number(process.env.KYC_LIVENESS_YAW_MIN ?? "10");
+// Umbral de rotación en grados. 8 es suficiente para detectar un giro real y
+// tolerante con usuarios que no giran tan pronunciadamente.
+const LIVENESS_YAW_THRESHOLD = Number(process.env.KYC_LIVENESS_YAW_MIN ?? "8");
 
 let _client: RekognitionClient | null = null;
 function client(): RekognitionClient {
@@ -86,9 +96,12 @@ export async function checkLiveness(frameBytes: Buffer[]): Promise<LivenessResul
   }
 
   const [yC, yL, yR] = yaws;
+  // yC = frame 1 (mirando al frente)
+  // yL = frame 2 (usuario giró a SU izquierda → AWS ve yaw positivo)
+  // yR = frame 3 (usuario giró a SU derecha  → AWS ve yaw negativo)
   const centerOk = Math.abs(yC) < LIVENESS_YAW_THRESHOLD * 1.5;
-  const leftOk = yL < -LIVENESS_YAW_THRESHOLD;
-  const rightOk = yR > LIVENESS_YAW_THRESHOLD;
+  const leftOk = yL > LIVENESS_YAW_THRESHOLD;
+  const rightOk = yR < -LIVENESS_YAW_THRESHOLD;
 
   if (!centerOk || !leftOk || !rightOk) {
     return {

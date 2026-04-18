@@ -26,10 +26,10 @@ interface Props {
 }
 
 // Tiempo que el usuario ve la instrucción ANTES de la captura, para que
-// acomode la pose sin apuro.
-const PREP_MS = 2400;
+// acomode la pose sin apuro (y termine de girar la cabeza).
+const PREP_MS = 3000;
 // Mini feedback "Capturado ✓" entre pasos
-const ACK_MS = 700;
+const ACK_MS = 800;
 
 export default function SelfieLiveness({
   correlationId,
