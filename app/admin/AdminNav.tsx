@@ -14,6 +14,7 @@ const TABS = [
   { href: "/admin/vault",      label: "🔐 Vault" },
   { href: "/admin/agentes",    label: "🤖 Agentes" },
   { href: "/admin/estrategia", label: "📋 Estrategia" },
+  { href: "/admin/kyc",        label: "🛡️ KYC" },
 ];
 
 export default function AdminNav() {

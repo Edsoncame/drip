@@ -28,6 +28,10 @@
     {
       "path": "/api/cron/agents?job=monthly-data-report",
       "schedule": "0 13 1 * *"
+    },
+    {
+      "path": "/api/cron/kyc-purge",
+      "schedule": "0 3 * * *"
     }
   ]
 }
