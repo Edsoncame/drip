@@ -14,13 +14,16 @@ interface ContractData {
   deliveryMethod: string;
   startDate: Date;
   endDate: Date;
+  /**
+   * Precio de compra al finalizar el plazo, en USD. Opcional.
+   * Si no se pasa, el contrato muestra "A coordinar al finalizar el plazo".
+   */
+  purchasePriceUsd?: number | null;
 }
 
 const BLUE = rgb(0.106, 0.31, 1); // #1B4FFF
 const BLACK = rgb(0.094, 0.098, 0.122);
 const GRAY = rgb(0.4, 0.4, 0.4);
-
-const RESIDUAL: Record<number, number> = { 8: 77.5, 16: 55, 24: 32.5 };
 
 export async function generateContractPdf(data: ContractData): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
@@ -125,7 +128,12 @@ export async function generateContractPdf(data: ContractData): Promise<Uint8Arra
   row("Total del contrato", `USD $${(data.monthlyPrice * data.months).toFixed(2)}`);
   row("Fecha de inicio", data.startDate.toLocaleDateString("es-PE"));
   row("Fecha de vencimiento", data.endDate.toLocaleDateString("es-PE"));
-  row("Valor residual al vencimiento", `${RESIDUAL[data.months] ?? 32.5}% del valor original`);
+  row(
+    "Precio de compra al finalizar",
+    data.purchasePriceUsd
+      ? `USD $${data.purchasePriceUsd.toFixed(2)}`
+      : "A coordinar al finalizar el plazo",
+  );
   row("Depósito de garantía", "No se requiere");
   spacer(5);
   line();
@@ -138,8 +146,8 @@ export async function generateContractPdf(data: ContractData): Promise<Uint8Arra
     "4.1. El equipo es propiedad exclusiva de Tika Services S.A.C. durante la vigencia del contrato.",
     "4.2. El cobro se realiza automáticamente cada mes mediante el método de pago registrado.",
     "4.3. El arrendatario se compromete a usar el equipo de forma responsable y no cederlo a terceros.",
-    "4.4. En caso de daño, pérdida o robo, el arrendatario asume el costo de reparación o el valor residual.",
-    `4.5. Al finalizar el plazo, el arrendatario puede: (a) devolver el equipo sin costo; (b) comprar el equipo al ${RESIDUAL[data.months] ?? 32.5}% del valor original.`,
+    "4.4. En caso de daño, pérdida o robo, el arrendatario asume el costo de reparación o el precio de reemplazo del equipo.",
+    `4.5. Al finalizar el plazo, el arrendatario puede: (a) devolver el equipo sin costo; (b) comprar el equipo al precio indicado en la sección 3 (o coordinado al finalizar, si no estuviera fijado).`,
     "4.6. La cancelación anticipada requiere 30 días de aviso y una penalidad de 2 meses de renta.",
     "4.7. Los términos completos están disponibles en fluxperu.com/terminos y fueron aceptados digitalmente por el arrendatario al completar el proceso de contratación.",
   ];

@@ -92,15 +92,10 @@ export default function TerminosPage() {
         </Section>
 
         <Section title="8. Responsabilidad por daños, pérdida y robo">
-          <p><strong>8.1. Sin AppleCare+:</strong> El Usuario es responsable de cualquier daño, pérdida o robo del equipo. FLUX facturará al Usuario el costo de reparación según las tarifas vigentes de Apple, o el valor residual del equipo en caso de pérdida total.</p>
+          <p><strong>8.1. Sin AppleCare+:</strong> El Usuario es responsable de cualquier daño, pérdida o robo del equipo. FLUX facturará al Usuario el costo de reparación según las tarifas vigentes de Apple, o el precio de reemplazo del equipo en caso de pérdida total.</p>
           <p><strong>8.2. Con AppleCare+:</strong> Los daños accidentales cubiertos se gestionan a través de Apple con el deducible correspondiente (USD $99). Los daños no cubiertos por AppleCare+ siguen siendo responsabilidad del Usuario.</p>
-          <p><strong>8.3. Robo o pérdida:</strong> En caso de robo, el Usuario debe presentar denuncia policial dentro de las 48 horas y enviar copia a FLUX. El Usuario deberá abonar el valor residual del equipo según la tabla vigente. Ni FLUX ni AppleCare+ cubren pérdida o robo.</p>
-          <p><strong>8.4. Valor residual del equipo:</strong></p>
-          <ul>
-            <li>A los 8 meses: 77.5% del valor original de compra.</li>
-            <li>A los 16 meses: 55% del valor original de compra.</li>
-            <li>A los 24 meses: 32.5% del valor original de compra.</li>
-          </ul>
+          <p><strong>8.3. Robo o pérdida:</strong> En caso de robo, el Usuario debe presentar denuncia policial dentro de las 48 horas y enviar copia a FLUX. El Usuario deberá abonar el precio de reemplazo del equipo según el modelo. Ni FLUX ni AppleCare+ cubren pérdida o robo.</p>
+          <p><strong>8.4. Opción de compra al finalizar el plazo:</strong> El Usuario puede adquirir el equipo al finalizar el plazo a un precio especial que se coordina al término del contrato. Este precio se documenta por escrito como adenda al contrato original.</p>
         </Section>
 
         <Section title="9. Opción de compra">
