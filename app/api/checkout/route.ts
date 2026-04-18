@@ -64,16 +64,28 @@ export async function POST(req: NextRequest) {
     if (
       !customer?.name?.trim() ||
       !customer?.email?.trim() ||
-      !customer?.phone?.trim() ||
-      !customer?.company?.trim()
+      !customer?.phone?.trim()
     ) {
       return NextResponse.json(
-        { error: "Nombre, email, teléfono y empresa son requeridos" },
+        { error: "Nombre, email y teléfono son requeridos" },
         { status: 400 },
       );
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customer.email)) {
       return NextResponse.json({ error: "Email inválido" }, { status: 400 });
+    }
+    // Si el cliente se declara empresa, razón social + RUC son obligatorios.
+    if (customer.ruc?.trim() && !customer.company?.trim()) {
+      return NextResponse.json(
+        { error: "Si ingresas RUC, la razón social también es obligatoria" },
+        { status: 400 },
+      );
+    }
+    if (!/^\+?\d{7,15}$/.test(customer.phone.trim())) {
+      return NextResponse.json(
+        { error: "Teléfono inválido — revisa el código de país" },
+        { status: 400 },
+      );
     }
 
     const product = await getProduct(slug);
