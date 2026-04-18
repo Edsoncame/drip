@@ -43,6 +43,13 @@ export async function POST(req: NextRequest) {
         address: string;
         distrito: string;
         reference: string;
+        placeType?: "casa" | "depto" | "edificio" | "";
+        apartment?: string;
+        floor?: string;
+        lat?: number;
+        lng?: number;
+        shippingCost?: number;
+        shippingFree?: boolean;
       };
       identity?: {
         dniNumber: string;
@@ -107,6 +114,13 @@ export async function POST(req: NextRequest) {
         address: delivery?.address ?? "",
         distrito: delivery?.distrito ?? "",
         reference: delivery?.reference ?? "",
+        placeType: delivery?.placeType ?? "",
+        apartment: delivery?.apartment ?? "",
+        floor: delivery?.floor ?? "",
+        lat: delivery?.lat,
+        lng: delivery?.lng,
+        shippingCostPen: delivery?.shippingCost ?? 0,
+        shippingFree: delivery?.shippingFree ?? false,
       },
       identity: {
         dniNumber: identity?.dniNumber ?? "",

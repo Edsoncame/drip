@@ -8,6 +8,8 @@ import type { Product } from "@/lib/products";
 import { trackBeginCheckout } from "@/lib/analytics";
 import DniCaptureGuided from "@/components/kyc/DniCaptureGuided";
 import SelfieLiveness from "@/components/kyc/SelfieLiveness";
+import AddressAutocomplete from "@/components/checkout/AddressAutocomplete";
+import { quoteShipping } from "@/lib/shipping/lima-rates";
 
 // ─── Step indicator ────────────────────────────────────────────────────────────
 function Steps({ current }: { current: number }) {
@@ -194,6 +196,19 @@ type DeliveryData = {
   address: string;
   distrito: string;
   reference: string;
+  /** Tipo de propiedad — ayuda al courier a saber si hay portería, etc. */
+  placeType: "casa" | "depto" | "edificio" | "";
+  /** Nº de departamento / interior (ej. "301", "A-12") */
+  apartment: string;
+  /** Piso (ej. "3") — separado de apartment para courier */
+  floor: string;
+  /** Coordenadas (del autocomplete) — sirven para cotizar envío preciso */
+  lat?: number;
+  lng?: number;
+  /** Costo de envío calculado, en soles */
+  shippingCost?: number;
+  /** True si el costo real era < 20 soles → mostramos "Gratis" */
+  shippingFree?: boolean;
 };
 
 type IdentityData = {
@@ -201,19 +216,6 @@ type IdentityData = {
   dniPhoto: string;   // base64 data URL
   selfiePhoto: string; // base64 data URL
 };
-
-const LIMA_DISTRITOS = [
-  "Ate", "Barranco", "Breña", "Carabayllo", "Chaclacayo", "Chorrillos",
-  "Cieneguilla", "Comas", "El Agustino", "Independencia", "Jesús María",
-  "La Molina", "La Victoria", "Lima Cercado", "Lince", "Los Olivos",
-  "Lurigancho-Chosica", "Lurín", "Magdalena del Mar", "Miraflores",
-  "Pachacámac", "Pueblo Libre", "Puente Piedra", "Punta Hermosa",
-  "Punta Negra", "Rímac", "San Bartolo", "San Borja", "San Isidro",
-  "San Juan de Lurigancho", "San Juan de Miraflores", "San Luis",
-  "San Martín de Porres", "San Miguel", "Santa Anita", "Santa María del Mar",
-  "Santa Rosa", "Santiago de Surco", "Surquillo", "Villa El Salvador",
-  "Villa María del Triunfo",
-];
 
 // ─── Camera capture modal (getUserMedia) ─────────────────────────────────────
 function CameraModal({
@@ -490,8 +492,14 @@ function Step2({
     if (!identity.dniPhoto) e.dniPhoto = "Foto del DNI requerida";
     if (!identity.selfiePhoto) e.selfiePhoto = "Selfie con DNI requerida";
     if (delivery.method === "shipping") {
-      if (!delivery.address.trim()) e.address = "Requerido";
-      if (!delivery.distrito) e.distrito = "Selecciona un distrito";
+      if (!delivery.address.trim()) e.address = "Dinos dónde entregamos";
+      if (!delivery.placeType) e.placeType = "Dinos si es casa, depto u oficina";
+      if (
+        (delivery.placeType === "depto" || delivery.placeType === "edificio") &&
+        !delivery.apartment.trim()
+      ) {
+        e.apartment = "Requerido";
+      }
     }
     if (!acceptedTerms) e.terms = "Debes aceptar los términos para continuar";
     setErrors(e);
@@ -946,30 +954,52 @@ function Step2({
                       className="w-6 h-6 bg-black/50 text-white rounded-full text-xs flex items-center justify-center cursor-pointer hover:bg-black/70">✕</button>
                   </div>
                 </div>
-              ) : (
-                <div className="space-y-2">
-                  <button
-                    type="button"
-                    onClick={() => setCameraMode("selfie")}
-                    disabled={uploadingSelfie}
-                    className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${
-                      errors.selfiePhoto ? "border-red-400 bg-red-50" : "border-[#1B4FFF] bg-[#F5F8FF] hover:bg-[#EEF2FF]"
-                    }`}
-                  >
-                    <div className="w-12 h-12 bg-[#1B4FFF] rounded-xl flex items-center justify-center flex-shrink-0 text-white">
-                      {uploadingSelfie ? (
-                        <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="30 70"/></svg>
-                      ) : (
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><circle cx="12" cy="10" r="4"/><path d="M20 21c0-4.4-3.6-8-8-8s-8 3.6-8 8"/></svg>
-                      )}
-                    </div>
-                    <div className="text-left">
-                      <p className="text-sm font-700 text-[#1B4FFF]">{uploadingSelfie ? "Verificando..." : "Empezar verificación"}</p>
-                      <p className="text-xs text-[#666666]">3 fotos rápidas con tu cámara frontal</p>
-                    </div>
-                  </button>
-                </div>
-              )}
+              ) : (() => {
+                // La selfie requiere que el DNI ya esté capturado (el backend
+                // necesita comparar contra imagen_anverso_key). Bloqueamos el
+                // botón hasta que el usuario complete el paso anterior.
+                const dniReady = !!identity.dniPhoto;
+                return (
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => dniReady && setCameraMode("selfie")}
+                      disabled={uploadingSelfie || !dniReady}
+                      className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all ${
+                        !dniReady
+                          ? "border-[#E5E5E5] bg-[#F5F5F5] cursor-not-allowed opacity-70"
+                          : errors.selfiePhoto
+                            ? "border-red-400 bg-red-50 cursor-pointer"
+                            : "border-[#1B4FFF] bg-[#F5F8FF] hover:bg-[#EEF2FF] cursor-pointer"
+                      }`}
+                    >
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 text-white ${dniReady ? "bg-[#1B4FFF]" : "bg-[#BDBDBD]"}`}>
+                        {uploadingSelfie ? (
+                          <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="30 70"/></svg>
+                        ) : !dniReady ? (
+                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>
+                        ) : (
+                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><circle cx="12" cy="10" r="4"/><path d="M20 21c0-4.4-3.6-8-8-8s-8 3.6-8 8"/></svg>
+                        )}
+                      </div>
+                      <div className="text-left">
+                        <p className={`text-sm font-700 ${dniReady ? "text-[#1B4FFF]" : "text-[#999999]"}`}>
+                          {uploadingSelfie
+                            ? "Verificando..."
+                            : !dniReady
+                              ? "Primero captura tu DNI"
+                              : "Empezar verificación"}
+                        </p>
+                        <p className="text-xs text-[#666666]">
+                          {dniReady
+                            ? "3 fotos rápidas con tu cámara frontal"
+                            : "Completa el paso 2 para habilitar este paso"}
+                        </p>
+                      </div>
+                    </button>
+                  </div>
+                );
+              })()}
               {errors.selfiePhoto && <p className="text-red-500 text-xs mt-1">{errors.selfiePhoto}</p>}
             </div>
           </div>
@@ -1038,57 +1068,169 @@ function Step2({
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             transition={{ duration: 0.2 }}
-            className="mt-4 space-y-3"
+            className="mt-4 space-y-4"
           >
             <div>
               <label className="block text-sm font-600 text-[#333333] mb-1">
-                Distrito <span className="text-[#1B4FFF]">*</span>
+                ¿Dónde entregamos tu Mac? <span className="text-[#1B4FFF]">*</span>
               </label>
-              <select
-                value={delivery.distrito}
-                onChange={(e) => onDeliveryChange({ ...delivery, distrito: e.target.value })}
-                className={`w-full px-4 py-3 rounded-xl border text-sm outline-none transition-all bg-white ${
-                  errors.distrito
-                    ? "border-red-400 bg-red-50"
-                    : "border-[#E5E5E5] focus:border-[#1B4FFF] focus:ring-2 focus:ring-[#1B4FFF]/10"
-                }`}
-              >
-                <option value="">Selecciona tu distrito</option>
-                {LIMA_DISTRITOS.map(d => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
-              {errors.distrito && <p className="text-red-500 text-xs mt-1">{errors.distrito}</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-600 text-[#333333] mb-1">
-                Dirección <span className="text-[#1B4FFF]">*</span>
-              </label>
-              <input
-                type="text"
+              <p className="text-xs text-[#999999] mb-2">
+                Escribe el nombre de la calle y número, elige de la lista
+              </p>
+              <AddressAutocomplete
                 value={delivery.address}
-                onChange={(e) => onDeliveryChange({ ...delivery, address: e.target.value })}
-                placeholder="Av. Javier Prado 1234, Oficina 501"
-                className={`w-full px-4 py-3 rounded-xl border text-sm outline-none transition-all ${
-                  errors.address
-                    ? "border-red-400 bg-red-50"
-                    : "border-[#E5E5E5] focus:border-[#1B4FFF] focus:ring-2 focus:ring-[#1B4FFF]/10"
-                }`}
+                onChange={(v) =>
+                  onDeliveryChange({
+                    ...delivery,
+                    address: v,
+                    // Si el user edita manualmente, reseteamos coords + cost
+                    lat: undefined,
+                    lng: undefined,
+                    shippingCost: undefined,
+                    shippingFree: undefined,
+                  })
+                }
+                onSelect={(s) => {
+                  const quote = quoteShipping({
+                    distrito: s.distrito,
+                    lat: s.lat,
+                    lng: s.lng,
+                  });
+                  onDeliveryChange({
+                    ...delivery,
+                    address: s.short,
+                    distrito: s.distrito || delivery.distrito,
+                    lat: s.lat,
+                    lng: s.lng,
+                    shippingCost: quote.cost,
+                    shippingFree: quote.is_free,
+                  });
+                }}
+                error={!!errors.address}
               />
-              {errors.address && <p className="text-red-500 text-xs mt-1">{errors.address}</p>}
+              {errors.address && (
+                <p className="text-red-500 text-xs mt-1">{errors.address}</p>
+              )}
             </div>
+
+            {/* Tipo de propiedad — ayuda al courier */}
+            <div>
+              <label className="block text-sm font-600 text-[#333333] mb-2">
+                ¿Dónde es? <span className="text-[#1B4FFF]">*</span>
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {([
+                  { value: "casa", label: "Casa", icon: "🏠" },
+                  { value: "depto", label: "Depto", icon: "🏢" },
+                  { value: "edificio", label: "Oficina", icon: "🏬" },
+                ] as const).map((t) => (
+                  <button
+                    key={t.value}
+                    type="button"
+                    onClick={() =>
+                      onDeliveryChange({ ...delivery, placeType: t.value })
+                    }
+                    className={`flex flex-col items-center justify-center gap-1 py-3 rounded-xl border-2 text-xs font-700 transition-all cursor-pointer ${
+                      delivery.placeType === t.value
+                        ? "border-[#1B4FFF] bg-[#EEF2FF] text-[#1B4FFF]"
+                        : "border-[#E5E5E5] text-[#666666] hover:border-[#BBCAFF]"
+                    }`}
+                  >
+                    <span className="text-2xl leading-none">{t.icon}</span>
+                    <span>{t.label}</span>
+                  </button>
+                ))}
+              </div>
+              {errors.placeType && (
+                <p className="text-red-500 text-xs mt-1">{errors.placeType}</p>
+              )}
+            </div>
+
+            {/* Apt + piso cuando es depto u oficina */}
+            {(delivery.placeType === "depto" || delivery.placeType === "edificio") && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-600 text-[#333333] mb-1">
+                    {delivery.placeType === "depto" ? "Nº Depto" : "Oficina"} <span className="text-[#1B4FFF]">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={delivery.apartment}
+                    onChange={(e) =>
+                      onDeliveryChange({ ...delivery, apartment: e.target.value })
+                    }
+                    placeholder={delivery.placeType === "depto" ? "301" : "A-12"}
+                    className={`w-full px-4 py-3 rounded-xl border text-sm outline-none transition-all ${
+                      errors.apartment
+                        ? "border-red-400 bg-red-50"
+                        : "border-[#E5E5E5] focus:border-[#1B4FFF] focus:ring-2 focus:ring-[#1B4FFF]/10"
+                    }`}
+                  />
+                  {errors.apartment && (
+                    <p className="text-red-500 text-xs mt-1">{errors.apartment}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-600 text-[#333333] mb-1">
+                    Piso <span className="text-[#999999] font-400">(opcional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={delivery.floor}
+                    onChange={(e) =>
+                      onDeliveryChange({ ...delivery, floor: e.target.value.replace(/\D/g, "").slice(0, 3) })
+                    }
+                    placeholder="3"
+                    className="w-full px-4 py-3 rounded-xl border border-[#E5E5E5] text-sm outline-none focus:border-[#1B4FFF] focus:ring-2 focus:ring-[#1B4FFF]/10 transition-all"
+                  />
+                </div>
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-600 text-[#333333] mb-1">
-                Referencia <span className="text-[#999999] font-400">(opcional)</span>
+                Referencia para el motorizado <span className="text-[#999999] font-400">(opcional)</span>
               </label>
               <input
                 type="text"
                 value={delivery.reference}
-                onChange={(e) => onDeliveryChange({ ...delivery, reference: e.target.value })}
-                placeholder="Edificio Torre Azul, piso 5, preguntar por recepción"
+                onChange={(e) =>
+                  onDeliveryChange({ ...delivery, reference: e.target.value })
+                }
+                placeholder="Puerta azul al lado del parque"
                 className="w-full px-4 py-3 rounded-xl border border-[#E5E5E5] text-sm outline-none focus:border-[#1B4FFF] focus:ring-2 focus:ring-[#1B4FFF]/10 transition-all"
               />
             </div>
+
+            {/* Costo de envío calculado — solo si ya hay coords */}
+            {typeof delivery.shippingCost === "number" && delivery.lat && (
+              <div className={`rounded-xl p-4 flex items-center gap-3 ${
+                delivery.shippingFree
+                  ? "bg-[#E7FBE7] border border-[#A7E3A7]"
+                  : "bg-[#F5F8FF] border border-[#BBCAFF]"
+              }`}>
+                <span className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${
+                  delivery.shippingFree ? "bg-[#2D7D46] text-white" : "bg-[#1B4FFF] text-white"
+                }`}>
+                  {delivery.shippingFree ? (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                  ) : (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3h2l3 12h11l2-8H6"/><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/></svg>
+                  )}
+                </span>
+                <div className="flex-1">
+                  <p className="text-sm font-700 text-[#18191F]">
+                    {delivery.shippingFree ? "¡Envío gratis!" : `Envío: S/ ${delivery.shippingCost}`}
+                  </p>
+                  <p className="text-xs text-[#666666]">
+                    {delivery.shippingFree
+                      ? "A esta zona lo cubrimos nosotros"
+                      : "Se agrega al pago inicial. Entrega en 24–48 h"}
+                  </p>
+                </div>
+              </div>
+            )}
           </motion.div>
         )}
 
@@ -1279,6 +1421,20 @@ function PaymentForm({
           <p className="text-sm font-700 text-[#333333]">Cobro hoy</p>
           <p className="text-xl font-800 text-[#1B4FFF]">${totalMonthly}</p>
         </div>
+        {/* Envío — se cobra contra entrega en soles */}
+        {delivery.method === "shipping" && typeof delivery.shippingCost === "number" && (
+          <div className="flex justify-between items-center mt-2 pt-2 border-t border-[#DDEAFF]">
+            <div>
+              <p className="text-sm text-[#666666]">🛵 Envío a domicilio</p>
+              <p className="text-[10px] text-[#999999]">
+                {delivery.shippingFree ? "¡Gratis!" : "Se cobra contra entrega"}
+              </p>
+            </div>
+            <p className={`text-sm font-700 ${delivery.shippingFree ? "text-[#2D7D46]" : "text-[#18191F]"}`}>
+              {delivery.shippingFree ? "Gratis" : `S/ ${delivery.shippingCost}`}
+            </p>
+          </div>
+        )}
       </div>
 
       <motion.button
@@ -1349,6 +1505,9 @@ function CheckoutContent() {
     address: "",
     distrito: "",
     reference: "",
+    placeType: "",
+    apartment: "",
+    floor: "",
   });
   const [identity, setIdentity] = useState<IdentityData>({
     dniNumber: "",

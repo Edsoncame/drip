@@ -205,14 +205,20 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
   const endsAt = new Date();
   endsAt.setMonth(endsAt.getMonth() + months);
 
+  const shippingCostPen = parseFloat(meta.shipping_cost_pen ?? "0") || 0;
+  const shippingLat = meta.shipping_lat ? parseFloat(meta.shipping_lat) : null;
+  const shippingLng = meta.shipping_lng ? parseFloat(meta.shipping_lng) : null;
+
   const subResult = await query<{ id: string }>(
     `INSERT INTO subscriptions
       (user_id, product_slug, product_name, months, monthly_price, status,
        started_at, ends_at, mp_subscription_id,
        customer_name, customer_email, customer_phone, customer_company, customer_ruc,
        apple_care, delivery_method, delivery_address, delivery_distrito, delivery_reference,
+       delivery_place_type, delivery_apartment, delivery_floor,
+       shipping_cost_pen, shipping_lat, shipping_lng,
        dni_number, dni_photo_url, selfie_url, payment_method)
-     VALUES ($1,$2,$3,$4,$5,'active',NOW(),$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,'stripe')
+     VALUES ($1,$2,$3,$4,$5,'active',NOW(),$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,'stripe')
      RETURNING id`,
     [
       userId,
@@ -232,6 +238,12 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
       meta.delivery_address || null,
       meta.delivery_distrito || null,
       meta.delivery_reference || null,
+      meta.delivery_place_type || null,
+      meta.delivery_apartment || null,
+      meta.delivery_floor || null,
+      shippingCostPen,
+      shippingLat,
+      shippingLng,
       meta.dni_number || null,
       dniPhotoUrl,
       selfieUrl,

@@ -65,6 +65,14 @@ export interface CreateCheckoutParams {
     address: string;
     distrito: string;
     reference: string;
+    placeType: string;
+    apartment: string;
+    floor: string;
+    lat?: number;
+    lng?: number;
+    /** Flete en soles. Se cobra contra entrega, no por Stripe. */
+    shippingCostPen: number;
+    shippingFree: boolean;
   };
   identity: {
     dniNumber: string;
@@ -122,6 +130,13 @@ export async function createCheckoutSession(
       delivery_address: params.delivery.address.slice(0, 490),
       delivery_distrito: params.delivery.distrito.slice(0, 80),
       delivery_reference: params.delivery.reference.slice(0, 490),
+      delivery_place_type: params.delivery.placeType.slice(0, 20),
+      delivery_apartment: params.delivery.apartment.slice(0, 30),
+      delivery_floor: params.delivery.floor.slice(0, 10),
+      shipping_lat: params.delivery.lat?.toFixed(6) ?? "",
+      shipping_lng: params.delivery.lng?.toFixed(6) ?? "",
+      shipping_cost_pen: String(params.delivery.shippingCostPen),
+      shipping_free: String(params.delivery.shippingFree),
       dni_number: params.identity.dniNumber.slice(0, 20),
       kyc_correlation_id: params.identity.kycCorrelationId.slice(0, 80),
     },
