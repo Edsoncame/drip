@@ -33,6 +33,7 @@ interface Sub {
   dni_photo_url: string | null;
   selfie_url: string | null;
   identity_verified: boolean | null;
+  payment_method: string | null;
 }
 
 interface Stat {
@@ -74,7 +75,8 @@ export default async function AdminPage() {
              s.customer_name, s.customer_email, s.customer_phone,
              s.customer_company, s.customer_ruc, s.apple_care,
              s.delivery_method, s.delivery_address, s.delivery_distrito, s.delivery_reference,
-             s.dni_number, s.dni_photo_url, s.selfie_url, s.identity_verified
+             s.dni_number, s.dni_photo_url, s.selfie_url, s.identity_verified,
+             s.payment_method
       FROM subscriptions s
       LEFT JOIN users u ON u.id = s.user_id
       ORDER BY s.started_at DESC

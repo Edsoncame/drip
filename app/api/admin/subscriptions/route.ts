@@ -5,7 +5,7 @@ import { sendEmail } from "@/lib/email";
 
 const tag = "[admin/subscriptions]";
 
-const ALLOWED_STATUSES = ["active", "paused", "cancelled", "completed", "delivered", "shipped"];
+const ALLOWED_STATUSES = ["preparing", "shipped", "delivered", "paused", "cancelled", "completed", "active"];
 
 export async function PATCH(req: NextRequest) {
   const session = await requireAdmin();
