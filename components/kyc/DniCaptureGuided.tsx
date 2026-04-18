@@ -3,30 +3,39 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 
 /**
- * Captura guiada del DNI peruano con detección en tiempo real.
+ * Captura guiada del DNI peruano.
  *
- * Checks client-side (sin dependencias pesadas — canvas JS puro):
- *   - Encuadre: bordes del doc dentro del marco (aspect ratio ID-1 1.586:1)
- *   - Foco: varianza del Laplaciano en región central > umbral
- *   - Iluminación: histograma balanceado, sin zonas saturadas
- *   - Estabilidad: la imagen debe estar quieta (delta entre frames chico)
+ * Diseño UX:
+ *   - Marco tipo "scanner" con corners en las esquinas (no borde sólido).
+ *   - Un solo mensaje estable arriba, con debounce para no parpadear.
+ *   - Cuando detecta foco + estabilidad OK, el marco se ilumina en verde
+ *     y captura silenciosamente (sin countdown numérico).
+ *   - Botón "Capturar ahora" grande y siempre disponible.
+ *   - Sin textos técnicos en pantalla (nada de "foco 90").
  *
- * El match detallado (bordes del documento, OCR, quality issues finos)
- * lo hace el backend con Claude. Acá solo filtramos basura antes de
- * llamar al API (ahorra tiempo + costo).
+ * Checks client-side en background (silenciosos hasta que hay resultado):
+ *   - Foco: varianza del Laplaciano en región central
+ *   - Iluminación: histograma no saturado
+ *   - Estabilidad: delta de luminancia entre frames
  */
 
 const BLUR_THRESHOLD = Number(process.env.NEXT_PUBLIC_KYC_BLUR_THRESHOLD ?? "90");
 const ID1_RATIO = 1.586; // 85.6 / 54 mm
-const AUTO_CAPTURE_STABLE_MS = 1500;
-// Delay inicial antes de arrancar el auto-capture. Le da tiempo al usuario
-// para acomodar el DNI sin que se dispare por accidente.
-const PRE_ROLL_MS = 2500;
-// Si el delta entre frames (luminancia) supera esto, el usuario está
-// moviendo la cámara o el DNI — reseteamos timer de estabilidad.
+// Tiempo que la imagen debe estar "OK" antes de disparar auto-capture.
+// No se muestra countdown — el usuario ve el marco ponerse verde y listo.
+const AUTO_CAPTURE_STABLE_MS = 1200;
+// Antes de arrancar a chequear, le damos un respiro al usuario.
+const PRE_ROLL_MS = 1500;
 const MOTION_DELTA_THRESHOLD = 12;
+// Debounce del mensaje: no cambiamos texto hasta que el nuevo estado dure
+// al menos esto. Evita el flicker "Acercá → Enfocá → Acercá → ..." de ayer.
+const MESSAGE_DEBOUNCE_MS = 700;
 
-type QualityState =
+// Lo que ve el usuario — solo 3 estados visibles.
+type VisibleState = "positioning" | "focusing" | "ready";
+
+// Estado interno (más granular, no se muestra directamente)
+type InternalState =
   | "idle"
   | "preroll"
   | "far"
@@ -34,6 +43,18 @@ type QualityState =
   | "stabilizing"
   | "captured"
   | "error";
+
+const COPY: Record<VisibleState, string> = {
+  positioning: "Poné el DNI dentro del marco",
+  focusing: "Mantené firme, buscando foco",
+  ready: "¡Perfecto! Capturando…",
+};
+
+function toVisible(internal: InternalState): VisibleState {
+  if (internal === "stabilizing" || internal === "captured") return "ready";
+  if (internal === "framing") return "focusing";
+  return "positioning";
+}
 
 interface Props {
   onCaptured: (file: File, captureMode: "auto" | "manual") => void;
@@ -50,15 +71,17 @@ export default function DniCaptureGuided({ onCaptured, onCancel }: Props) {
   const prevLumRef = useRef<Float32Array | null>(null);
   const capturedRef = useRef(false);
   const autoEnabledRef = useRef(true);
+  // Timestamp del último cambio de estado visible (para debounce del texto)
+  const lastVisibleChangeRef = useRef<number>(0);
+  // Estado visible pendiente de confirmar
+  const pendingVisibleRef = useRef<VisibleState | null>(null);
 
-  const [state, setState] = useState<QualityState>("idle");
-  const [message, setMessage] = useState("Permitiendo cámara…");
+  const [visible, setVisible] = useState<VisibleState>("positioning");
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
-  const [blurScore, setBlurScore] = useState<number | null>(null);
   const [autoEnabled, setAutoEnabled] = useState(true);
+  const [flash, setFlash] = useState(false);
 
-  // Sync ref — queremos que el loop lea el último valor sin reiniciarse
   useEffect(() => {
     autoEnabledRef.current = autoEnabled;
   }, [autoEnabled]);
@@ -76,21 +99,23 @@ export default function DniCaptureGuided({ onCaptured, onCancel }: Props) {
       const video = videoRef.current;
       if (!video) return;
       const canvas = document.createElement("canvas");
-      // Resolución objetivo alta para OCR
       canvas.width = video.videoWidth || 1920;
       canvas.height = video.videoHeight || 1080;
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      capturedRef.current = true;
+      // Flash visual breve — feedback de que capturó.
+      setFlash(true);
       canvas.toBlob(
         (blob) => {
           if (!blob) return;
-          capturedRef.current = true;
-          setState("captured");
-          setMessage("Listo ✓");
           const file = new File([blob], "dni-anverso.jpg", { type: "image/jpeg" });
-          stop();
-          onCaptured(file, mode);
+          // Pequeño delay para que el usuario vea el flash antes de cerrar
+          setTimeout(() => {
+            stop();
+            onCaptured(file, mode);
+          }, 180);
         },
         "image/jpeg",
         0.92,
@@ -98,6 +123,19 @@ export default function DniCaptureGuided({ onCaptured, onCancel }: Props) {
     },
     [onCaptured, stop],
   );
+
+  // Actualiza el estado visible con debounce anti-flicker
+  const setVisibleDebounced = useCallback((next: VisibleState) => {
+    const now = Date.now();
+    if (pendingVisibleRef.current !== next) {
+      pendingVisibleRef.current = next;
+      lastVisibleChangeRef.current = now;
+      return;
+    }
+    if (now - lastVisibleChangeRef.current >= MESSAGE_DEBOUNCE_MS) {
+      setVisible((current) => (current === next ? current : next));
+    }
+  }, []);
 
   // Inicializar stream
   useEffect(() => {
@@ -108,7 +146,6 @@ export default function DniCaptureGuided({ onCaptured, onCancel }: Props) {
           setError(
             "Tu navegador no soporta cámara en web. Usá el botón 'Subir archivo' de abajo.",
           );
-          setState("error");
           return;
         }
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -128,9 +165,8 @@ export default function DniCaptureGuided({ onCaptured, onCancel }: Props) {
           videoRef.current.srcObject = stream;
           await videoRef.current.play().catch(() => {});
           setReady(true);
-          setState("preroll");
           prerollStartRef.current = Date.now();
-          setMessage("Acomodá el DNI dentro del marco…");
+          setVisible("positioning");
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -141,7 +177,6 @@ export default function DniCaptureGuided({ onCaptured, onCancel }: Props) {
         } else {
           setError("No se pudo abrir la cámara.");
         }
-        setState("error");
       }
     })();
     return () => {
@@ -150,7 +185,7 @@ export default function DniCaptureGuided({ onCaptured, onCancel }: Props) {
     };
   }, [stop]);
 
-  // Detection loop
+  // Detection loop — silencioso hasta que hay un resultado firme
   useEffect(() => {
     if (!ready) return;
     const video = videoRef.current;
@@ -171,127 +206,83 @@ export default function DniCaptureGuided({ onCaptured, onCancel }: Props) {
       if (!ctx) return;
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      // Región central donde debería estar el DNI (~85% del ancho, centrado, aspect ID-1)
       const regionW = Math.round(canvas.width * 0.85);
       const regionH = Math.round(regionW / ID1_RATIO);
       const regionX = Math.round((canvas.width - regionW) / 2);
       const regionY = Math.round((canvas.height - regionH) / 2);
-
       const imageData = ctx.getImageData(regionX, regionY, regionW, regionH);
 
-      // Pre-roll: no analizamos nada los primeros PRE_ROLL_MS para no confundir
-      // al usuario con cambios de estado mientras intenta acomodar el DNI.
       const now = Date.now();
+      // Durante pre-roll solo mostramos "positioning", sin chequeos.
       if (
         prerollStartRef.current !== null &&
         now - prerollStartRef.current < PRE_ROLL_MS
       ) {
-        const left = Math.ceil((PRE_ROLL_MS - (now - prerollStartRef.current)) / 1000);
-        setState("preroll");
-        setMessage(`Acomodá el DNI dentro del marco… ${left}s`);
-        // Dejamos avanzar prevLumRef para que el motion delta del primer check
-        // no sea espurio
+        setVisibleDebounced("positioning");
         prevLumRef.current = toLuminance(imageData);
         loopRef.current = requestAnimationFrame(tick);
         return;
       }
 
       const { blur, lum } = computeBlurAndLum(imageData);
-      setBlurScore(blur);
-
-      // Motion delta vs frame anterior
       let motion = 0;
       if (prevLumRef.current && prevLumRef.current.length === lum.length) {
         motion = luminanceDelta(prevLumRef.current, lum);
       }
       prevLumRef.current = lum;
-
       const lighting = histogramBalance(imageData);
 
-      // Estados
+      let internal: InternalState;
       if (blur < BLUR_THRESHOLD * 0.4) {
-        setState("far");
-        setMessage("Acercá tu DNI al marco, ocupá el recuadro");
+        internal = "far";
         stableSinceRef.current = null;
       } else if (blur < BLUR_THRESHOLD) {
-        setState("framing");
-        setMessage("Enfocá mejor, mantené firme");
+        internal = "framing";
         stableSinceRef.current = null;
-      } else if (lighting === "bad") {
-        setState("framing");
-        setMessage("Mejorá la iluminación, evitá reflejos");
-        stableSinceRef.current = null;
-      } else if (motion > MOTION_DELTA_THRESHOLD) {
-        setState("framing");
-        setMessage("Mantené la cámara firme");
+      } else if (lighting === "bad" || motion > MOTION_DELTA_THRESHOLD) {
+        internal = "framing";
         stableSinceRef.current = null;
       } else {
-        // Estable
+        internal = "stabilizing";
         if (stableSinceRef.current === null) {
           stableSinceRef.current = now;
-          setState("stabilizing");
-          setMessage("Listo… mantené firme");
-        } else {
-          const elapsed = now - stableSinceRef.current;
-          if (elapsed >= AUTO_CAPTURE_STABLE_MS) {
-            if (autoEnabledRef.current) {
-              capture("auto");
-              return;
-            } else {
-              // Auto desactivado — seguimos mostrando "listo" esperando tap manual
-              setState("stabilizing");
-              setMessage("Enfocado ✓ tocá capturar");
-            }
-          } else {
-            setState("stabilizing");
-            setMessage(
-              autoEnabledRef.current
-                ? `Capturando en ${Math.max(0, Math.ceil((AUTO_CAPTURE_STABLE_MS - elapsed) / 100) / 10).toFixed(1)}s…`
-                : "Enfocado ✓ tocá capturar",
-            );
+        } else if (now - stableSinceRef.current >= AUTO_CAPTURE_STABLE_MS) {
+          if (autoEnabledRef.current) {
+            capture("auto");
+            return;
           }
         }
       }
 
+      setVisibleDebounced(toVisible(internal));
       loopRef.current = requestAnimationFrame(tick);
     };
     loopRef.current = requestAnimationFrame(tick);
     return () => {
       if (loopRef.current) cancelAnimationFrame(loopRef.current);
     };
-  }, [ready, capture]);
+  }, [ready, capture, setVisibleDebounced]);
 
-  const borderColor =
-    state === "stabilizing"
-      ? "#22C55E"
-      : state === "framing"
-        ? "#F59E0B"
-        : state === "captured"
-          ? "#22C55E"
-          : state === "preroll"
-            ? "#60A5FA"
-            : "#EF4444";
-  const messageColor =
-    state === "stabilizing" || state === "captured"
-      ? "text-green-400"
-      : state === "framing"
-        ? "text-amber-400"
-        : state === "preroll"
-          ? "text-blue-300"
-          : "text-red-400";
+  const cornerColor =
+    visible === "ready" ? "#22C55E" : visible === "focusing" ? "#FCD34D" : "#FFFFFF";
 
   return (
     <div className="fixed inset-0 z-50 bg-black flex flex-col">
-      <div className="p-4 flex items-center justify-between text-white">
-        <h3 className="font-800 text-lg">Foto del DNI — anverso</h3>
+      {/* Header */}
+      <div className="relative z-10 p-4 flex items-center justify-between text-white">
+        <div>
+          <p className="text-[11px] uppercase tracking-widest text-white/50">Paso 1 de 2</p>
+          <h3 className="font-800 text-lg leading-tight">Foto de tu DNI</h3>
+        </div>
         <button
           onClick={() => {
             stop();
             onCancel();
           }}
-          className="text-white/70 hover:text-white text-sm underline"
+          className="w-9 h-9 rounded-full bg-white/10 text-white hover:bg-white/20 flex items-center justify-center"
+          aria-label="Cerrar"
         >
-          Cancelar
+          ✕
         </button>
       </div>
 
@@ -321,52 +312,109 @@ export default function DniCaptureGuided({ onCaptured, onCancel }: Props) {
             />
             <canvas ref={canvasRef} className="hidden" />
 
-            {/* Overlay oscuro fuera del marco */}
-            <div className="absolute inset-0 pointer-events-none">
+            {/* Overlay oscuro fuera del marco, con recorte del marco */}
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                background:
+                  "radial-gradient(ellipse 85% 54% at center, transparent 60%, rgba(0,0,0,0.7) 100%)",
+              }}
+            />
+
+            {/* Marco tipo scanner — 4 corners, no borde sólido */}
+            <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
               <div
-                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+                className="relative"
                 style={{
                   width: "85%",
                   aspectRatio: `${ID1_RATIO}`,
                   maxWidth: "640px",
-                  boxShadow: "0 0 0 9999px rgba(0,0,0,0.55)",
-                  border: `3px solid ${borderColor}`,
-                  borderRadius: "14px",
-                  transition: "border-color 150ms ease",
+                  transition: "filter 250ms ease",
+                  filter:
+                    visible === "ready"
+                      ? "drop-shadow(0 0 24px rgba(34,197,94,0.6))"
+                      : visible === "focusing"
+                        ? "drop-shadow(0 0 12px rgba(252,211,77,0.35))"
+                        : "none",
                 }}
-              />
+              >
+                {/* 4 esquinas animadas */}
+                {([
+                  { style: { top: 0, left: 0 }, rotation: 0 },
+                  { style: { top: 0, right: 0 }, rotation: 90 },
+                  { style: { bottom: 0, right: 0 }, rotation: 180 },
+                  { style: { bottom: 0, left: 0 }, rotation: 270 },
+                ] as const).map((c, i) => (
+                  <span
+                    key={i}
+                    className="absolute block"
+                    style={{
+                      ...c.style,
+                      width: 34,
+                      height: 34,
+                      borderTop: `4px solid ${cornerColor}`,
+                      borderLeft: `4px solid ${cornerColor}`,
+                      borderTopLeftRadius: 14,
+                      transform: `rotate(${c.rotation}deg)`,
+                      transformOrigin: "center",
+                      transition: "border-color 250ms ease",
+                    }}
+                  />
+                ))}
+
+                {/* Glow verde pulsante cuando está capturando (ready) */}
+                {visible === "ready" && (
+                  <span
+                    className="absolute inset-0 rounded-[14px] animate-pulse"
+                    style={{
+                      boxShadow: "inset 0 0 0 2px rgba(34,197,94,0.4)",
+                    }}
+                  />
+                )}
+              </div>
             </div>
 
-            {/* Status message */}
-            <div className="absolute bottom-36 left-1/2 -translate-x-1/2 px-6 w-full max-w-md">
-              <p className={`text-center text-base font-700 ${messageColor}`}>{message}</p>
-              {blurScore !== null && state !== "preroll" && (
-                <p className="text-center text-xs text-white/40 mt-1">
-                  foco {blurScore.toFixed(0)}
-                </p>
-              )}
+            {/* Mensaje único arriba del marco */}
+            <div className="absolute top-6 left-1/2 -translate-x-1/2 px-6 w-full max-w-sm">
+              <p className="text-center text-white text-base font-600 leading-snug drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
+                {COPY[visible]}
+              </p>
             </div>
+
+            {/* Flash blanco al capturar */}
+            {flash && (
+              <div className="absolute inset-0 bg-white animate-[kycflash_180ms_ease-out_forwards] pointer-events-none" />
+            )}
+            <style jsx>{`
+              @keyframes kycflash {
+                0% { opacity: 0; }
+                35% { opacity: 0.9; }
+                100% { opacity: 0; }
+              }
+            `}</style>
           </>
         )}
       </div>
 
       {ready && !error && (
-        <div className="p-4 pb-6 flex flex-col gap-3 bg-black">
+        <div className="relative z-10 p-5 pb-7 bg-gradient-to-t from-black via-black/95 to-transparent flex flex-col items-center gap-4">
           <button
             onClick={() => capture("manual")}
-            disabled={!ready || capturedRef.current}
-            className="w-full py-4 rounded-full bg-white text-black font-800 text-base disabled:opacity-50 cursor-pointer shadow-lg"
+            disabled={capturedRef.current}
+            className="w-20 h-20 rounded-full bg-white hover:bg-white/90 active:scale-95 transition-all shadow-2xl flex items-center justify-center disabled:opacity-60"
+            aria-label="Capturar foto"
           >
-            📸 Capturar ahora
+            {/* Shutter icon */}
+            <span className="w-16 h-16 rounded-full border-4 border-black/80" />
           </button>
-          <label className="flex items-center justify-center gap-2 text-xs text-white/70 cursor-pointer">
+          <label className="flex items-center gap-2 text-xs text-white/70 cursor-pointer select-none">
             <input
               type="checkbox"
               checked={autoEnabled}
               onChange={(e) => setAutoEnabled(e.target.checked)}
-              className="accent-blue-500"
+              className="accent-blue-500 w-4 h-4"
             />
-            Captura automática al estar enfocado
+            Captura automática
           </label>
         </div>
       )}
@@ -376,9 +424,6 @@ export default function DniCaptureGuided({ onCaptured, onCancel }: Props) {
 
 // ─── Quality helpers (canvas puro, sin deps) ───────────────────────────────
 
-/**
- * Luminancia (Y = 0.299R + 0.587G + 0.114B) por pixel, subsampling cada 4.
- */
 function toLuminance(img: ImageData): Float32Array {
   const { data, width, height } = img;
   const out = new Float32Array(Math.ceil((width * height) / 4));
@@ -389,10 +434,6 @@ function toLuminance(img: ImageData): Float32Array {
   return out;
 }
 
-/**
- * Delta promedio absoluto entre dos vectores de luminancia.
- * Valores > ~12 indican que el usuario está moviendo la cámara o el DNI.
- */
 function luminanceDelta(a: Float32Array, b: Float32Array): number {
   const n = Math.min(a.length, b.length);
   if (n === 0) return 0;
@@ -401,11 +442,6 @@ function luminanceDelta(a: Float32Array, b: Float32Array): number {
   return sum / n;
 }
 
-/**
- * Laplacian variance — proxy de enfoque. Valores bajos = borroso.
- * Operador 3×3: kernel [0,1,0, 1,-4,1, 0,1,0] aproximado.
- * Devuelve también la luminancia full-res para medir motion.
- */
 function computeBlurAndLum(img: ImageData): { blur: number; lum: Float32Array } {
   const { data, width, height } = img;
   const lum = new Float32Array(width * height);
@@ -435,10 +471,6 @@ function computeBlurAndLum(img: ImageData): { blur: number; lum: Float32Array } 
   return { blur: variance, lum };
 }
 
-/**
- * Chequea que el histograma de luminancia no esté saturado (sobre o sub expuesto).
- * 'good' = sin más del 25% de pixels en la zona oscura y 15% en la clara.
- */
 function histogramBalance(img: ImageData): "good" | "bad" {
   const { data } = img;
   const hist = new Uint32Array(256);
