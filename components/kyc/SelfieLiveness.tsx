@@ -46,12 +46,20 @@ export default function SelfieLiveness({
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const [progress, setProgress] = useState(0); // 0..1 de la prep bar
   const [ack, setAck] = useState(false); // flash "Capturado ✓"
+  const [flashFull, setFlashFull] = useState(false); // flash verde full-screen
 
   // AudioContext lazy — lo inicializamos al primer tap del usuario (Safari iOS
   // requiere interacción de usuario para desbloquear audio).
   const audioCtxRef = useRef<AudioContext | null>(null);
   const ensureAudio = useCallback(() => {
-    if (audioCtxRef.current) return audioCtxRef.current;
+    if (audioCtxRef.current) {
+      // En iOS, si el contexto quedó suspended (app backgrounded, etc),
+      // hay que resume() con el gesto del usuario.
+      if (audioCtxRef.current.state === "suspended") {
+        audioCtxRef.current.resume().catch(() => {});
+      }
+      return audioCtxRef.current;
+    }
     try {
       type WithWebkitAudio = Window & {
         webkitAudioContext?: typeof AudioContext;
@@ -60,8 +68,20 @@ export default function SelfieLiveness({
         window.AudioContext ??
         (window as unknown as WithWebkitAudio).webkitAudioContext;
       if (!Ctor) return null;
-      audioCtxRef.current = new Ctor();
-      return audioCtxRef.current;
+      const ctx = new Ctor();
+      audioCtxRef.current = ctx;
+      // Reproducir un sonido silencioso inmediato para "desbloquear" el
+      // context en iOS Safari — si no, el primer beep real a veces no suena.
+      try {
+        const buf = ctx.createBuffer(1, 1, 22050);
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+        src.connect(ctx.destination);
+        src.start(0);
+      } catch {
+        /* noop */
+      }
+      return ctx;
     } catch {
       return null;
     }
@@ -86,26 +106,36 @@ export default function SelfieLiveness({
     }
   }, []);
 
-  // Beep corto de confirmación (tipo shutter). También vibra 40ms en móviles.
+  // Beep de confirmación (tipo shutter). Si iOS está en silent mode, no
+  // suena — por eso también hacemos flash full-screen y vibración.
   const playBeep = useCallback(() => {
     const ctx = audioCtxRef.current;
     if (ctx) {
+      if (ctx.state === "suspended") ctx.resume().catch(() => {});
       const now = ctx.currentTime;
-      const osc = ctx.createOscillator();
+      // Dos osciladores para un beep más presente (menos "pi" y más "click").
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
       const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(880, now); // A5
-      osc.frequency.exponentialRampToValueAtTime(1320, now + 0.08); // sube a E6
+      osc1.type = "triangle";
+      osc2.type = "sine";
+      osc1.frequency.setValueAtTime(1000, now);
+      osc1.frequency.exponentialRampToValueAtTime(1500, now + 0.1);
+      osc2.frequency.setValueAtTime(2000, now);
+      osc2.frequency.exponentialRampToValueAtTime(3000, now + 0.08);
       gain.gain.setValueAtTime(0, now);
-      gain.gain.linearRampToValueAtTime(0.25, now + 0.01);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(now);
-      osc.stop(now + 0.2);
+      gain.gain.linearRampToValueAtTime(0.5, now + 0.005);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+      osc1.connect(gain);
+      osc2.connect(gain);
+      gain.connect(ctx.destination);
+      osc1.start(now);
+      osc2.start(now);
+      osc1.stop(now + 0.25);
+      osc2.stop(now + 0.25);
     }
-    // Haptics donde esté disponible (Android Chrome; iOS Safari lo ignora)
     if (typeof navigator !== "undefined" && navigator.vibrate) {
-      navigator.vibrate(40);
+      navigator.vibrate([60, 40, 60]);
     }
   }, []);
 
@@ -233,10 +263,14 @@ export default function SelfieLiveness({
       const blob = await grabFrame();
       if (blob) framesRef.current.push(blob);
 
-      // Beep + haptic + feedback visual "Capturado ✓". Cuando el user gira
-      // la cabeza y no ve la pantalla, el beep le confirma que capturó.
+      // Beep + haptic + flash verde full-screen + feedback en el óvalo.
+      // El flash tapa toda la pantalla por 300ms — queda visible incluso
+      // de reojo mientras el usuario gira la cabeza. Es el único feedback
+      // que SIEMPRE funciona (el beep se silencia si iOS está en mute).
       playBeep();
+      setFlashFull(true);
       setAck(true);
+      setTimeout(() => setFlashFull(false), 300);
       await new Promise((r) => setTimeout(r, ACK_MS));
       setAck(false);
       setProgress(0);
@@ -384,6 +418,31 @@ export default function SelfieLiveness({
               )}
             </div>
           </div>
+
+          {/* Flash verde full-screen al capturar — visible aunque el usuario
+               esté mirando de reojo. Funciona incluso con iOS silent mode. */}
+          {flashFull && (
+            <div
+              className="absolute inset-0 pointer-events-none z-20"
+              style={{
+                backgroundColor: "rgba(34, 197, 94, 0.85)",
+                animation: "kycflashfull 300ms ease-out forwards",
+              }}
+            />
+          )}
+          <style jsx>{`
+            @keyframes kycflashfull {
+              0% {
+                opacity: 0;
+              }
+              20% {
+                opacity: 1;
+              }
+              100% {
+                opacity: 0;
+              }
+            }
+          `}</style>
 
           {/* Instrucción principal + prep bar */}
           <div className="absolute top-4 left-1/2 -translate-x-1/2 w-full max-w-md px-6">
