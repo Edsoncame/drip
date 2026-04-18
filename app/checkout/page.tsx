@@ -6,6 +6,8 @@ import { motion } from "framer-motion";
 import { useProduct } from "@/lib/use-products";
 import type { Product } from "@/lib/products";
 import { trackBeginCheckout } from "@/lib/analytics";
+import DniCaptureGuided from "@/components/kyc/DniCaptureGuided";
+import SelfieLiveness from "@/components/kyc/SelfieLiveness";
 
 // ─── Step indicator ────────────────────────────────────────────────────────────
 function Steps({ current }: { current: number }) {
@@ -370,6 +372,15 @@ function Step2({
   const [uploadingDni, setUploadingDni] = useState(false);
   const [uploadingSelfie, setUploadingSelfie] = useState(false);
   const [cameraMode, setCameraMode] = useState<"dni" | "selfie" | null>(null);
+  // KYC state machine
+  const kycCorrIdRef = useRef<string>("");
+  if (!kycCorrIdRef.current && typeof window !== "undefined") {
+    kycCorrIdRef.current = (window.crypto?.randomUUID?.() ?? String(Date.now()));
+  }
+  const [kycScanId, setKycScanId] = useState<number | null>(null);
+  const [kycSelfieScore, setKycSelfieScore] = useState<number | null>(null);
+  const [kycSelfieOk, setKycSelfieOk] = useState(false);
+  const [kycVerifying, setKycVerifying] = useState(false);
 
   const verifyRuc = async (ruc: string) => {
     if (ruc.length !== 11) return;
@@ -383,44 +394,59 @@ function Step2({
     }
   };
 
-  const handleFileUpload = async (file: File, type: "dni" | "selfie") => {
-    if (type === "dni") setUploadingDni(true);
-    else setUploadingSelfie(true);
-    // Limpiar errores previos
+  // Captura de DNI con OCR via /api/kyc/dni (Claude Opus 4.7 vision)
+  const handleDniCaptured = async (file: File, captureMode: "auto" | "manual") => {
+    setUploadingDni(true);
     setErrors((prev) => {
       const next = { ...prev };
-      delete next[type === "dni" ? "dniPhoto" : "selfiePhoto"];
+      delete next.dniPhoto;
       return next;
     });
-
-    const form = new FormData();
-    form.append("file", file);
     try {
-      const res = await fetch("/api/upload", { method: "POST", body: form });
+      const form = new FormData();
+      form.append("anverso", file);
+      form.append("correlation_id", kycCorrIdRef.current);
+      form.append("capture_mode", captureMode);
+      const res = await fetch("/api/kyc/dni", { method: "POST", body: form });
       const data = await res.json();
       if (!res.ok) {
         setErrors((prev) => ({
           ...prev,
-          [type === "dni" ? "dniPhoto" : "selfiePhoto"]: data.error ?? "Error al subir",
+          dniPhoto:
+            data.error ??
+            "No pudimos procesar el DNI. Volvé a capturarlo con buena luz.",
         }));
-      } else if (data.dataUrl) {
-        if (type === "dni") onIdentityChange({ ...identity, dniPhoto: data.dataUrl });
-        else onIdentityChange({ ...identity, selfiePhoto: data.dataUrl });
-      } else {
-        setErrors((prev) => ({
-          ...prev,
-          [type === "dni" ? "dniPhoto" : "selfiePhoto"]: "Respuesta inesperada del servidor",
-        }));
+        setUploadingDni(false);
+        return;
       }
+      setKycScanId(data.scan_id);
+      // Guardar un marker + data URL para preview local
+      const reader = new FileReader();
+      reader.onload = () => {
+        onIdentityChange({ ...identity, dniPhoto: reader.result as string });
+      };
+      reader.readAsDataURL(file);
     } catch (err) {
       setErrors((prev) => ({
         ...prev,
-        [type === "dni" ? "dniPhoto" : "selfiePhoto"]:
-          err instanceof Error ? err.message : "Error de red al subir",
+        dniPhoto: err instanceof Error ? err.message : "Error de red al subir DNI",
       }));
     }
-    if (type === "dni") setUploadingDni(false);
-    else setUploadingSelfie(false);
+    setUploadingDni(false);
+  };
+
+  // Fallback para el link "subir archivo desde tu dispositivo" — solo aplica al DNI.
+  // La selfie SIEMPRE pasa por SelfieLiveness (liveness obligatorio, sin fallback).
+  const handleFileUpload = async (file: File, type: "dni" | "selfie") => {
+    if (type === "selfie") {
+      setErrors((prev) => ({
+        ...prev,
+        selfiePhoto:
+          "La selfie requiere validación con cámara en vivo. Usá 'Abrir cámara frontal'.",
+      }));
+      return;
+    }
+    await handleDniCaptured(file, "manual");
   };
 
   const validate = () => {
@@ -452,27 +478,149 @@ function Step2({
     return Object.keys(e).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (validate()) onNext();
+    if (!validate()) return;
+
+    // Si el usuario ya se había verificado previamente (flag "verified" del backend)
+    // no re-hacemos las checks KYC.
+    const alreadyVerified =
+      identity.dniPhoto === "verified" && identity.selfiePhoto === "verified";
+    if (alreadyVerified) {
+      onNext();
+      return;
+    }
+
+    // Sanity: ambos pasos KYC completados
+    if (!kycScanId) {
+      setErrors((prev) => ({
+        ...prev,
+        dniPhoto: "Capturá la foto del DNI primero.",
+      }));
+      return;
+    }
+    if (!kycSelfieOk) {
+      setErrors((prev) => ({
+        ...prev,
+        selfiePhoto: "Completá la selfie con validación en vivo primero.",
+      }));
+      return;
+    }
+
+    setKycVerifying(true);
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next.dniNumber;
+      delete next.dniPhoto;
+      delete next.selfiePhoto;
+      return next;
+    });
+
+    try {
+      // 1. Match OCR ↔ formulario
+      const matchRes = await fetch("/api/kyc/match", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          scan_id: kycScanId,
+          correlation_id: kycCorrIdRef.current,
+          dni_number: identity.dniNumber,
+          full_name: data.name,
+        }),
+      });
+      const matchData = await matchRes.json();
+      if (!matchRes.ok) {
+        setErrors((prev) => ({
+          ...prev,
+          dniNumber: matchData.error ?? "No pudimos validar tu identidad",
+        }));
+        setKycVerifying(false);
+        return;
+      }
+      if (matchData.outcome === "reject") {
+        setErrors((prev) => ({
+          ...prev,
+          dniNumber:
+            matchData.message ??
+            "Los datos ingresados no coinciden con el DNI. Revisalos.",
+        }));
+        setKycVerifying(false);
+        return;
+      }
+
+      // 2. Verify final (consolidar scan + face match → users.kyc_status)
+      const verifyRes = await fetch("/api/kyc/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          correlation_id: kycCorrIdRef.current,
+          name_score: matchData.name_score,
+        }),
+      });
+      const verifyData = await verifyRes.json();
+      setKycVerifying(false);
+
+      if (verifyData.status === "rejected") {
+        setErrors((prev) => ({
+          ...prev,
+          selfiePhoto:
+            "No pudimos verificar tu identidad con suficiente confianza. Volvé a capturar DNI y selfie.",
+        }));
+        return;
+      }
+
+      // verified o review → permitimos avanzar. review queda flag en DB para admin.
+      onNext();
+    } catch (err) {
+      setKycVerifying(false);
+      setErrors((prev) => ({
+        ...prev,
+        dniNumber: err instanceof Error ? err.message : "Error de red",
+      }));
+    }
   };
 
   return (
     <form onSubmit={handleSubmit}>
-      {cameraMode && (
-        <CameraModal
-          facing={cameraMode === "selfie" ? "user" : "environment"}
-          title={cameraMode === "selfie" ? "Selfie con DNI" : "Foto del DNI"}
-          hint={
-            cameraMode === "selfie"
-              ? "Sostené tu DNI junto a tu cara. Asegurate de que ambos se vean claramente."
-              : "Mostrá el lado frontal del DNI. Cuidado con reflejos o sombras."
-          }
-          onCapture={(file) => {
+      {cameraMode === "dni" && (
+        <DniCaptureGuided
+          onCaptured={async (file, mode) => {
             setCameraMode(null);
-            handleFileUpload(file, cameraMode);
+            await handleDniCaptured(file, mode);
           }}
           onCancel={() => setCameraMode(null)}
+        />
+      )}
+      {cameraMode === "selfie" && (
+        <SelfieLiveness
+          correlationId={kycCorrIdRef.current}
+          onComplete={({ passed, score, selfieUrl }) => {
+            setCameraMode(null);
+            setKycSelfieScore(score);
+            setKycSelfieOk(passed);
+            // Marker para el validate() del form — usamos "kyc:ok" o "kyc:fail"
+            onIdentityChange({
+              ...identity,
+              selfiePhoto: passed ? selfieUrl || "kyc:ok" : "",
+            });
+            if (!passed) {
+              setErrors((prev) => ({
+                ...prev,
+                selfiePhoto:
+                  "La verificación facial no pasó. Volvé a intentar con buena luz y siguiendo las instrucciones.",
+              }));
+            } else {
+              setErrors((prev) => {
+                const next = { ...prev };
+                delete next.selfiePhoto;
+                return next;
+              });
+            }
+          }}
+          onCancel={() => setCameraMode(null)}
+          onError={(msg) =>
+            setErrors((prev) => ({ ...prev, selfiePhoto: msg }))
+          }
         />
       )}
       <h2 className="text-2xl font-800 text-[#18191F] mb-6">Tus datos</h2>
@@ -926,14 +1074,30 @@ function Step2({
 
       <button
         type="submit"
-        className="w-full mt-6 py-4 rounded-full bg-[#1B4FFF] text-white font-700 text-lg hover:bg-[#1340CC] transition-colors cursor-pointer"
+        disabled={kycVerifying}
+        className="w-full mt-6 py-4 rounded-full bg-[#1B4FFF] text-white font-700 text-lg hover:bg-[#1340CC] transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-wait flex items-center justify-center gap-2"
       >
-        Continuar al pago
+        {kycVerifying ? (
+          <>
+            <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="30 70" />
+            </svg>
+            Verificando identidad…
+          </>
+        ) : (
+          "Continuar al pago"
+        )}
       </button>
+      {kycSelfieScore !== null && kycSelfieOk && (
+        <p className="text-center text-xs text-green-600 mt-2 font-600">
+          ✓ Identidad validada ({kycSelfieScore.toFixed(1)}% similaridad)
+        </p>
+      )}
       <button
         type="button"
         onClick={onBack}
-        className="w-full py-3 mt-3 rounded-full border border-[#E5E5E5] text-[#666666] font-600 text-sm hover:border-[#1B4FFF] hover:text-[#1B4FFF] transition-colors cursor-pointer"
+        disabled={kycVerifying}
+        className="w-full py-3 mt-3 rounded-full border border-[#E5E5E5] text-[#666666] font-600 text-sm hover:border-[#1B4FFF] hover:text-[#1B4FFF] transition-colors cursor-pointer disabled:opacity-60"
       >
         Volver
       </button>
