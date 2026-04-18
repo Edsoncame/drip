@@ -122,12 +122,21 @@ export async function POST(req: NextRequest) {
       contentType: "image/jpeg",
     });
 
-    // 3. Descargar imagen del DNI desde Blob (necesitamos bytes para Rekognition)
-    const dniResp = await fetch(
-      scan.imagen_anverso_key.startsWith("http")
-        ? scan.imagen_anverso_key
-        : `https://${scan.imagen_anverso_key}`,
-    );
+    // 3. Descargar imagen del DNI desde Blob (necesitamos bytes para Rekognition).
+    // En registros viejos guardábamos solo el pathname (bug) — si el valor no
+    // empieza con http, no hay forma de reconstruir el URL confiablemente, así
+    // que devolvemos un error claro.
+    if (!scan.imagen_anverso_key.startsWith("http")) {
+      return NextResponse.json(
+        {
+          error:
+            "El DNI guardado tiene formato viejo. Vuelve a capturar la foto del DNI en el paso anterior.",
+          category: "legacy_blob_key",
+        },
+        { status: 400 },
+      );
+    }
+    const dniResp = await fetch(scan.imagen_anverso_key);
     if (!dniResp.ok) {
       throw new Error(`No pudimos recuperar la imagen del DNI: ${dniResp.status}`);
     }
@@ -155,7 +164,7 @@ export async function POST(req: NextRequest) {
         scan.id,
         match.similarity,
         passed,
-        selfieBlob.pathname,
+        selfieBlob.url,
         liveness.passed,
         JSON.stringify({ yaws: liveness.yaws, faces: liveness.faces_detected }),
         JSON.stringify(match.raw),
