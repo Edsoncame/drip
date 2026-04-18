@@ -113,7 +113,8 @@ export async function extractDniFields(
     },
     toolChoice: { type: "tool", toolName: "extract_dni" },
     maxRetries: 2,
-    temperature: 0,
+    // `temperature` está deprecated en Claude Opus 4.7 (extended thinking).
+    // El determinismo lo conseguimos con toolChoice forzado + schema Zod.
   });
 
   const call = result.toolCalls?.[0];
