@@ -211,7 +211,7 @@ export default function PaymentsReview({ payments }: { payments: Payment[] }) {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-700 text-[#18191F] truncate">{p.company ?? p.user_name}</p>
-                    {p.payment_method === "culqi" ? (
+                    {p.payment_method === "culqi" || p.payment_method === "stripe" ? (
                       <span className="text-[10px] font-700 px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 flex-shrink-0">💳</span>
                     ) : (
                       <span className="text-[10px] font-700 px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700 flex-shrink-0">🏦</span>
@@ -347,11 +347,11 @@ export default function PaymentsReview({ payments }: { payments: Payment[] }) {
                           </div>
                         )}
                       </div>
-                    ) : p.payment_method === "culqi" ? (
-                      /* Culqi — no receipt needed */
+                    ) : p.payment_method === "culqi" || p.payment_method === "stripe" ? (
+                      /* Tarjeta — no receipt needed */
                       <div className="bg-purple-50 rounded-xl p-4 flex items-center gap-3">
                         <span className="text-2xl">💳</span>
-                        <p className="text-sm text-purple-700">Pago automático con tarjeta (Culqi). No requiere comprobante.</p>
+                        <p className="text-sm text-purple-700">Pago automático con tarjeta ({p.payment_method === "stripe" ? "Stripe" : "Culqi"}). No requiere comprobante.</p>
                       </div>
                     ) : (
                       /* No receipt yet — admin can upload or mark paid */

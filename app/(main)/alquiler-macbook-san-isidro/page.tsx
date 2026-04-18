@@ -63,7 +63,7 @@ export default function Page() {
         },
         {
           q: "¿Puedo pagar con transferencia BCP o Interbank?",
-          a: "Sí. Aceptamos transferencia a cuenta BCP, Interbank, BBVA, Scotiabank y también pago con tarjeta vía Culqi.",
+          a: "Sí. Aceptamos transferencia a cuenta BCP, Interbank, BBVA, Scotiabank y también pago con tarjeta vía Stripe.",
         },
       ]}
     />

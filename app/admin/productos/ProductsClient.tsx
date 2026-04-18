@@ -651,7 +651,7 @@ function ProductModal({
 
           {/* Pricing */}
           <Section title="Planes y precios (USD/mes)">
-            <p className="text-xs text-[#666] mb-3">Precio mensual offline (sin comisión Culqi). Usa la calculadora arriba o ingresa manualmente.</p>
+            <p className="text-xs text-[#666] mb-3">Precio mensual offline (sin comisión Stripe). Usa la calculadora arriba o ingresa manualmente.</p>
             <div className="space-y-2">
               {form.pricing.map((p, i) => (
                 <div key={i} className="flex items-center gap-3">

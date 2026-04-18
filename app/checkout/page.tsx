@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, Suspense, useCallback } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { useProduct } from "@/lib/use-products";
 import type { Product } from "@/lib/products";
-import { trackBeginCheckout, trackPurchase } from "@/lib/analytics";
+import { trackBeginCheckout } from "@/lib/analytics";
 
 // ─── Step indicator ────────────────────────────────────────────────────────────
 function Steps({ current }: { current: number }) {
@@ -750,7 +750,7 @@ function Step2({
   );
 }
 
-// ─── Step 3 — Mercado Pago Card Brick ─────────────────────────────────────────
+// ─── Step 3 — Redirect to Stripe Checkout ─────────────────────────────────────
 function PaymentForm({
   product,
   months,
@@ -770,91 +770,53 @@ function PaymentForm({
   identity: IdentityData;
   onBack: () => void;
 }) {
-  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const plan = product.pricing.find((p) => p.months === months)!;
   const totalMonthly = (plan.price + (appleCare ? APPLECARE_PRICE : 0)) * quantity;
 
-  // Load CulqiJS
-  useEffect(() => {
-    if (document.getElementById("culqi-js")) return;
-    const script = document.createElement("script");
-    script.id = "culqi-js";
-    script.src = "https://checkout.culqi.com/js/v4";
-    script.async = true;
-    document.head.appendChild(script);
-  }, []);
-
-  const openCulqi = useCallback(() => {
-    const w = window as Window & { Culqi?: { publicKey: string; settings: (s: Record<string, unknown>) => void; open: () => void; close: () => void; token: { id: string } }; culqi?: () => void };
-    if (!w.Culqi) { setError("Cargando formulario de pago..."); return; }
-
-    w.Culqi.publicKey = process.env.NEXT_PUBLIC_CULQI_PUBLIC_KEY!;
-    w.Culqi.settings({
-      title: "FLUX",
-      currency: "USD",
-      amount: totalMonthly * 100,
-      order: `flux-${Date.now()}`,
-    });
-
-    // Callback when token is generated
-    w.culqi = async () => {
-      if (!w.Culqi?.token?.id) {
-        setError("No se pudo procesar la tarjeta. Intenta de nuevo.");
+  const pay = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slug: product.slug,
+          months,
+          appleCare,
+          quantity,
+          customer,
+          delivery,
+          identity: {
+            dniNumber: identity.dniNumber,
+            dniPhoto: identity.dniPhoto,
+            selfiePhoto: identity.selfiePhoto,
+          },
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.url) {
+        setError(data.error ?? "Error al procesar el pago");
+        setLoading(false);
         return;
       }
-      setLoading(true);
-      setError(null);
-
-      try {
-        const res = await fetch("/api/checkout", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            slug: product.slug,
-            months,
-            appleCare,
-            quantity,
-            cardToken: w.Culqi.token.id,
-            customer,
-            delivery,
-            identity: { dniNumber: identity.dniNumber, dniPhoto: identity.dniPhoto, selfiePhoto: identity.selfiePhoto },
-          }),
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-          setError(data.error ?? "Error al procesar el pago");
-          setLoading(false);
-          return;
-        }
-
-        trackPurchase({
-          transactionId: data.subscriptionId ?? `flux-${Date.now()}`,
-          value: totalMonthly,
-          product: { name: product.name, slug: product.slug, price: plan.price, months, quantity },
-        });
-
-        router.push(
-          `/checkout/success?slug=${product.slug}&months=${months}&name=${encodeURIComponent(customer.name)}&email=${encodeURIComponent(customer.email)}&total=${totalMonthly}&qty=${quantity}`
-        );
-      } catch {
-        setError("Error de conexión. Intenta de nuevo.");
-        setLoading(false);
-      }
-    };
-
-    w.Culqi.open();
-  }, [product, months, appleCare, quantity, customer, delivery, identity, totalMonthly, plan.price, router]);
+      // Redirect a Stripe Checkout — Stripe aloja la página de pago.
+      // trackPurchase se dispara en /checkout/success cuando Stripe redirige de vuelta.
+      window.location.href = data.url;
+    } catch {
+      setError("Error de conexión. Intenta de nuevo.");
+      setLoading(false);
+    }
+  };
 
   return (
     <div>
       <h2 className="text-2xl font-800 text-[#18191F] mb-2">Pago seguro</h2>
       <p className="text-sm text-[#666666] mb-6">
-        Se cobrará <strong className="text-[#18191F]">${totalMonthly}</strong> hoy por el primer mes.
+        Se cobrará <strong className="text-[#18191F]">${totalMonthly} USD</strong> hoy por el primer mes.
         Los siguientes meses se cobran automáticamente.
       </p>
 
@@ -879,16 +841,15 @@ function PaymentForm({
         </div>
       </div>
 
-      {/* Pay button */}
       <motion.button
-        onClick={openCulqi}
+        onClick={pay}
         disabled={loading}
         whileTap={!loading ? { scaleX: 1.06, scaleY: 0.91 } : {}}
         transition={{ type: "spring", stiffness: 700, damping: 30 }}
         className="w-full py-4 rounded-full bg-[#1B4FFF] text-white font-700 text-lg hover:bg-[#1340CC] transition-colors disabled:opacity-60 cursor-pointer flex items-center justify-center gap-2 mb-4"
       >
         {loading ? (
-          <><svg className="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="30 70"/></svg>Procesando pago…</>
+          <><svg className="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="30 70"/></svg>Redirigiendo a Stripe…</>
         ) : (
           <>Pagar ${totalMonthly} USD</>
         )}
@@ -900,23 +861,15 @@ function PaymentForm({
         </div>
       )}
 
-      {loading && (
-        <div className="flex items-center justify-center gap-3 py-4 text-[#1B4FFF] font-600">
-          <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="30 70" />
-          </svg>
-          Procesando suscripción…
-        </div>
-      )}
-
       <div className="flex items-center justify-center gap-2 mt-3 mb-4 text-xs text-[#999999]">
         <span>🔒</span>
-        <span>Pago seguro con cifrado SSL — procesado por Culqi</span>
+        <span>Pago seguro con cifrado SSL — procesado por Stripe</span>
       </div>
 
       <button
         onClick={onBack}
-        className="w-full py-3 rounded-full border border-[#E5E5E5] text-[#666666] font-600 text-sm hover:border-[#1B4FFF] hover:text-[#1B4FFF] transition-colors cursor-pointer"
+        disabled={loading}
+        className="w-full py-3 rounded-full border border-[#E5E5E5] text-[#666666] font-600 text-sm hover:border-[#1B4FFF] hover:text-[#1B4FFF] transition-colors cursor-pointer disabled:opacity-50"
       >
         Volver
       </button>

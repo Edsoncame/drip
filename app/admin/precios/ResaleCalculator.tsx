@@ -33,7 +33,7 @@ export default function ResaleCalculator() {
     const pct = residualPct(monthsNum);
     const raw = costNum * (pct / 100);
     const offline = roundTo5(raw);
-    const online = roundTo5(raw * 1.045); // Culqi commission
+    const online = roundTo5(raw * 1.045); // Stripe commission
     return { pct, raw, offline, online };
   }, [costNum, monthsNum]);
 
@@ -98,7 +98,7 @@ export default function ResaleCalculator() {
               <div>
                 <p className="text-[10px] text-[#666] uppercase tracking-wider font-700">Precio venta online</p>
                 <p className="text-3xl font-800 text-[#18191F] mt-1">${result.online}</p>
-                <p className="text-[10px] text-[#999] mt-0.5">con comisión Culqi (+4.5%)</p>
+                <p className="text-[10px] text-[#999] mt-0.5">con comisión Stripe (+4.5%)</p>
               </div>
             </div>
           </div>

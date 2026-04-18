@@ -141,10 +141,10 @@ export default async function AdminPage() {
         <div className="bg-[#FFFBEB] border border-yellow-200 rounded-xl px-5 py-3 mb-8 flex items-start gap-3 text-sm">
           <span className="text-lg flex-shrink-0">⚡</span>
           <div>
-            <span className="font-700 text-yellow-800">Webhook de Culqi — </span>
+            <span className="font-700 text-yellow-800">Webhook de Stripe — </span>
             <span className="text-yellow-700">
-              Configura la URL <code className="bg-yellow-100 px-1 rounded text-xs font-mono">fluxperu.com/api/webhooks/culqi</code> en Culqi Panel → Desarrollo → Webhooks
-              para que los cobros recurrentes se sincronicen automáticamente.
+              Configura la URL <code className="bg-yellow-100 px-1 rounded text-xs font-mono">fluxperu.com/api/webhooks/stripe</code> en Stripe Dashboard → Developers → Webhooks
+              (eventos: checkout.session.completed, invoice.paid, invoice.payment_failed, customer.subscription.deleted).
             </span>
           </div>
         </div>

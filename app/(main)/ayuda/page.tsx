@@ -46,7 +46,7 @@ const categories: Category[] = [
     items: [
       {
         q: "¿Cuánto cuesta alquilar una MacBook?",
-        a: "Desde $85/mes para MacBook Air 13\" M4 en plan de 24 meses. El precio varía según modelo (Air o Pro), plazo (8/16/24 meses) y canal (online con Culqi o transferencia bancaria).",
+        a: "Desde $85/mes para MacBook Air 13\" M4 en plan de 24 meses. El precio varía según modelo (Air o Pro), plazo (8/16/24 meses) y canal (online con Stripe o transferencia bancaria).",
       },
       {
         q: "¿Por qué mientras más largo el plazo, menor la cuota?",
@@ -142,11 +142,11 @@ const categories: Category[] = [
       },
       {
         q: "¿Qué métodos de pago aceptan?",
-        a: "Tarjeta de crédito/débito (vía Culqi - Visa, Mastercard, Amex) y transferencia bancaria (BCP, Interbank, BBVA, Scotiabank).",
+        a: "Tarjeta de crédito/débito (vía Stripe - Visa, Mastercard, Amex) y transferencia bancaria (BCP, Interbank, BBVA, Scotiabank).",
       },
       {
         q: "¿El cobro con tarjeta es automático?",
-        a: "Sí. Culqi procesa el cobro recurrente el mismo día de cada mes. También puedes optar por transferencia manual y subir el voucher a tu panel en /cuenta/pagos.",
+        a: "Sí. Stripe procesa el cobro recurrente el mismo día de cada mes. También puedes optar por transferencia manual y subir el voucher a tu panel en /cuenta/pagos.",
       },
       {
         q: "¿Qué pasa si no pago una cuota?",

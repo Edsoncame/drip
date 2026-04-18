@@ -11,7 +11,7 @@
  * La fórmula es: price = (cost × ratio) / months
  *
  * Precios offline = empresas por transferencia (sin comisión)
- * Precios online  = web con Culqi (+4-5%, redondeado al siguiente $5)
+ * Precios online  = web con Stripe (+4-5%, redondeado al siguiente $5)
  */
 
 export type PlanKey =
@@ -106,7 +106,7 @@ export function calcOfflinePrice(cost: number, plan: PlanKey, slug?: string): nu
 }
 
 /**
- * Precio online (web/Culqi) — offline + comisión redondeado al siguiente $5.
+ * Precio online (web/Stripe) — offline + comisión redondeado al siguiente $5.
  */
 export function calcOnlinePrice(cost: number, plan: PlanKey, slug?: string): number {
   const offline = calcOfflinePrice(cost, plan, slug);

@@ -361,7 +361,7 @@ export default function ClientsTable({ clients, allSubs, allPayments }: { client
                                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-700 ${stStyles[p.status] ?? "bg-gray-100 text-gray-500"}`}>
                                       {stLabels[p.status] ?? p.status}
                                     </span>
-                                    {p.payment_method === "culqi" ? (
+                                    {p.payment_method === "culqi" || p.payment_method === "stripe" ? (
                                       <span className="text-[10px] font-700 px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700">💳 Tarjeta</span>
                                     ) : (
                                       <span className="text-[10px] font-700 px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700">🏦 Transf.</span>

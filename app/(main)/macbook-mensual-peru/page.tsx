@@ -29,7 +29,7 @@ export default function Page() {
         {
           icon: "💳",
           title: "Paga con tarjeta o transferencia",
-          desc: "Culqi procesa pagos recurrentes automáticos con cualquier tarjeta de crédito peruana. También aceptamos transferencia bancaria.",
+          desc: "Stripe procesa pagos recurrentes automáticos con cualquier tarjeta de crédito peruana. También aceptamos transferencia bancaria.",
         },
         {
           icon: "🎁",
@@ -51,7 +51,7 @@ export default function Page() {
       faqs={[
         {
           q: "¿Cómo funciona el pago mensual?",
-          a: "Al firmar el contrato pagas el primer mes. A partir del segundo mes, Culqi cobra automáticamente tu tarjeta el mismo día cada mes. También puedes pagar por transferencia bancaria subiendo el voucher a tu panel.",
+          a: "Al firmar el contrato pagas el primer mes. A partir del segundo mes, Stripe cobra automáticamente tu tarjeta el mismo día cada mes. También puedes pagar por transferencia bancaria subiendo el voucher a tu panel.",
         },
         {
           q: "¿Qué pasa si no puedo pagar un mes?",

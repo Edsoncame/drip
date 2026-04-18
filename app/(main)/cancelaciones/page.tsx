@@ -75,7 +75,7 @@ export default function CancelacionesPage() {
             Si el cliente detecta un cobro duplicado, un cargo por un monto mayor al pactado, o cualquier otro
             error, debe notificarlo a FLUX en un plazo máximo de 30 días calendario desde la fecha del cargo. El
             reembolso se realizará al mismo medio de pago original dentro de <strong>5 a 10 días hábiles</strong>,
-            dependiendo del banco emisor y de Culqi (nuestro procesador de pagos).
+            dependiendo del banco emisor y de Stripe (nuestro procesador de pagos).
           </p>
         </section>
 

@@ -59,7 +59,7 @@ export default function Page() {
         },
         {
           q: "¿Soportan pagos con tarjeta extranjera?",
-          a: "Sí, Culqi acepta Visa/Mastercard internacionales. También podemos coordinar transferencia por Wise, Revolut o similares.",
+          a: "Sí, Stripe acepta Visa/Mastercard internacionales. También podemos coordinar transferencia por Wise, Revolut o similares.",
         },
         {
           q: "¿Cuánto tarda la entrega en Miraflores?",

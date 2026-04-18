@@ -103,7 +103,7 @@ export default function Post() {
         <li><strong>Elige el modelo</strong> en nuestro catálogo o pídenos una cotización personalizada.</li>
         <li><strong>Firma el contrato</strong> digitalmente (10 minutos).</li>
         <li><strong>Valida identidad</strong> (DNI + selfie) si es persona natural, o RUC si es empresa.</li>
-        <li><strong>Primer pago</strong> por Culqi (tarjeta) o transferencia bancaria.</li>
+        <li><strong>Primer pago</strong> por Stripe (tarjeta) o transferencia bancaria.</li>
         <li><strong>Entrega en 24-48h</strong> en tu oficina en Lima.</li>
         <li><strong>Factura electrónica SUNAT</strong> mensual automática.</li>
       </ol>

@@ -15,7 +15,7 @@ export default function PriceCalculator() {
         <span className="text-lg">🧮</span>
         <h3 className="font-700 text-[#18191F] text-base">Calculadora de precios</h3>
       </div>
-      <p className="text-xs text-[#666] mb-4">Ingresa el costo de un equipo nuevo y te muestro los precios sugeridos para cada plan (offline para empresas, online para web con Culqi).</p>
+      <p className="text-xs text-[#666] mb-4">Ingresa el costo de un equipo nuevo y te muestro los precios sugeridos para cada plan (offline para empresas, online para web con Stripe).</p>
 
       <div className="mb-5">
         <label className="block text-xs font-600 text-[#333] mb-1">Costo del equipo (USD)</label>
@@ -37,7 +37,7 @@ export default function PriceCalculator() {
                 <th className="text-center px-3 py-2 text-xs font-700 text-[#666]">Meses</th>
                 <th className="text-center px-3 py-2 text-xs font-700 text-[#666]">Residual</th>
                 <th className="text-right px-3 py-2 text-xs font-700 text-[#666]">Offline (empresas)</th>
-                <th className="text-right px-3 py-2 text-xs font-700 text-[#666]">Online (web + Culqi)</th>
+                <th className="text-right px-3 py-2 text-xs font-700 text-[#666]">Online (web + Stripe)</th>
                 <th className="text-right px-3 py-2 text-xs font-700 text-[#666]">Total del plan</th>
               </tr>
             </thead>
@@ -72,7 +72,7 @@ export default function PriceCalculator() {
 
       <div className="mt-4 bg-[#F5F8FF] rounded-xl p-3 text-xs text-[#666]">
         <p><strong>Fórmula:</strong> price = (costo × ratio) / meses, donde el ratio está calibrado con datos reales de los 3 modelos actuales.</p>
-        <p className="mt-1"><strong>Online:</strong> offline + comisión Culqi (~4.5%) redondeado al siguiente $5.</p>
+        <p className="mt-1"><strong>Online:</strong> offline + comisión Stripe (~4.5%) redondeado al siguiente $5.</p>
       </div>
     </div>
   );

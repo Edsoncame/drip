@@ -89,7 +89,7 @@ export default async function AdminPagosPage() {
       <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-8">
         <div className="mb-6">
           <h1 className="text-2xl font-800 text-[#18191F]">Pagos</h1>
-          <p className="text-sm text-[#999999] mt-0.5">Todos los pagos: transferencia y tarjeta (Culqi)</p>
+          <p className="text-sm text-[#999999] mt-0.5">Todos los pagos: transferencia y tarjeta (Stripe)</p>
         </div>
 
         {/* Stats */}

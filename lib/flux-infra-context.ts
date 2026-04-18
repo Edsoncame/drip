@@ -17,7 +17,7 @@ export const FLUX_INFRA_CONTEXT = `
 - **Repositorio**: GitHub → github.com/Edsoncame/drip (branch main, auto-deploy a Vercel)
 - **Storage**: Vercel Blob (imágenes de productos, adjuntos)
 - **Email**: Resend (dominio hola@fluxperu.com)
-- **Pagos**: Culqi (tarjetas PE + Yape), Stripe en proceso (Flux Peru LLC vía Atlas)
+- **Pagos**: Stripe (tarjetas PE + Yape), Stripe en proceso (Flux Peru LLC vía Atlas)
 - **AI**: Claude Sonnet 4.6 vía @ai-sdk/anthropic (BYOK direct provider)
 
 ## Dónde se configuran las variables de entorno
@@ -39,15 +39,15 @@ export const FLUX_INFRA_CONTEXT = `
 | **Meta Business** | https://business.facebook.com | Ads, Pixel, páginas FB/IG |
 | **Anthropic** | https://console.anthropic.com | API keys de Claude |
 | **Resend** | https://resend.com/domains | Email transaccional |
-| **Culqi** | https://culqi.com/dashboard | Pagos, tarjetas, Yape |
-| **Stripe Atlas** | https://dashboard.stripe.com → Atlas | LLC Flux Peru, pagos futuros |
+| **Stripe** | https://dashboard.stripe.com | Pagos USD, Checkout Sessions, webhooks |
+| **Stripe Atlas** | https://dashboard.stripe.com → Atlas | LLC Flux Peru Delaware |
 
 ## Variables de entorno actuales (env vars en Vercel)
 
 ### Configuradas ✅
 - \`ANTHROPIC_API_KEY\` — API key de Claude para que los agentes funcionen
 - \`DATABASE_URL\` — conexión PostgreSQL en Railway
-- \`CULQI_SECRET_KEY\` / \`NEXT_PUBLIC_CULQI_PUBLIC_KEY\` — pagos Culqi
+- \`CULQI_SECRET_KEY\` / \`NEXT_PUBLIC_CULQI_PUBLIC_KEY\` — pagos Stripe
 - \`RESEND_API_KEY\` — emails transaccionales
 - \`BLOB_READ_WRITE_TOKEN\` — Vercel Blob storage
 - \`JWT_SECRET\` — autenticación admin
