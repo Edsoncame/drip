@@ -63,7 +63,7 @@ export default function Post() {
         <li>No requiere garantías ni evaluación bancaria.</li>
         <li>NO aparece como pasivo en tu balance.</li>
         <li>Plazos cortos (8, 16 o 24 meses) con flexibilidad total.</li>
-        <li>Al final: devuelves, renuevas con equipo nuevo, o compras por valor residual.</li>
+        <li>Al final: devuelves, renuevas con equipo nuevo, o te la quedas a un precio especial.</li>
       </ul>
 
       <h2>3. Ventajas del leasing operativo en Perú</h2>

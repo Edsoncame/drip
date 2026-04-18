@@ -10,15 +10,14 @@ const steps = [
   { n: "03", icon: "💳", title: "Paga el primer mes", desc: "Con tarjeta o transferencia. Ese primer pago activa tu pedido al toque. Sin matrícula, sin letra chica." },
   { n: "04", icon: "📦", title: "Recibe tu Mac", desc: "La llevamos a tu oficina en Lima en 24-48 horas hábiles. Lista para usar, con todos sus accesorios originales." },
   { n: "05", icon: "🔄", title: "Paga mes a mes, sin preocuparte", desc: "El cobro va automático cada mes. Si necesitas cambiar tu método de pago, lo haces desde tu cuenta en segundos." },
-  { n: "06", icon: "🏁", title: "Al terminar, tú decides", desc: "La devuelves sin costo, la compras al valor residual que acordamos desde el inicio, o tu colaborador la compra en cuotas." },
+  { n: "06", icon: "🏁", title: "Al terminar, tú decides", desc: "La devuelves sin costo, renuevas con un modelo nuevo, o te la quedas a un precio especial que coordinamos contigo." },
 ];
 
 const faqs = [
   { q: "¿Necesito pagar un depósito de garantía?", a: "Para nada. FLUX no te pide depósito. El primer mes de renta es el único pago al inicio — y ese ya cubre tu primer mes de uso." },
   { q: "¿Puedo salirme antes de terminar el plazo?", a: "Puedes cancelar una vez que completes tu plazo mínimo (8, 16 o 24 meses según lo que hayas elegido). Solo coordinas la devolución del equipo y listo." },
   { q: "¿Qué pasa si se me cae o se daña la Mac?", a: "Los daños por accidente o mal uso están fuera de la cobertura básica, así que corren por tu cuenta. Por eso ofrecemos AppleCare+ como add-on — te cubre casi todo." },
-  { q: "¿Puedo comprar la Mac al terminar?", a: "Sí, y muchos lo hacen. El precio de compra está fijado desde el inicio: 77.5% del valor original a 8 meses, 55% a 16 meses y 32.5% a 24 meses." },
-  { q: "¿Mis trabajadores pueden comprar la Mac en cuotas?", a: "Sí, es una opción disponible para empresas. Tu colaborador paga en 16 cuotas mensuales al valor residual — tú no gestionas nada." },
+  { q: "¿Puedo comprar la Mac al terminar?", a: "Sí. Al terminar tu plazo, puedes quedártela a un precio especial que coordinamos contigo — sin compromiso previo." },
   { q: "¿Cuánto demora la entrega en Lima?", a: "Entre 24 y 48 horas hábiles desde que confirmamos tu pedido. Entregamos en tu oficina o donde nos digas en Lima." },
 ];
 
@@ -66,33 +65,6 @@ export default function ComoFunciona() {
         </div>
       </section>
 
-      {/* Residual table */}
-      <section className="py-12" style={{ background: "var(--light-bg)" }}>
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 text-center">
-          <h2 className="text-2xl font-black mb-2" style={{ color: "var(--dark-text)" }}>Valor residual de compra</h2>
-          <p className="text-sm mb-8" style={{ color: "var(--medium-text)" }}>Si decides comprar la Mac al terminar tu plazo, este es el precio como porcentaje del costo original.</p>
-          <div className="bg-white rounded-2xl overflow-hidden" style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}>
-            {[
-              { plazo: "8 meses", residual: "77.5%", badge: null },
-              { plazo: "16 meses", residual: "55.0%", badge: "Más popular" },
-              { plazo: "24 meses", residual: "32.5%", badge: "Menor precio de compra" },
-            ].map((r, i) => (
-              <div key={r.plazo} className="flex items-center justify-between px-6 py-4"
-                style={{ borderBottom: i < 2 ? "1px solid var(--border)" : "none" }}>
-                <div className="flex items-center gap-3">
-                  <span className="font-bold" style={{ color: "var(--dark-text)" }}>{r.plazo}</span>
-                  {r.badge && (
-                    <span className="px-2 py-0.5 text-xs font-bold rounded-full" style={{ background: "var(--primary-light)", color: "var(--primary)" }}>
-                      {r.badge}
-                    </span>
-                  )}
-                </div>
-                <span className="text-xl font-black" style={{ color: "var(--primary)" }}>{r.residual}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* FAQ */}
       <section id="faq" className="py-16 max-w-3xl mx-auto px-4 sm:px-6">

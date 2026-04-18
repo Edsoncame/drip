@@ -95,6 +95,19 @@ export default async function RentasPage() {
             className="inline-flex items-center gap-2 px-6 py-3.5 bg-[#1B4FFF] text-white font-700 rounded-full hover:bg-[#1340CC] transition-colors">
             Ver MacBooks disponibles
           </Link>
+          {/* Hint: si el user acaba de pagar, puede haber pagado con otro email */}
+          <div className="mt-8 pt-6 border-t border-[#F0F0F0]">
+            <p className="text-xs text-[#999999]">
+              ¿Acabas de pagar y no ves tu Mac acá?{" "}
+              <a
+                href="https://wa.me/51900164769?text=Hola%2C%20pagu%C3%A9%20pero%20no%20veo%20mi%20renta%20en%20mi%20cuenta"
+                className="text-[#1B4FFF] font-600 hover:underline"
+              >
+                Avísanos por WhatsApp
+              </a>
+              . A veces se crea con otro email — te ayudamos a unificarlo.
+            </p>
+          </div>
         </div>
       ) : (
         <div className="space-y-4">

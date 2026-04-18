@@ -164,7 +164,7 @@ const categories: Category[] = [
     items: [
       {
         q: "¿Qué pasa al terminar el contrato?",
-        a: "Tienes 3 opciones: (1) devolver el equipo sin costo adicional, (2) renovar el contrato con un modelo nuevo, (3) comprar el equipo por su valor residual (77.5% al mes 8, 55% al mes 16, 32.5% al mes 24).",
+        a: "Tienes 3 opciones: (1) devolver el equipo sin costo adicional, (2) renovar el contrato con un modelo nuevo, (3) quedártelo a un precio especial que coordinamos contigo al final del plazo.",
       },
       {
         q: "¿Cómo devuelvo el equipo?",
@@ -172,7 +172,7 @@ const categories: Category[] = [
       },
       {
         q: "¿Qué pasa si daño el equipo antes de devolverlo?",
-        a: "Evaluamos el daño con taller autorizado Apple. El costo de reparación se descuenta del valor residual o se cobra aparte si el equipo no fue comprado.",
+        a: "Evaluamos el daño con taller autorizado Apple. El costo de reparación se cobra según el daño. Por eso recomendamos agregar AppleCare+ al inicio.",
       },
       {
         q: "¿Puedo devolver antes del plazo?",

@@ -14,7 +14,7 @@ const faqs = [
   { q: "¿Necesito pagar un depósito de garantía?", a: "No. FLUX no pide depósito. El primer mes de renta es el único pago al inicio." },
   { q: "¿Puedo salirme antes de terminar el plazo?", a: "Puedes cancelar una vez que completes tu plazo mínimo (8, 16 o 24 meses). Solo coordinas la devolución del equipo." },
   { q: "¿Qué pasa si se daña la Mac?", a: "Los daños por accidente están fuera de la cobertura básica. Por eso ofrecemos AppleCare+ como add-on." },
-  { q: "¿Puedo comprar la Mac al terminar?", a: "Sí. El precio de compra está fijado desde el inicio: 77.5% a 8 meses, 55% a 16 meses y 32.5% a 24 meses." },
+  { q: "¿Puedo comprar la Mac al terminar?", a: "Sí. Al terminar tu plazo, puedes quedártela a un precio especial que coordinamos contigo — sin compromiso previo." },
   { q: "¿Cuánto demora la entrega en Lima?", a: "Entre 24 y 48 horas hábiles desde que confirmamos tu pedido. Entregamos en tu oficina o donde nos digas en Lima." },
 ];
 

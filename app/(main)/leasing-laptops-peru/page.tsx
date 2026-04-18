@@ -83,8 +83,8 @@ export default function LeasingPage() {
               <p className="text-sm text-[#666]">
                 Pagas una cuota mensual fija que cubre el equipo y el soporte. No requiere
                 garantías ni capital inicial. Es 100% gasto operativo deducible (no aparece
-                como pasivo). Al final del plazo puedes renovar, devolver o comprar el
-                equipo por su valor residual.
+                como pasivo). Al final del plazo puedes renovar, devolver o quedártelo a
+                un precio especial.
               </p>
             </div>
           </div>

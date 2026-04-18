@@ -16,7 +16,18 @@ interface Payment {
   admin_note: string | null;
   invoice_url: string | null;
   invoice_number: string | null;
+  payment_method: string;
   invoices: Array<{ id: string; invoice_number: string; invoice_url: string; amount: string | null; uploaded_at: string }>;
+}
+
+interface SubSummary {
+  id: string;
+  product_name: string;
+  monthly_price: string;
+  status: string;
+  next_billing_at: string | null;
+  payment_method: string;
+  started_at: string;
 }
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string; icon: string }> = {
@@ -31,9 +42,24 @@ export default async function PagosPage() {
   const session = await getSession();
   if (!session) redirect("/auth/login?redirect=/cuenta/pagos");
 
+  // Suscripciones del user con su método de pago
+  const subsRes = await query<SubSummary>(
+    `SELECT id, product_name, monthly_price, status, next_billing_at,
+            payment_method, started_at
+     FROM subscriptions
+     WHERE user_id = $1 AND status IN ('active','delivered','shipped')
+     ORDER BY started_at DESC`,
+    [session.userId],
+  );
+  const subs = subsRes.rows;
+  const hasStripe = subs.some((s) => s.payment_method === "stripe");
+  const hasOffline = subs.some((s) => s.payment_method !== "stripe");
+  const stripeSub = subs.find((s) => s.payment_method === "stripe");
+
   const result = await query<Payment>(
     `SELECT p.id, p.amount, p.currency, p.period_label, p.due_date, p.status,
             p.receipt_url, p.validated_at, p.admin_note, p.invoice_url, p.invoice_number,
+            p.payment_method,
             COALESCE(
               (SELECT json_agg(json_build_object(
                 'id', pi.id,
@@ -88,32 +114,71 @@ export default async function PagosPage() {
         </div>
       </div>
 
-      {/* Bank info */}
-      <div className="bg-[#F5F8FF] border border-[#DDEAFF] rounded-2xl p-6 mb-8">
-        <h2 className="font-700 text-[#18191F] mb-3 flex items-center gap-2">
-          <span className="text-xl">🏦</span> Datos para transferencia
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="bg-white rounded-xl p-4 border border-[#E5E5E5]">
-            <p className="text-xs text-[#999999] mb-1">Banco</p>
-            <p className="font-700 text-[#18191F]">BCP — Banco de Crédito del Perú</p>
+      {/* Stripe — cobro automático */}
+      {hasStripe && stripeSub && (
+        <div className="bg-[#E5F3DF] border border-[#A7E3A7] rounded-2xl p-6 mb-6">
+          <h2 className="font-700 text-[#18191F] mb-3 flex items-center gap-2">
+            <span className="text-xl">💳</span> Pago con tarjeta activo
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="bg-white rounded-xl p-4 border border-[#E5E5E5]">
+              <p className="text-xs text-[#999999] mb-1">Próximo cargo</p>
+              <p className="font-700 text-[#18191F]">
+                {stripeSub.next_billing_at
+                  ? new Date(stripeSub.next_billing_at).toLocaleDateString("es-PE", {
+                      day: "2-digit",
+                      month: "long",
+                      year: "numeric",
+                    })
+                  : "Pendiente de programar"}
+              </p>
+              <p className="text-xs text-[#2D7D46] font-600 mt-1">Se cobra automático</p>
+            </div>
+            <div className="bg-white rounded-xl p-4 border border-[#E5E5E5]">
+              <p className="text-xs text-[#999999] mb-1">Monto mensual</p>
+              <p className="font-700 text-[#18191F]">${parseFloat(stripeSub.monthly_price).toFixed(2)} USD</p>
+              <p className="text-xs text-[#666666] mt-1">{stripeSub.product_name}</p>
+            </div>
           </div>
-          <div className="bg-white rounded-xl p-4 border border-[#E5E5E5]">
-            <p className="text-xs text-[#999999] mb-1">Cuenta en dólares</p>
-            <p className="font-700 text-[#18191F] font-mono">194-12345678-1-05</p>
-          </div>
-          <div className="bg-white rounded-xl p-4 border border-[#E5E5E5]">
-            <p className="text-xs text-[#999999] mb-1">CCI (para interbancario)</p>
-            <p className="font-700 text-[#18191F] font-mono text-sm">002-194-0012345678-1-05</p>
-          </div>
-          <div className="bg-white rounded-xl p-4 border border-[#E5E5E5]">
-            <p className="text-xs text-[#999999] mb-1">Titular</p>
-            <p className="font-700 text-[#18191F]">Tika Services S.A.C.</p>
-            <p className="text-xs text-[#999999]">RUC: 20605702512</p>
-          </div>
+          <p className="text-xs text-[#666666] mt-3">
+            Tu tarjeta se cargará automáticamente cada mes. Si quieres cambiar el método
+            de pago o cancelar,{" "}
+            <a href="https://wa.me/51900164769" className="text-[#1B4FFF] font-600 hover:underline">
+              escríbenos por WhatsApp
+            </a>
+            .
+          </p>
         </div>
-        <p className="text-xs text-[#999999] mt-3">Después de transferir, sube tu comprobante abajo para que validemos tu pago.</p>
-      </div>
+      )}
+
+      {/* Bank info — solo si hay suscripciones con pago offline */}
+      {hasOffline && (
+        <div className="bg-[#F5F8FF] border border-[#DDEAFF] rounded-2xl p-6 mb-8">
+          <h2 className="font-700 text-[#18191F] mb-3 flex items-center gap-2">
+            <span className="text-xl">🏦</span> Datos para transferencia
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="bg-white rounded-xl p-4 border border-[#E5E5E5]">
+              <p className="text-xs text-[#999999] mb-1">Banco</p>
+              <p className="font-700 text-[#18191F]">BCP — Banco de Crédito del Perú</p>
+            </div>
+            <div className="bg-white rounded-xl p-4 border border-[#E5E5E5]">
+              <p className="text-xs text-[#999999] mb-1">Cuenta en dólares</p>
+              <p className="font-700 text-[#18191F] font-mono">194-12345678-1-05</p>
+            </div>
+            <div className="bg-white rounded-xl p-4 border border-[#E5E5E5]">
+              <p className="text-xs text-[#999999] mb-1">CCI (para interbancario)</p>
+              <p className="font-700 text-[#18191F] font-mono text-sm">002-194-0012345678-1-05</p>
+            </div>
+            <div className="bg-white rounded-xl p-4 border border-[#E5E5E5]">
+              <p className="text-xs text-[#999999] mb-1">Titular</p>
+              <p className="font-700 text-[#18191F]">Tika Services S.A.C.</p>
+              <p className="text-xs text-[#999999]">RUC: 20605702512</p>
+            </div>
+          </div>
+          <p className="text-xs text-[#999999] mt-3">Después de transferir, sube tu comprobante abajo para que validemos tu pago.</p>
+        </div>
+      )}
 
       {/* Payments list */}
       <h2 className="font-700 text-[#18191F] mb-4">Historial de pagos</h2>
@@ -126,6 +191,7 @@ export default async function PagosPage() {
         <div className="space-y-3">
           {payments.map(payment => {
             const st = STATUS_MAP[payment.status] ?? STATUS_MAP.pending;
+            const isStripePayment = payment.payment_method === "stripe";
             return (
               <div key={payment.id} className="bg-white border border-[#E5E5E5] rounded-2xl p-5">
                 <div className="flex items-center justify-between gap-4 mb-3">
@@ -134,6 +200,11 @@ export default async function PagosPage() {
                     <p className="text-xs text-[#999999]">
                       Vence: {new Date(payment.due_date).toLocaleDateString("es-PE", { day: "2-digit", month: "long", year: "numeric" })}
                     </p>
+                    {isStripePayment && (
+                      <p className="text-[11px] text-[#666666] mt-1 flex items-center gap-1">
+                        💳 Cargado con tu tarjeta
+                      </p>
+                    )}
                   </div>
                   <div className="text-right">
                     <p className="text-xl font-800 text-[#18191F]">${parseFloat(payment.amount).toFixed(2)}</p>
@@ -150,8 +221,9 @@ export default async function PagosPage() {
                     <div className="bg-[#E5F3DF] rounded-xl p-3 flex items-center gap-2">
                       <span className="text-green-600">✓</span>
                       <p className="text-sm text-[#2D7D46] font-600">
-                        Pago validado
-                        {payment.validated_at && ` el ${new Date(payment.validated_at).toLocaleDateString("es-PE", { day: "2-digit", month: "short" })}`}
+                        {isStripePayment
+                          ? `Cobrado automáticamente${payment.validated_at ? ` el ${new Date(payment.validated_at).toLocaleDateString("es-PE", { day: "2-digit", month: "short" })}` : ""}`
+                          : `Pago validado${payment.validated_at ? ` el ${new Date(payment.validated_at).toLocaleDateString("es-PE", { day: "2-digit", month: "short" })}` : ""}`}
                       </p>
                     </div>
                   )}
@@ -163,13 +235,27 @@ export default async function PagosPage() {
                     </div>
                   )}
 
-                  {(payment.status === "pending" || payment.status === "overdue") && (
-                    <UploadReceipt paymentId={payment.id} hasReceipt={!!payment.receipt_url} />
-                  )}
+                  {(payment.status === "pending" || payment.status === "overdue") &&
+                    (isStripePayment ? (
+                      <div className="bg-[#FEF3C7] rounded-xl p-3 flex items-center gap-2">
+                        <span>⏳</span>
+                        <p className="text-sm text-[#B45309] font-600">
+                          El cargo está programado en Stripe. Si rebotó, revisa que tu tarjeta
+                          tenga fondos o{" "}
+                          <a href="https://wa.me/51900164769" className="underline">avísanos</a>.
+                        </p>
+                      </div>
+                    ) : (
+                      <UploadReceipt paymentId={payment.id} hasReceipt={!!payment.receipt_url} />
+                    ))}
 
                   {payment.status === "upcoming" && (
                     <div className="bg-[#F3F4F6] rounded-xl p-3">
-                      <p className="text-sm text-[#666666]">Este pago aún no vence. Te avisaremos cuando sea momento.</p>
+                      <p className="text-sm text-[#666666]">
+                        {isStripePayment
+                          ? "Este mes se cobrará automáticamente. No tienes que hacer nada."
+                          : "Este pago aún no vence. Te avisaremos cuando sea momento."}
+                      </p>
                     </div>
                   )}
 

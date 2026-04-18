@@ -44,7 +44,7 @@ export default function Page() {
           "El 100% de la cuota mensual es deducible como gasto operativo",
           "NO aparece como pasivo en tu balance (a diferencia del leasing financiero)",
           "NO requiere depreciación contable (el equipo no es tu activo)",
-          "Flexible al final: devuelves, renuevas, o compras por valor residual",
+          "Flexible al final: devuelves, renuevas o te la quedas a un precio especial",
           "Ideal para empresas con enfoque en eficiencia financiera",
         ],
       }}
