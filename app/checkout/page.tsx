@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { useProduct } from "@/lib/use-products";
@@ -213,6 +213,138 @@ const LIMA_DISTRITOS = [
   "Villa María del Triunfo",
 ];
 
+// ─── Camera capture modal (getUserMedia) ─────────────────────────────────────
+function CameraModal({
+  facing,
+  title,
+  hint,
+  onCapture,
+  onCancel,
+}: {
+  facing: "user" | "environment";
+  title: string;
+  hint: string;
+  onCapture: (file: File) => void;
+  onCancel: () => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        if (!navigator.mediaDevices?.getUserMedia) {
+          setError("Tu navegador no soporta cámara en web. Usa el botón 'Subir archivo' de abajo.");
+          return;
+        }
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false,
+        });
+        if (cancelled) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play().catch(() => {});
+          setReady(true);
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes("Permission") || msg.includes("denied") || msg.includes("NotAllowed")) {
+          setError("Permiso de cámara denegado. Habilítalo en los ajustes del navegador o usá 'Subir archivo'.");
+        } else if (msg.includes("NotFound") || msg.includes("device")) {
+          setError("No encontramos cámara en este dispositivo. Usá 'Subir archivo'.");
+        } else {
+          setError("No se pudo abrir la cámara. Usá 'Subir archivo'.");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    };
+  }, [facing]);
+
+  const capture = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) return;
+        const file = new File([blob], `${facing === "user" ? "selfie" : "dni"}.jpg`, {
+          type: "image/jpeg",
+        });
+        onCapture(file);
+      },
+      "image/jpeg",
+      0.88,
+    );
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl">
+        <div className="p-5 border-b border-[#E5E5E5]">
+          <h3 className="font-800 text-[#18191F] text-lg">{title}</h3>
+          <p className="text-xs text-[#666666] mt-1">{hint}</p>
+        </div>
+        <div className="relative bg-black aspect-video">
+          {error ? (
+            <div className="absolute inset-0 flex items-center justify-center p-6 text-center">
+              <p className="text-white text-sm">{error}</p>
+            </div>
+          ) : (
+            <>
+              <video
+                ref={videoRef}
+                playsInline
+                muted
+                className="w-full h-full object-cover"
+                // El stream de getUserMedia viene en vivo, no necesita src
+              />
+              {!ready && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <svg className="animate-spin w-8 h-8 text-white" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="30 70" />
+                  </svg>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+        <div className="p-5 flex gap-3">
+          <button
+            onClick={onCancel}
+            className="flex-1 py-3 rounded-full border border-[#E5E5E5] text-[#666666] font-600 text-sm hover:border-[#1B4FFF] hover:text-[#1B4FFF] transition-colors cursor-pointer"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={capture}
+            disabled={!ready || !!error}
+            className="flex-1 py-3 rounded-full bg-[#1B4FFF] text-white font-700 text-sm hover:bg-[#1340CC] transition-colors disabled:opacity-50 cursor-pointer"
+          >
+            📸 Capturar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Step2({
   onNext,
   onBack,
@@ -237,6 +369,7 @@ function Step2({
   const [rucStatus, setRucStatus] = useState<{ valid?: boolean; razonSocial?: string; loading?: boolean }>({});
   const [uploadingDni, setUploadingDni] = useState(false);
   const [uploadingSelfie, setUploadingSelfie] = useState(false);
+  const [cameraMode, setCameraMode] = useState<"dni" | "selfie" | null>(null);
 
   const verifyRuc = async (ruc: string) => {
     if (ruc.length !== 11) return;
@@ -315,6 +448,22 @@ function Step2({
 
   return (
     <form onSubmit={handleSubmit}>
+      {cameraMode && (
+        <CameraModal
+          facing={cameraMode === "selfie" ? "user" : "environment"}
+          title={cameraMode === "selfie" ? "Selfie con DNI" : "Foto del DNI"}
+          hint={
+            cameraMode === "selfie"
+              ? "Sostené tu DNI junto a tu cara. Asegurate de que ambos se vean claramente."
+              : "Mostrá el lado frontal del DNI. Cuidado con reflejos o sombras."
+          }
+          onCapture={(file) => {
+            setCameraMode(null);
+            handleFileUpload(file, cameraMode);
+          }}
+          onCancel={() => setCameraMode(null)}
+        />
+      )}
       <h2 className="text-2xl font-800 text-[#18191F] mb-6">Tus datos</h2>
 
       {/* Customer type selector */}
@@ -513,23 +662,33 @@ function Step2({
                   </div>
                 </div>
               ) : (
-                <label className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${
-                  errors.dniPhoto ? "border-red-400 bg-red-50" : "border-dashed border-[#CCCCCC] hover:border-[#1B4FFF] hover:bg-[#F5F8FF]"
-                }`}>
-                  <input type="file" accept="image/*,.heic,.heif" className="sr-only" disabled={uploadingDni}
-                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, "dni"); }} />
-                  <div className="w-12 h-12 bg-[#F0F0F0] rounded-xl flex items-center justify-center flex-shrink-0">
-                    {uploadingDni ? (
-                      <svg className="animate-spin w-5 h-5 text-[#1B4FFF]" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="30 70"/></svg>
-                    ) : (
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="1.5"><rect x="2" y="4" width="20" height="16" rx="3"/><circle cx="9" cy="11" r="2.5"/><path d="M15 9h2M15 12h2"/><path d="M5 18c1-2 3-3 4-3s3 1 4 3"/></svg>
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-sm font-600 text-[#333333]">{uploadingDni ? "Subiendo..." : "Subir foto del DNI"}</p>
-                    <p className="text-xs text-[#999999]">Toca aqui para abrir la camara</p>
-                  </div>
-                </label>
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => setCameraMode("dni")}
+                    disabled={uploadingDni}
+                    className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${
+                      errors.dniPhoto ? "border-red-400 bg-red-50" : "border-[#1B4FFF] bg-[#F5F8FF] hover:bg-[#EEF2FF]"
+                    }`}
+                  >
+                    <div className="w-12 h-12 bg-[#1B4FFF] rounded-xl flex items-center justify-center flex-shrink-0 text-white">
+                      {uploadingDni ? (
+                        <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="30 70"/></svg>
+                      ) : (
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                      )}
+                    </div>
+                    <div className="text-left">
+                      <p className="text-sm font-700 text-[#1B4FFF]">{uploadingDni ? "Subiendo..." : "Abrir cámara"}</p>
+                      <p className="text-xs text-[#666666]">Captura tu DNI con la cámara</p>
+                    </div>
+                  </button>
+                  <label className="w-full block text-center text-xs text-[#999999] hover:text-[#1B4FFF] underline cursor-pointer">
+                    <input type="file" accept="image/*,.heic,.heif" className="sr-only" disabled={uploadingDni}
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, "dni"); }} />
+                    o subir archivo desde tu dispositivo
+                  </label>
+                </div>
               )}
               {errors.dniPhoto && <p className="text-red-500 text-xs mt-1">{errors.dniPhoto}</p>}
             </div>
@@ -558,23 +717,33 @@ function Step2({
                   </div>
                 </div>
               ) : (
-                <label className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${
-                  errors.selfiePhoto ? "border-red-400 bg-red-50" : "border-dashed border-[#CCCCCC] hover:border-[#1B4FFF] hover:bg-[#F5F8FF]"
-                }`}>
-                  <input type="file" accept="image/*,.heic,.heif" className="sr-only" disabled={uploadingSelfie}
-                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, "selfie"); }} />
-                  <div className="w-12 h-12 bg-[#F0F0F0] rounded-xl flex items-center justify-center flex-shrink-0">
-                    {uploadingSelfie ? (
-                      <svg className="animate-spin w-5 h-5 text-[#1B4FFF]" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="30 70"/></svg>
-                    ) : (
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="1.5"><circle cx="12" cy="10" r="4"/><path d="M20 21c0-4.4-3.6-8-8-8s-8 3.6-8 8"/><path d="M16 3h5v5M21 3l-5 5"/></svg>
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-sm font-600 text-[#333333]">{uploadingSelfie ? "Subiendo..." : "Tomar selfie con DNI"}</p>
-                    <p className="text-xs text-[#999999]">Tu cara + tu DNI en la misma foto</p>
-                  </div>
-                </label>
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => setCameraMode("selfie")}
+                    disabled={uploadingSelfie}
+                    className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${
+                      errors.selfiePhoto ? "border-red-400 bg-red-50" : "border-[#1B4FFF] bg-[#F5F8FF] hover:bg-[#EEF2FF]"
+                    }`}
+                  >
+                    <div className="w-12 h-12 bg-[#1B4FFF] rounded-xl flex items-center justify-center flex-shrink-0 text-white">
+                      {uploadingSelfie ? (
+                        <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="30 70"/></svg>
+                      ) : (
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><circle cx="12" cy="10" r="4"/><path d="M20 21c0-4.4-3.6-8-8-8s-8 3.6-8 8"/></svg>
+                      )}
+                    </div>
+                    <div className="text-left">
+                      <p className="text-sm font-700 text-[#1B4FFF]">{uploadingSelfie ? "Subiendo..." : "Abrir cámara frontal"}</p>
+                      <p className="text-xs text-[#666666]">Tu cara + tu DNI en la misma foto</p>
+                    </div>
+                  </button>
+                  <label className="w-full block text-center text-xs text-[#999999] hover:text-[#1B4FFF] underline cursor-pointer">
+                    <input type="file" accept="image/*,.heic,.heif" className="sr-only" disabled={uploadingSelfie}
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, "selfie"); }} />
+                    o subir archivo desde tu dispositivo
+                  </label>
+                </div>
               )}
               {errors.selfiePhoto && <p className="text-red-500 text-xs mt-1">{errors.selfiePhoto}</p>}
             </div>
