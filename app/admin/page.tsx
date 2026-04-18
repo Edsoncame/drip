@@ -37,11 +37,13 @@ interface Sub {
 }
 
 interface Stat {
-  active_count: string;
-  monthly_revenue: string;
+  preparing_count: string;
+  shipped_count: string;
+  delivered_count: string;
+  mrr_activo: string;
   total_users: string;
   total_subs: string;
-  pending_delivery: string;
+  total_cobrado: string;
 }
 
 interface Referral {
@@ -61,11 +63,13 @@ export default async function AdminPage() {
   const [statsResult, subsResult, referralsResult] = await Promise.all([
     query<Stat>(`
       SELECT
-        COUNT(*) FILTER (WHERE status IN ('active','delivered','preparing')) AS active_count,
-        COUNT(*) FILTER (WHERE status IN ('shipped','preparing'))              AS pending_delivery,
-        COALESCE(SUM(monthly_price::numeric) FILTER (WHERE status IN ('active','delivered','preparing','shipped')), 0) AS monthly_revenue,
+        COUNT(*) FILTER (WHERE status = 'preparing')                AS preparing_count,
+        COUNT(*) FILTER (WHERE status = 'shipped')                  AS shipped_count,
+        COUNT(*) FILTER (WHERE status IN ('delivered','active'))    AS delivered_count,
+        COALESCE(SUM(monthly_price::numeric) FILTER (WHERE status IN ('delivered','active')), 0) AS mrr_activo,
         (SELECT COUNT(*) FROM users WHERE COALESCE(is_admin, false) = false) AS total_users,
-        COUNT(*)                                     AS total_subs
+        COUNT(*)                                                    AS total_subs,
+        (SELECT COALESCE(SUM(amount::numeric), 0) FROM payments WHERE status = 'validated') AS total_cobrado
       FROM subscriptions
     `),
     query<Sub>(`
@@ -121,20 +125,69 @@ export default async function AdminPage() {
           <p className="text-sm text-[#999999] mt-0.5">Bienvenido, {session.name}</p>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-8">
+        {/* Stats — 2 filas: operativa + plata */}
+        {/* Fila 1: estados del flujo operativo */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-3">
           {[
-            { label: "Rentas activas",    value: stats?.active_count ?? "0",       icon: "💻", highlight: false },
-            { label: "En camino",         value: stats?.pending_delivery ?? "0",   icon: "🚚", highlight: Number(stats?.pending_delivery) > 0 },
-            { label: "MRR estimado",      value: `$${Number(stats?.monthly_revenue ?? 0).toFixed(0)}`, icon: "💰", highlight: false },
-            { label: "Total usuarios",    value: stats?.total_users ?? "0",        icon: "👤", highlight: false },
-            { label: "Total rentas",      value: stats?.total_subs ?? "0",         icon: "📋", highlight: false },
+            {
+              label: "Por despachar",
+              sublabel: "Pagó, falta entregar",
+              value: stats?.preparing_count ?? "0",
+              icon: "⏳",
+              highlight: Number(stats?.preparing_count) > 0,
+            },
+            {
+              label: "En camino",
+              sublabel: "Despachadas, sin entregar",
+              value: stats?.shipped_count ?? "0",
+              icon: "🚚",
+              highlight: Number(stats?.shipped_count) > 0,
+            },
+            {
+              label: "Rentas activas",
+              sublabel: "Entregadas y cobrando",
+              value: stats?.delivered_count ?? "0",
+              icon: "✅",
+              highlight: false,
+            },
           ].map(s => (
             <div key={s.label}
               className={`bg-white rounded-2xl p-5 border ${s.highlight ? "border-orange-300 bg-orange-50" : "border-[#E5E5E5]"}`}>
               <div className="text-2xl mb-2">{s.icon}</div>
               <p className="text-2xl font-800 text-[#18191F]">{s.value}</p>
-              <p className="text-xs text-[#666666] mt-1">{s.label}</p>
+              <p className="text-xs font-700 text-[#333333] mt-1">{s.label}</p>
+              <p className="text-[11px] text-[#999999] mt-0.5">{s.sublabel}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Fila 2: plata + usuarios */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8">
+          {[
+            {
+              label: "MRR activo",
+              sublabel: "Cobro mensual recurrente de rentas entregadas",
+              value: `$${Number(stats?.mrr_activo ?? 0).toFixed(0)}`,
+              icon: "💰",
+            },
+            {
+              label: "Total cobrado",
+              sublabel: "Acumulado histórico validado",
+              value: `$${Number(stats?.total_cobrado ?? 0).toFixed(0)}`,
+              icon: "🏦",
+            },
+            {
+              label: "Clientes",
+              sublabel: `${stats?.total_subs ?? "0"} rentas totales`,
+              value: stats?.total_users ?? "0",
+              icon: "👤",
+            },
+          ].map(s => (
+            <div key={s.label} className="bg-white rounded-2xl p-5 border border-[#E5E5E5]">
+              <div className="text-2xl mb-2">{s.icon}</div>
+              <p className="text-2xl font-800 text-[#18191F]">{s.value}</p>
+              <p className="text-xs font-700 text-[#333333] mt-1">{s.label}</p>
+              <p className="text-[11px] text-[#999999] mt-0.5">{s.sublabel}</p>
             </div>
           ))}
         </div>
