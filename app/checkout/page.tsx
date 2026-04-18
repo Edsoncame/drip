@@ -605,28 +605,34 @@ function Step2({
         return;
       }
 
-      // 2. Verify final (consolidar scan + face match → users.kyc_status)
+      // 2. Verify final — consolida scan + face match + posible arbiter IA.
+      // El endpoint siempre devuelve 'verified' o 'rejected' (nunca 'review');
+      // los casos borderline los arbitra Claude internamente.
       const verifyRes = await fetch("/api/kyc/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           correlation_id: kycCorrIdRef.current,
           name_score: matchData.name_score,
+          form_name: data.name,
+          form_dni: identity.dniNumber,
         }),
       });
       const verifyData = await verifyRes.json();
       setKycVerifying(false);
 
-      if (verifyData.status === "rejected") {
+      if (verifyData.status !== "verified") {
         setErrors((prev) => ({
           ...prev,
           selfiePhoto:
-            "No pudimos verificar tu identidad con suficiente confianza. Vuelve a capturar DNI y selfie.",
+            verifyData.status === "rejected"
+              ? "No pudimos verificar tu identidad. Revisa que la selfie se parezca al DNI y que los datos coincidan. Vuelve a intentarlo."
+              : "No pudimos completar la verificación. Vuelve a capturar DNI y selfie.",
         }));
         return;
       }
 
-      // verified o review → permitimos avanzar. review queda flag en DB para admin.
+      // Solo avanzamos si quedó verified
       onNext();
     } catch (err) {
       setKycVerifying(false);

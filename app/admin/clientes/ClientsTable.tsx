@@ -58,12 +58,14 @@ interface PaymentDetail {
 }
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  active:    { label: "Activo",      color: "bg-green-100 text-green-700" },
-  shipped:   { label: "Despachado",  color: "bg-purple-100 text-purple-700" },
-  delivered: { label: "Entregado",   color: "bg-blue-100 text-blue-700" },
-  paused:    { label: "Pausado",     color: "bg-yellow-100 text-yellow-700" },
-  cancelled: { label: "Cancelado",   color: "bg-red-100 text-red-600" },
-  completed: { label: "Completado",  color: "bg-gray-100 text-gray-500" },
+  preparing: { label: "Preparando",   color: "bg-blue-100 text-blue-700" },
+  shipped:   { label: "Despachado",   color: "bg-purple-100 text-purple-700" },
+  delivered: { label: "Entregado",    color: "bg-green-100 text-green-700" },
+  paused:    { label: "Pausado",      color: "bg-yellow-100 text-yellow-700" },
+  cancelled: { label: "Cancelado",    color: "bg-red-100 text-red-600" },
+  completed: { label: "Completado",   color: "bg-gray-100 text-gray-500" },
+  // Legacy
+  active:    { label: "Activo",       color: "bg-green-100 text-green-700" },
 };
 
 export default function ClientsTable({ clients, allSubs, allPayments }: { clients: Client[]; allSubs: SubDetail[]; allPayments: PaymentDetail[] }) {

@@ -60,9 +60,9 @@ export default async function AdminPage() {
   const [statsResult, subsResult, referralsResult] = await Promise.all([
     query<Stat>(`
       SELECT
-        COUNT(*) FILTER (WHERE status IN ('active','delivered')) AS active_count,
-        COUNT(*) FILTER (WHERE status = 'shipped')               AS pending_delivery,
-        COALESCE(SUM(monthly_price::numeric) FILTER (WHERE status IN ('active','delivered')), 0) AS monthly_revenue,
+        COUNT(*) FILTER (WHERE status IN ('active','delivered','preparing')) AS active_count,
+        COUNT(*) FILTER (WHERE status IN ('shipped','preparing'))              AS pending_delivery,
+        COALESCE(SUM(monthly_price::numeric) FILTER (WHERE status IN ('active','delivered','preparing','shipped')), 0) AS monthly_revenue,
         (SELECT COUNT(*) FROM users WHERE COALESCE(is_admin, false) = false) AS total_users,
         COUNT(*)                                     AS total_subs
       FROM subscriptions

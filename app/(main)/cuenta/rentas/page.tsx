@@ -34,12 +34,14 @@ interface Subscription {
 const RESIDUAL_VALUES: Record<number, number> = { 8: 0.775, 16: 0.55, 24: 0.325 };
 
 const STATUS_LABELS: Record<string, { label: string; color: string; bg: string }> = {
-  active:    { label: "Activo",      color: "#2D7D46", bg: "#E5F3DF" },
-  shipped:   { label: "En camino",   color: "#7C3AED", bg: "#EDE9FE" },
-  delivered: { label: "Entregado",   color: "#1D4ED8", bg: "#DBEAFE" },
-  paused:    { label: "Pausado",     color: "#B45309", bg: "#FEF3C7" },
-  cancelled: { label: "Cancelado",   color: "#DC2626", bg: "#FEE2E2" },
-  completed: { label: "Completado",  color: "#6B7280", bg: "#F3F4F6" },
+  preparing: { label: "Preparando tu Mac", color: "#1B4FFF", bg: "#DBEAFE" },
+  shipped:   { label: "En camino",         color: "#7C3AED", bg: "#EDE9FE" },
+  delivered: { label: "Entregado",         color: "#2D7D46", bg: "#E5F3DF" },
+  paused:    { label: "Pausado",           color: "#B45309", bg: "#FEF3C7" },
+  cancelled: { label: "Cancelado",         color: "#DC2626", bg: "#FEE2E2" },
+  completed: { label: "Completado",        color: "#6B7280", bg: "#F3F4F6" },
+  // Legacy fallback
+  active:    { label: "Activo",            color: "#2D7D46", bg: "#E5F3DF" },
 };
 
 export default async function RentasPage() {

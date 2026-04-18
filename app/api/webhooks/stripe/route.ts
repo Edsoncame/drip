@@ -240,7 +240,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
        delivery_place_type, delivery_apartment, delivery_floor,
        shipping_cost_pen, shipping_lat, shipping_lng,
        dni_number, dni_photo_url, selfie_url, payment_method)
-     VALUES ($1,$2,$3,$4,$5,'active',NOW(),$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,'stripe')
+     VALUES ($1,$2,$3,$4,$5,'preparing',NOW(),$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,'stripe')
      RETURNING id`,
     [
       userId,

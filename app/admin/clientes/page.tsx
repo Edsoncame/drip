@@ -74,7 +74,7 @@ export default async function ClientesPage() {
       SELECT u.id, u.name, u.email, u.phone, u.company, u.ruc, u.legal_representative,
              u.google_id, u.referral_code, u.identity_verified, u.created_at,
              COUNT(s.id) AS total_subs,
-             COUNT(s.id) FILTER (WHERE s.status IN ('active','shipped','delivered')) AS active_subs,
+             COUNT(s.id) FILTER (WHERE s.status IN ('active','shipped','delivered','preparing')) AS active_subs,
              COALESCE(SUM(s.monthly_price::numeric * s.months) FILTER (WHERE s.status != 'cancelled'), 0) AS total_spent,
              STRING_AGG(DISTINCT s.product_name, ', ') AS products,
              MAX(s.started_at) AS last_sub_date,
