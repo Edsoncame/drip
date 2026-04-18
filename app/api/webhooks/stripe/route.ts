@@ -427,10 +427,12 @@ async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<void> {
     return;
   }
 
-  // Normal extension
+  // Normal extension — SOLO extender fechas. El status lifecycle
+  // (preparing/shipped/delivered/paused/…) lo maneja el admin manualmente.
+  // Si la sub está 'paused' por morosidad, la reactivamos; si no, respetamos.
   await query(
     `UPDATE subscriptions SET
-      status = 'active',
+      status = CASE WHEN status = 'paused' THEN 'delivered' ELSE status END,
       ends_at = GREATEST(ends_at, NOW()) + INTERVAL '1 month',
       next_billing_at = NOW() + INTERVAL '1 month',
       updated_at = NOW()
