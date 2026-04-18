@@ -47,6 +47,68 @@ export default function SelfieLiveness({
   const [progress, setProgress] = useState(0); // 0..1 de la prep bar
   const [ack, setAck] = useState(false); // flash "Capturado ✓"
 
+  // AudioContext lazy — lo inicializamos al primer tap del usuario (Safari iOS
+  // requiere interacción de usuario para desbloquear audio).
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const ensureAudio = useCallback(() => {
+    if (audioCtxRef.current) return audioCtxRef.current;
+    try {
+      type WithWebkitAudio = Window & {
+        webkitAudioContext?: typeof AudioContext;
+      };
+      const Ctor =
+        window.AudioContext ??
+        (window as unknown as WithWebkitAudio).webkitAudioContext;
+      if (!Ctor) return null;
+      audioCtxRef.current = new Ctor();
+      return audioCtxRef.current;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  // Narra la instrucción (Web Speech API). Útil mientras el user gira la
+  // cabeza y no puede leer la pantalla.
+  const speak = useCallback((text: string) => {
+    if (typeof window === "undefined") return;
+    const synth = window.speechSynthesis;
+    if (!synth) return;
+    try {
+      synth.cancel();
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = "es-PE";
+      utter.rate = 1.05;
+      utter.pitch = 1;
+      utter.volume = 1;
+      synth.speak(utter);
+    } catch {
+      /* silencioso — no es crítico */
+    }
+  }, []);
+
+  // Beep corto de confirmación (tipo shutter). También vibra 40ms en móviles.
+  const playBeep = useCallback(() => {
+    const ctx = audioCtxRef.current;
+    if (ctx) {
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(880, now); // A5
+      osc.frequency.exponentialRampToValueAtTime(1320, now + 0.08); // sube a E6
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.25, now + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.2);
+    }
+    // Haptics donde esté disponible (Android Chrome; iOS Safari lo ignora)
+    if (typeof navigator !== "undefined" && navigator.vibrate) {
+      navigator.vibrate(40);
+    }
+  }, []);
+
   const stop = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
@@ -69,6 +131,9 @@ export default function SelfieLiveness({
   }, []);
 
   const startCamera = useCallback(async () => {
+    // Inicializamos audio acá aprovechando el gesto del usuario (requerido
+    // por iOS Safari para poder reproducir sonido después).
+    ensureAudio();
     setStep("permitting");
     setError(null);
     setErrorDetail(null);
@@ -118,11 +183,7 @@ export default function SelfieLiveness({
       if (!res.ok) {
         const msg = data.error ?? "Error al procesar la selfie";
         setError(msg);
-        setErrorDetail(
-          data.category === "unknown" && data.debug?.original
-            ? data.debug.original
-            : null,
-        );
+        setErrorDetail(data.debug?.original ?? null);
         setStep("error");
         onError?.(msg);
         return;
@@ -145,6 +206,12 @@ export default function SelfieLiveness({
   useEffect(() => {
     if (step !== "center" && step !== "left" && step !== "right") return;
 
+    // Narrar la instrucción al empezar cada paso (útil cuando el user gira
+    // la cabeza y no puede ver la pantalla).
+    if (step === "center") speak("Mira de frente a la cámara");
+    else if (step === "left") speak("Gira suavemente a tu izquierda");
+    else if (step === "right") speak("Gira suavemente a tu derecha");
+
     let cancelled = false;
     let raf: number | null = null;
     const start = Date.now();
@@ -166,7 +233,9 @@ export default function SelfieLiveness({
       const blob = await grabFrame();
       if (blob) framesRef.current.push(blob);
 
-      // Mini ack "Capturado ✓"
+      // Beep + haptic + feedback visual "Capturado ✓". Cuando el user gira
+      // la cabeza y no ve la pantalla, el beep le confirma que capturó.
+      playBeep();
       setAck(true);
       await new Promise((r) => setTimeout(r, ACK_MS));
       setAck(false);
@@ -183,7 +252,7 @@ export default function SelfieLiveness({
       cancelled = true;
       if (raf) cancelAnimationFrame(raf);
     };
-  }, [step, grabFrame, uploadFrames]);
+  }, [step, grabFrame, uploadFrames, playBeep, speak]);
 
   const currentStepNumber = step === "center" ? 1 : step === "left" ? 2 : step === "right" ? 3 : 0;
   const instructionMain =

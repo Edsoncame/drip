@@ -12,7 +12,7 @@ import { checkLiveness, compareFaces, FACE_MATCH_MIN } from "@/lib/kyc/face";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 90;
 
 const tag = "[kyc/selfie]";
 const MAX_ATTEMPTS = 3;
@@ -197,15 +197,24 @@ export async function POST(req: NextRequest) {
       threshold: FACE_MATCH_MIN,
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
+    // Desenrollamos error.cause (undici fetch failed tiene la causa real adentro)
+    function flatten(e: unknown, depth = 0): string {
+      if (depth > 4 || !e) return "";
+      if (e instanceof Error) {
+        const cause = (e as Error & { cause?: unknown }).cause;
+        return `${e.name}: ${e.message}${cause ? " → " + flatten(cause, depth + 1) : ""}`;
+      }
+      return String(e);
+    }
+    const msg = flatten(err);
     const stack = err instanceof Error ? err.stack ?? "" : "";
-    console.error(`${tag} error corr=${correlationId}`, err);
+    console.error(`${tag} error corr=${correlationId}`, msg, err);
     await logAttempt({
       userId,
       correlationId,
       step: "face-compare",
       outcome: "fail",
-      reason: `internal: ${msg.slice(0, 200)}`,
+      reason: `internal: ${msg.slice(0, 400)}`,
     });
 
     const lower = msg.toLowerCase();
@@ -262,17 +271,13 @@ export async function POST(req: NextRequest) {
       `${tag} error_category=${category} corr=${correlationId} original="${msg.slice(0, 200)}"`,
     );
 
-    // Si no pudimos categorizar, exponemos el error original para diagnóstico
-    // (el componente lo renderiza en pantalla con prefijo [técnico]).
-    const includeDebug = category === "unknown";
-
+    // Siempre incluimos debug mientras estabilizamos el flujo — crítico para
+    // debuggear sin pedirle al usuario que abra DevTools en iPhone.
     return NextResponse.json(
       {
         error: userMessage,
         category,
-        ...(includeDebug
-          ? { debug: { original: msg.slice(0, 500), stack: stack.slice(0, 800) } }
-          : {}),
+        debug: { original: msg.slice(0, 500), stack: stack.slice(0, 800) },
       },
       { status },
     );
