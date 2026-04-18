@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         error:
-          "No encontramos tu DNI cargado. Volvé al paso anterior y cargalo primero.",
+          "No encontramos tu DNI cargado. Vuelve al paso anterior y cárgalo primero.",
       },
       { status: 400 },
     );
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
   const scan = scanRes.rows[0];
   if (!scan.imagen_anverso_key) {
     return NextResponse.json(
-      { error: "Falta la imagen del DNI. Volvé al paso anterior." },
+      { error: "Falta la imagen del DNI. Vuelve al paso anterior." },
       { status: 400 },
     );
   }
@@ -102,8 +102,8 @@ export async function POST(req: NextRequest) {
         liveness.reason === "face_missing_in_frame"
           ? "No pudimos detectar tu cara en una de las capturas. Asegurate de estar frente a la cámara en toda la secuencia."
           : liveness.reason === "head_pose_static"
-            ? "Parece que no giraste la cabeza como te pedimos. Volvé a intentar siguiendo las instrucciones."
-            : "Validación de liveness fallida. Volvé a intentar con buena luz.";
+            ? "Parece que no giraste la cabeza como te pedimos. Vuelve a intentarlo siguiendo las instrucciones."
+            : "No pudimos validar la captura. Vuelve a intentarlo con buena luz.";
       return NextResponse.json(
         {
           passed: false,
@@ -178,7 +178,7 @@ export async function POST(req: NextRequest) {
         message:
           match.similarity < 40
             ? "No pudimos reconocer tu rostro con claridad. Asegurate de tener buena iluminación, sin lentes ni gorra, y mirando de frente a la cámara."
-            : "La foto de tu DNI y tu selfie no coinciden con suficiente confianza. Volvé a capturar el DNI enfocando bien la foto del titular.",
+            : "La foto de tu DNI y tu selfie no coinciden con suficiente confianza. Vuelve a capturar el DNI enfocando bien la foto del titular.",
       });
     }
 
@@ -198,6 +198,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack ?? "" : "";
     console.error(`${tag} error corr=${correlationId}`, err);
     await logAttempt({
       userId,
@@ -208,48 +209,70 @@ export async function POST(req: NextRequest) {
     });
 
     const lower = msg.toLowerCase();
-    let userMessage = "Tuvimos un problema al verificar tu cara. Intentá nuevamente.";
+    const lowerStack = stack.toLowerCase();
+    let userMessage = "Tuvimos un problema al verificar tu rostro. Intenta nuevamente.";
     let category = "unknown";
     let status = 500;
 
     if (
       lower.includes("aws") ||
       lower.includes("rekognition") ||
+      lowerStack.includes("@aws-sdk") ||
       lower.includes("credentials") ||
       lower.includes("signaturedoesnotmatch") ||
-      lower.includes("accessdenied")
+      lower.includes("accessdenied") ||
+      lower.includes("invalidaccesskeyid") ||
+      lower.includes("is not authorized")
     ) {
       category = "rekognition";
       userMessage =
-        "El servicio de validación facial no está disponible. Probá en un minuto.";
+        "El servicio de validación facial no está disponible. Verifica las credenciales de AWS en Vercel.";
       status = 503;
     } else if (
       lower.includes("blob") ||
+      lowerStack.includes("@vercel/blob") ||
       lower.includes("unauthorized") ||
       lower.includes("forbidden")
     ) {
       category = "storage";
       userMessage =
-        "No pudimos guardar la selfie. Revisá tu conexión e intentá de nuevo.";
+        "No pudimos guardar la selfie. Revisa tu conexión e intenta de nuevo.";
     } else if (
       lower.includes("timeout") ||
       lower.includes("aborted") ||
       lower.includes("fetch failed") ||
-      lower.includes("network")
+      lower.includes("network") ||
+      lower.includes("enotfound") ||
+      lower.includes("econnrefused")
     ) {
       category = "network";
-      userMessage = "La conexión se cortó. Revisá tu internet e intentá nuevamente.";
+      userMessage = "La conexión se cortó. Revisa tu internet e intenta nuevamente.";
       status = 504;
+    } else if (
+      lower.includes("no face") ||
+      lower.includes("nofacedetected") ||
+      lower.includes("face not found")
+    ) {
+      category = "no_face";
+      userMessage = "No detectamos tu rostro en la foto. Asegúrate de estar de frente con buena luz.";
+      status = 422;
     }
 
     console.log(
-      `${tag} error_category=${category} corr=${correlationId} original="${msg.slice(0, 120)}"`,
+      `${tag} error_category=${category} corr=${correlationId} original="${msg.slice(0, 200)}"`,
     );
+
+    // Si no pudimos categorizar, exponemos el error original para diagnóstico
+    // (el componente lo renderiza en pantalla con prefijo [técnico]).
+    const includeDebug = category === "unknown";
 
     return NextResponse.json(
       {
         error: userMessage,
         category,
+        ...(includeDebug
+          ? { debug: { original: msg.slice(0, 500), stack: stack.slice(0, 800) } }
+          : {}),
       },
       { status },
     );

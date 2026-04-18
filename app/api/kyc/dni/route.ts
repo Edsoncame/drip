@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "No pudimos leer el DNI con claridad. Volvé a capturarlo con buena luz, enfocando el frente completo sin reflejos.",
+            "No pudimos leer el DNI con claridad. Vuelve a capturarlo con buena luz, enfocando el frente completo sin reflejos.",
           correlation_id: correlationId,
           quality_issues: ocr.quality_issues,
         },
@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "Este documento no parece un DNI peruano. Si creés que es un error, contactanos por WhatsApp.",
+            "Este documento no parece un DNI peruano. Si crees que es un error, contáctanos por WhatsApp.",
           blocked: true,
         },
         { status: 422 },
@@ -136,7 +136,7 @@ export async function POST(req: NextRequest) {
       });
       return NextResponse.json(
         {
-          error: "No pudimos leer los 8 dígitos del DNI. Volvé a capturarlo enfocando bien.",
+          error: "No pudimos leer los 8 dígitos del DNI. Vuelve a capturarlo enfocando bien.",
           correlation_id: correlationId,
         },
         { status: 422 },
@@ -219,7 +219,7 @@ export async function POST(req: NextRequest) {
     // Categorizar error para dar pista útil al usuario
     const lower = msg.toLowerCase();
     const lowerStack = stack.toLowerCase();
-    let userMessage = "Tuvimos un problema al procesar tu DNI. Intentá nuevamente.";
+    let userMessage = "Tuvimos un problema al procesar tu DNI. Intenta nuevamente.";
     let category = "unknown";
     let status = 500;
 
@@ -233,7 +233,7 @@ export async function POST(req: NextRequest) {
     ) {
       category = "storage";
       userMessage =
-        "No pudimos guardar tu foto. Revisá que haya un Blob store configurado en Vercel y un token BLOB_READ_WRITE_TOKEN.";
+        "No pudimos guardar tu foto. Revisa tu conexión e intenta de nuevo.";
     } else if (
       lower.includes("anthropic") ||
       lower.includes("claude") ||
@@ -261,7 +261,7 @@ export async function POST(req: NextRequest) {
       lower.includes("econnrefused")
     ) {
       category = "network";
-      userMessage = "La conexión al servicio falló. Revisá tu internet o probá en un minuto.";
+      userMessage = "La conexión al servicio falló. Revisa tu internet o prueba en un minuto.";
       status = 504;
     } else if (
       lower.includes('relation "') ||
@@ -270,11 +270,11 @@ export async function POST(req: NextRequest) {
       lower.includes("schema")
     ) {
       category = "db";
-      userMessage = "Estamos terminando una actualización del sistema. Probá en 1 minuto.";
+      userMessage = "Estamos terminando una actualización del sistema. Prueba en 1 minuto.";
       status = 503;
     } else if (lower.includes("envfile") || lower.includes("is not defined") || lower.includes("undefined")) {
       category = "config";
-      userMessage = "Falta una variable de entorno en el servidor. Avisale al equipo.";
+      userMessage = "Falta una variable de entorno en el servidor. Avísale al equipo.";
     }
 
     console.log(

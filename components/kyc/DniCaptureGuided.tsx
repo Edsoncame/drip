@@ -45,8 +45,8 @@ type InternalState =
   | "error";
 
 const COPY: Record<VisibleState, string> = {
-  positioning: "Poné el DNI dentro del marco",
-  focusing: "Mantené firme, buscando foco",
+  positioning: "Pon tu DNI dentro del marco",
+  focusing: "Mantén firme, buscando foco",
   ready: "¡Perfecto! Capturando…",
 };
 
@@ -171,7 +171,7 @@ export default function DniCaptureGuided({ onCaptured, onCancel }: Props) {
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         if (msg.includes("Permission") || msg.includes("denied") || msg.includes("NotAllowed")) {
-          setError("Permiso de cámara denegado. Habilitalo en los ajustes del navegador.");
+          setError("Permiso de cámara denegado. Habilítalo en los ajustes del navegador.");
         } else if (msg.includes("NotFound") || msg.includes("device")) {
           setError("No encontramos cámara en este dispositivo.");
         } else {

@@ -431,7 +431,7 @@ function Step2({
         const uiMessage =
           data.category === "unknown" && data.debug?.original
             ? `${data.error ?? "Error"}\n\n[técnico] ${data.debug.original}`
-            : data.error ?? "No pudimos procesar el DNI. Volvé a capturarlo con buena luz.";
+            : data.error ?? "No pudimos procesar el DNI. Vuelve a capturarlo con buena luz.";
         setErrors((prev) => ({ ...prev, dniPhoto: uiMessage }));
         setUploadingDni(false);
         return;
@@ -459,7 +459,7 @@ function Step2({
       setErrors((prev) => ({
         ...prev,
         selfiePhoto:
-          "La selfie requiere validación con cámara en vivo. Usá 'Abrir cámara frontal'.",
+          "La verificación con tu rostro requiere cámara en vivo. Usa 'Abrir cámara frontal'.",
       }));
       return;
     }
@@ -531,14 +531,14 @@ function Step2({
     if (!kycScanId) {
       setErrors((prev) => ({
         ...prev,
-        dniPhoto: "Capturá la foto del DNI primero.",
+        dniPhoto: "Captura la foto del DNI primero.",
       }));
       return;
     }
     if (!kycSelfieOk) {
       setErrors((prev) => ({
         ...prev,
-        selfiePhoto: "Completá la selfie con validación en vivo primero.",
+        selfiePhoto: "Completa la verificación con tu rostro primero.",
       }));
       return;
     }
@@ -578,7 +578,7 @@ function Step2({
           ...prev,
           dniNumber:
             matchData.message ??
-            "Los datos ingresados no coinciden con el DNI. Revisalos.",
+            "Los datos ingresados no coinciden con el DNI. Revísalos.",
         }));
         setKycVerifying(false);
         return;
@@ -600,7 +600,7 @@ function Step2({
         setErrors((prev) => ({
           ...prev,
           selfiePhoto:
-            "No pudimos verificar tu identidad con suficiente confianza. Volvé a capturar DNI y selfie.",
+            "No pudimos verificar tu identidad con suficiente confianza. Vuelve a capturar DNI y selfie.",
         }));
         return;
       }
@@ -643,7 +643,7 @@ function Step2({
               setErrors((prev) => ({
                 ...prev,
                 selfiePhoto:
-                  "La verificación facial no pasó. Volvé a intentar con buena luz y siguiendo las instrucciones.",
+                  "La verificación facial no pasó. Vuelve a intentarlo con buena luz y siguiendo las instrucciones.",
               }));
             } else {
               setErrors((prev) => {
@@ -934,8 +934,8 @@ function Step2({
               </div>
             </div>
             <div className="flex-1">
-              <p className="font-700 text-[#18191F] text-sm mb-1">Tomate una selfie con tu DNI</p>
-              <p className="text-xs text-[#999999] mb-3">Sostiene tu DNI junto a tu cara. Así confirmamos que eres el titular.</p>
+              <p className="font-700 text-[#18191F] text-sm mb-1">Verifica que eres tú</p>
+              <p className="text-xs text-[#999999] mb-3">Con tu cámara frontal tomaremos 3 fotos rápidas. Mira de frente, izquierda y derecha. Toma menos de 30 segundos.</p>
               {identity.selfiePhoto ? (
                 <div className="relative rounded-2xl overflow-hidden border-2 border-[#2D7D46]">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -964,15 +964,10 @@ function Step2({
                       )}
                     </div>
                     <div className="text-left">
-                      <p className="text-sm font-700 text-[#1B4FFF]">{uploadingSelfie ? "Subiendo..." : "Abrir cámara frontal"}</p>
-                      <p className="text-xs text-[#666666]">Tu cara + tu DNI en la misma foto</p>
+                      <p className="text-sm font-700 text-[#1B4FFF]">{uploadingSelfie ? "Verificando..." : "Empezar verificación"}</p>
+                      <p className="text-xs text-[#666666]">3 fotos rápidas con tu cámara frontal</p>
                     </div>
                   </button>
-                  <label className="w-full block text-center text-xs text-[#999999] hover:text-[#1B4FFF] underline cursor-pointer">
-                    <input type="file" accept="image/*,.heic,.heif" className="sr-only" disabled={uploadingSelfie}
-                      onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, "selfie"); }} />
-                    o subir archivo desde tu dispositivo
-                  </label>
                 </div>
               )}
               {errors.selfiePhoto && <p className="text-red-500 text-xs mt-1">{errors.selfiePhoto}</p>}
@@ -1414,9 +1409,9 @@ function CheckoutContent() {
         return true;
       }
       const data = await res.json().catch(() => ({}));
-      return data.error ?? "No pudimos crear la cuenta. Revisá los datos.";
+      return data.error ?? "No pudimos crear la cuenta. Revisa los datos.";
     } catch {
-      return "Error de conexión. Intentá de nuevo.";
+      return "Error de conexión. Intenta de nuevo.";
     }
   };
 
