@@ -206,6 +206,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack ?? "" : "";
     console.error(`${tag} error corr=${correlationId}`, err);
     await logAttempt({
       userId,
@@ -217,61 +218,81 @@ export async function POST(req: NextRequest) {
 
     // Categorizar error para dar pista útil al usuario
     const lower = msg.toLowerCase();
+    const lowerStack = stack.toLowerCase();
     let userMessage = "Tuvimos un problema al procesar tu DNI. Intentá nuevamente.";
     let category = "unknown";
     let status = 500;
 
     if (
       lower.includes("blob") ||
+      lower.includes("bloburl") ||
+      lowerStack.includes("@vercel/blob") ||
       lower.includes("token") ||
       lower.includes("unauthorized") ||
       lower.includes("forbidden")
     ) {
       category = "storage";
       userMessage =
-        "No pudimos guardar tu foto en este momento. Revisá tu conexión e intentá de nuevo.";
+        "No pudimos guardar tu foto. Revisá que haya un Blob store configurado en Vercel y un token BLOB_READ_WRITE_TOKEN.";
     } else if (
       lower.includes("anthropic") ||
+      lower.includes("claude") ||
+      lower.includes("ai_") ||
+      lowerStack.includes("@ai-sdk/anthropic") ||
+      lowerStack.includes("@anthropic-ai") ||
       lower.includes("api key") ||
       lower.includes("api_key") ||
+      lower.includes("apikey") ||
+      lower.includes("x-api-key") ||
       lower.includes("rate limit") ||
       lower.includes("overloaded") ||
       lower.includes("529")
     ) {
       category = "ocr";
       userMessage =
-        "Nuestro servicio de lectura está ocupado. Probá de nuevo en un minuto.";
+        "Claude no pudo leer tu DNI. Verificá ANTHROPIC_API_KEY en Vercel (o probá en un minuto si es rate-limit).";
       status = 503;
     } else if (
       lower.includes("timeout") ||
       lower.includes("aborted") ||
       lower.includes("fetch failed") ||
-      lower.includes("network")
+      lower.includes("network") ||
+      lower.includes("enotfound") ||
+      lower.includes("econnrefused")
     ) {
       category = "network";
-      userMessage =
-        "La conexión se cortó. Revisá tu internet e intentá nuevamente.";
+      userMessage = "La conexión al servicio falló. Revisá tu internet o probá en un minuto.";
       status = 504;
     } else if (
       lower.includes('relation "') ||
       lower.includes("does not exist") ||
-      lower.includes("column ")
+      lower.includes("column ") ||
+      lower.includes("schema")
     ) {
       category = "db";
-      userMessage =
-        "Estamos terminando una actualización del sistema. Probá de nuevo en 1 minuto.";
+      userMessage = "Estamos terminando una actualización del sistema. Probá en 1 minuto.";
       status = 503;
+    } else if (lower.includes("envfile") || lower.includes("is not defined") || lower.includes("undefined")) {
+      category = "config";
+      userMessage = "Falta una variable de entorno en el servidor. Avisale al equipo.";
     }
 
     console.log(
-      `${tag} error_category=${category} corr=${correlationId} original="${msg.slice(0, 120)}"`,
+      `${tag} error_category=${category} corr=${correlationId} original="${msg.slice(0, 200)}"`,
     );
+
+    // Si es unknown, devolvemos el error original para diagnóstico.
+    // Si es conocido, ya tenemos un mensaje útil y no exponemos detalles internos.
+    const includeDebug = category === "unknown";
 
     return NextResponse.json(
       {
         error: userMessage,
         category,
         correlation_id: correlationId,
+        ...(includeDebug
+          ? { debug: { original: msg.slice(0, 500), stack: stack.slice(0, 800) } }
+          : {}),
       },
       { status },
     );
