@@ -425,12 +425,14 @@ function Step2({
             data.debug,
           );
         }
-        setErrors((prev) => ({
-          ...prev,
-          dniPhoto:
-            data.error ??
-            "No pudimos procesar el DNI. Volvé a capturarlo con buena luz.",
-        }));
+        // Si el error es "unknown" (no pudimos categorizarlo), mostramos el
+        // mensaje técnico directamente en pantalla para poder diagnosticarlo
+        // sin tener que abrir DevTools. Feedback visible en iPhone.
+        const uiMessage =
+          data.category === "unknown" && data.debug?.original
+            ? `${data.error ?? "Error"}\n\n[técnico] ${data.debug.original}`
+            : data.error ?? "No pudimos procesar el DNI. Volvé a capturarlo con buena luz.";
+        setErrors((prev) => ({ ...prev, dniPhoto: uiMessage }));
         setUploadingDni(false);
         return;
       }
@@ -918,7 +920,7 @@ function Step2({
                   </label>
                 </div>
               )}
-              {errors.dniPhoto && <p className="text-red-500 text-xs mt-1">{errors.dniPhoto}</p>}
+              {errors.dniPhoto && <p className="text-red-500 text-xs mt-1 whitespace-pre-line break-words">{errors.dniPhoto}</p>}
             </div>
           </div>
 
