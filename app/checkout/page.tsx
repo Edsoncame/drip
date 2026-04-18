@@ -428,8 +428,19 @@ function Step2({
     if (!data.name.trim()) e.name = "Requerido";
     if (!data.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) e.email = "Email inválido";
     if (!data.phone.trim()) e.phone = "Requerido";
-    if (data.customerType === "empresa" && !data.company.trim()) e.company = "Requerido";
-    if (!identity.dniNumber.trim() || !/^\d{8,12}$/.test(identity.dniNumber.trim())) e.dniNumber = "DNI o CE válido requerido (8-12 dígitos)";
+    if (data.customerType === "empresa") {
+      if (!data.company.trim()) e.company = "Razón social requerida";
+      const ruc = data.ruc.trim();
+      if (!/^\d{11}$/.test(ruc)) {
+        e.ruc = "RUC debe tener exactamente 11 dígitos";
+      } else if (!/^(10|15|17|20)/.test(ruc)) {
+        e.ruc = "RUC inválido. Debe empezar con 10, 15, 17 o 20.";
+      }
+    }
+    // Solo DNI por ahora — estructura preparada para otros documentos en el futuro
+    if (!identity.dniNumber.trim() || !/^\d{8}$/.test(identity.dniNumber.trim())) {
+      e.dniNumber = "DNI válido requerido — exactamente 8 dígitos";
+    }
     if (!identity.dniPhoto) e.dniPhoto = "Foto del DNI requerida";
     if (!identity.selfiePhoto) e.selfiePhoto = "Selfie con DNI requerida";
     if (delivery.method === "shipping") {
@@ -470,13 +481,17 @@ function Step2({
       <div className="flex gap-3 mb-6">
         <button
           type="button"
-          onClick={() => onChange({ ...data, customerType: "persona" })}
+          onClick={() => {
+            // Reset RUC y razón social al cambiar a persona natural — no guardamos datos innecesarios
+            onChange({ ...data, customerType: "persona", ruc: "", company: "" });
+            setRucStatus({});
+          }}
           className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-700 transition-all cursor-pointer ${
             data.customerType === "persona" ? "border-[#1B4FFF] bg-[#EEF2FF] text-[#1B4FFF]" : "border-[#E5E5E5] text-[#666666] hover:border-[#BBCAFF]"
           }`}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-          Persona
+          Persona natural
         </button>
         <button
           type="button"
@@ -486,7 +501,7 @@ function Step2({
           }`}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v3"/></svg>
-          Empresa
+          Persona jurídica
         </button>
       </div>
 
@@ -525,7 +540,7 @@ function Step2({
           <>
             <div>
               <label className="block text-sm font-600 text-[#333333] mb-1">
-                Empresa <span className="text-[#1B4FFF]">*</span>
+                Razón social <span className="text-[#1B4FFF]">*</span>
               </label>
               <input type="text" value={data.company} onChange={(e) => onChange({ ...data, company: e.target.value })}
                 placeholder="Mi Empresa S.A.C."
@@ -545,41 +560,25 @@ function Step2({
                     else setRucStatus({});
                   }}
                   placeholder="20123456789"
+                  maxLength={11}
                   className={`flex-1 px-4 py-3 rounded-xl border text-sm outline-none transition-all ${
-                    rucStatus.valid === false ? "border-red-400" : "border-[#E5E5E5] focus:border-[#1B4FFF] focus:ring-2 focus:ring-[#1B4FFF]/10"
+                    errors.ruc || rucStatus.valid === false ? "border-red-400" : "border-[#E5E5E5] focus:border-[#1B4FFF] focus:ring-2 focus:ring-[#1B4FFF]/10"
                   }`} />
                 {rucStatus.loading && <div className="flex items-center text-xs text-[#999999]">Verificando...</div>}
               </div>
-              {rucStatus.valid === true && (
+              {errors.ruc && <p className="text-xs text-red-500 mt-1">{errors.ruc}</p>}
+              {!errors.ruc && rucStatus.valid === true && (
                 <p className="text-xs text-green-600 mt-1 font-600">✓ {rucStatus.razonSocial} — ACTIVO/HABIDO</p>
               )}
-              {rucStatus.valid === false && data.ruc.length === 11 && (
+              {!errors.ruc && rucStatus.valid === false && data.ruc.length === 11 && (
                 <p className="text-xs text-red-500 mt-1">✕ RUC no activo o no habido en SUNAT</p>
               )}
+              <p className="text-[10px] text-[#999999] mt-1">RUC debe tener 11 dígitos y empezar con 10, 15, 17 o 20.</p>
             </div>
           </>
         )}
 
-        {/* Persona — optional RUC for boleta */}
-        {data.customerType === "persona" && (
-          <div>
-            <label className="block text-sm font-600 text-[#333333] mb-1">
-              RUC <span className="text-[#999999] font-400">(opcional — solo si necesitas factura)</span>
-            </label>
-            <input type="text" value={data.ruc}
-              onChange={(e) => {
-                const v = e.target.value.replace(/\D/g, "").slice(0, 11);
-                onChange({ ...data, ruc: v });
-                if (v.length === 11) verifyRuc(v);
-                else setRucStatus({});
-              }}
-              placeholder="10123456789"
-              className="w-full px-4 py-3 rounded-xl border border-[#E5E5E5] text-sm outline-none focus:border-[#1B4FFF] focus:ring-2 focus:ring-[#1B4FFF]/10 transition-all" />
-            {rucStatus.valid === true && (
-              <p className="text-xs text-green-600 mt-1 font-600">✓ {rucStatus.razonSocial}</p>
-            )}
-          </div>
-        )}
+        {/* Persona natural: NO RUC. Conditional render elimina del DOM cuando no aplica. */}
       </div>
 
       {/* Identity verification — skip if already verified */}
@@ -622,13 +621,14 @@ function Step2({
               <div className="w-0.5 flex-1 bg-[#E5E5E5] mt-2" />
             </div>
             <div className="flex-1 pb-2">
-              <p className="font-700 text-[#18191F] text-sm mb-1">Escribe tu número de DNI o CE</p>
+              <p className="font-700 text-[#18191F] text-sm mb-1">Escribe tu número de DNI</p>
               <p className="text-xs text-[#999999] mb-2">El mismo que aparece en tu documento de identidad</p>
               <input
                 type="text"
                 inputMode="numeric"
                 value={identity.dniNumber}
-                onChange={(e) => onIdentityChange({ ...identity, dniNumber: e.target.value.replace(/\D/g, "").slice(0, 12) })}
+                onChange={(e) => onIdentityChange({ ...identity, dniNumber: e.target.value.replace(/\D/g, "").slice(0, 8) })}
+                maxLength={8}
                 placeholder="Ej: 70123456"
                 className={`w-full px-4 py-3 rounded-xl border text-sm outline-none transition-all ${
                   errors.dniNumber ? "border-red-400 bg-red-50" : "border-[#E5E5E5] focus:border-[#1B4FFF] focus:ring-2 focus:ring-[#1B4FFF]/10"
