@@ -206,7 +206,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error(`${tag} error`, err);
+    console.error(`${tag} error corr=${correlationId}`, err);
     await logAttempt({
       userId,
       correlationId,
@@ -214,12 +214,66 @@ export async function POST(req: NextRequest) {
       outcome: "fail",
       reason: `internal: ${msg.slice(0, 200)}`,
     });
+
+    // Categorizar error para dar pista útil al usuario
+    const lower = msg.toLowerCase();
+    let userMessage = "Tuvimos un problema al procesar tu DNI. Intentá nuevamente.";
+    let category = "unknown";
+    let status = 500;
+
+    if (
+      lower.includes("blob") ||
+      lower.includes("token") ||
+      lower.includes("unauthorized") ||
+      lower.includes("forbidden")
+    ) {
+      category = "storage";
+      userMessage =
+        "No pudimos guardar tu foto en este momento. Revisá tu conexión e intentá de nuevo.";
+    } else if (
+      lower.includes("anthropic") ||
+      lower.includes("api key") ||
+      lower.includes("api_key") ||
+      lower.includes("rate limit") ||
+      lower.includes("overloaded") ||
+      lower.includes("529")
+    ) {
+      category = "ocr";
+      userMessage =
+        "Nuestro servicio de lectura está ocupado. Probá de nuevo en un minuto.";
+      status = 503;
+    } else if (
+      lower.includes("timeout") ||
+      lower.includes("aborted") ||
+      lower.includes("fetch failed") ||
+      lower.includes("network")
+    ) {
+      category = "network";
+      userMessage =
+        "La conexión se cortó. Revisá tu internet e intentá nuevamente.";
+      status = 504;
+    } else if (
+      lower.includes('relation "') ||
+      lower.includes("does not exist") ||
+      lower.includes("column ")
+    ) {
+      category = "db";
+      userMessage =
+        "Estamos terminando una actualización del sistema. Probá de nuevo en 1 minuto.";
+      status = 503;
+    }
+
+    console.log(
+      `${tag} error_category=${category} corr=${correlationId} original="${msg.slice(0, 120)}"`,
+    );
+
     return NextResponse.json(
       {
-        error: "Estamos teniendo problemas técnicos. Volvé a intentar en unos minutos.",
+        error: userMessage,
+        category,
         correlation_id: correlationId,
       },
-      { status: 500 },
+      { status },
     );
   }
 }

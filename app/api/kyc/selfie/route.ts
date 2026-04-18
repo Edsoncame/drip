@@ -198,7 +198,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error(`${tag} error`, err);
+    console.error(`${tag} error corr=${correlationId}`, err);
     await logAttempt({
       userId,
       correlationId,
@@ -206,12 +206,52 @@ export async function POST(req: NextRequest) {
       outcome: "fail",
       reason: `internal: ${msg.slice(0, 200)}`,
     });
+
+    const lower = msg.toLowerCase();
+    let userMessage = "Tuvimos un problema al verificar tu cara. Intentá nuevamente.";
+    let category = "unknown";
+    let status = 500;
+
+    if (
+      lower.includes("aws") ||
+      lower.includes("rekognition") ||
+      lower.includes("credentials") ||
+      lower.includes("signaturedoesnotmatch") ||
+      lower.includes("accessdenied")
+    ) {
+      category = "rekognition";
+      userMessage =
+        "El servicio de validación facial no está disponible. Probá en un minuto.";
+      status = 503;
+    } else if (
+      lower.includes("blob") ||
+      lower.includes("unauthorized") ||
+      lower.includes("forbidden")
+    ) {
+      category = "storage";
+      userMessage =
+        "No pudimos guardar la selfie. Revisá tu conexión e intentá de nuevo.";
+    } else if (
+      lower.includes("timeout") ||
+      lower.includes("aborted") ||
+      lower.includes("fetch failed") ||
+      lower.includes("network")
+    ) {
+      category = "network";
+      userMessage = "La conexión se cortó. Revisá tu internet e intentá nuevamente.";
+      status = 504;
+    }
+
+    console.log(
+      `${tag} error_category=${category} corr=${correlationId} original="${msg.slice(0, 120)}"`,
+    );
+
     return NextResponse.json(
       {
-        error:
-          "Estamos teniendo problemas técnicos con la verificación facial. Volvé a intentar en unos minutos.",
+        error: userMessage,
+        category,
       },
-      { status: 500 },
+      { status },
     );
   }
 }

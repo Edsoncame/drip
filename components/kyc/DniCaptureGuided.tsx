@@ -9,17 +9,31 @@ import { useEffect, useRef, useState, useCallback } from "react";
  *   - Encuadre: bordes del doc dentro del marco (aspect ratio ID-1 1.586:1)
  *   - Foco: varianza del Laplaciano en región central > umbral
  *   - Iluminación: histograma balanceado, sin zonas saturadas
+ *   - Estabilidad: la imagen debe estar quieta (delta entre frames chico)
  *
  * El match detallado (bordes del documento, OCR, quality issues finos)
  * lo hace el backend con Claude. Acá solo filtramos basura antes de
  * llamar al API (ahorra tiempo + costo).
  */
 
-const BLUR_THRESHOLD = Number(process.env.NEXT_PUBLIC_KYC_BLUR_THRESHOLD ?? "40");
+const BLUR_THRESHOLD = Number(process.env.NEXT_PUBLIC_KYC_BLUR_THRESHOLD ?? "90");
 const ID1_RATIO = 1.586; // 85.6 / 54 mm
-const AUTO_CAPTURE_STABLE_MS = 500;
+const AUTO_CAPTURE_STABLE_MS = 1500;
+// Delay inicial antes de arrancar el auto-capture. Le da tiempo al usuario
+// para acomodar el DNI sin que se dispare por accidente.
+const PRE_ROLL_MS = 2500;
+// Si el delta entre frames (luminancia) supera esto, el usuario está
+// moviendo la cámara o el DNI — reseteamos timer de estabilidad.
+const MOTION_DELTA_THRESHOLD = 12;
 
-type QualityState = "idle" | "far" | "framing" | "stabilizing" | "captured" | "error";
+type QualityState =
+  | "idle"
+  | "preroll"
+  | "far"
+  | "framing"
+  | "stabilizing"
+  | "captured"
+  | "error";
 
 interface Props {
   onCaptured: (file: File, captureMode: "auto" | "manual") => void;
@@ -32,13 +46,22 @@ export default function DniCaptureGuided({ onCaptured, onCancel }: Props) {
   const streamRef = useRef<MediaStream | null>(null);
   const loopRef = useRef<number | null>(null);
   const stableSinceRef = useRef<number | null>(null);
+  const prerollStartRef = useRef<number | null>(null);
+  const prevLumRef = useRef<Float32Array | null>(null);
   const capturedRef = useRef(false);
+  const autoEnabledRef = useRef(true);
 
   const [state, setState] = useState<QualityState>("idle");
   const [message, setMessage] = useState("Permitiendo cámara…");
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [blurScore, setBlurScore] = useState<number | null>(null);
+  const [autoEnabled, setAutoEnabled] = useState(true);
+
+  // Sync ref — queremos que el loop lea el último valor sin reiniciarse
+  useEffect(() => {
+    autoEnabledRef.current = autoEnabled;
+  }, [autoEnabled]);
 
   const stop = useCallback(() => {
     if (loopRef.current) cancelAnimationFrame(loopRef.current);
@@ -105,8 +128,9 @@ export default function DniCaptureGuided({ onCaptured, onCancel }: Props) {
           videoRef.current.srcObject = stream;
           await videoRef.current.play().catch(() => {});
           setReady(true);
-          setState("far");
-          setMessage("Acercá tu DNI al marco");
+          setState("preroll");
+          prerollStartRef.current = Date.now();
+          setMessage("Acomodá el DNI dentro del marco…");
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -154,38 +178,78 @@ export default function DniCaptureGuided({ onCaptured, onCancel }: Props) {
       const regionY = Math.round((canvas.height - regionH) / 2);
 
       const imageData = ctx.getImageData(regionX, regionY, regionW, regionH);
-      const blur = laplacianVariance(imageData);
+
+      // Pre-roll: no analizamos nada los primeros PRE_ROLL_MS para no confundir
+      // al usuario con cambios de estado mientras intenta acomodar el DNI.
+      const now = Date.now();
+      if (
+        prerollStartRef.current !== null &&
+        now - prerollStartRef.current < PRE_ROLL_MS
+      ) {
+        const left = Math.ceil((PRE_ROLL_MS - (now - prerollStartRef.current)) / 1000);
+        setState("preroll");
+        setMessage(`Acomodá el DNI dentro del marco… ${left}s`);
+        // Dejamos avanzar prevLumRef para que el motion delta del primer check
+        // no sea espurio
+        prevLumRef.current = toLuminance(imageData);
+        loopRef.current = requestAnimationFrame(tick);
+        return;
+      }
+
+      const { blur, lum } = computeBlurAndLum(imageData);
       setBlurScore(blur);
+
+      // Motion delta vs frame anterior
+      let motion = 0;
+      if (prevLumRef.current && prevLumRef.current.length === lum.length) {
+        motion = luminanceDelta(prevLumRef.current, lum);
+      }
+      prevLumRef.current = lum;
 
       const lighting = histogramBalance(imageData);
 
       // Estados
       if (blur < BLUR_THRESHOLD * 0.4) {
         setState("far");
-        setMessage("Acercá tu DNI al marco");
+        setMessage("Acercá tu DNI al marco, ocupá el recuadro");
         stableSinceRef.current = null;
       } else if (blur < BLUR_THRESHOLD) {
         setState("framing");
-        setMessage("Enfocá mejor, mantené firme…");
+        setMessage("Enfocá mejor, mantené firme");
         stableSinceRef.current = null;
       } else if (lighting === "bad") {
         setState("framing");
         setMessage("Mejorá la iluminación, evitá reflejos");
         stableSinceRef.current = null;
+      } else if (motion > MOTION_DELTA_THRESHOLD) {
+        setState("framing");
+        setMessage("Mantené la cámara firme");
+        stableSinceRef.current = null;
       } else {
         // Estable
         if (stableSinceRef.current === null) {
-          stableSinceRef.current = Date.now();
+          stableSinceRef.current = now;
           setState("stabilizing");
-          setMessage("Mantené firme…");
+          setMessage("Listo… mantené firme");
         } else {
-          const elapsed = Date.now() - stableSinceRef.current;
+          const elapsed = now - stableSinceRef.current;
           if (elapsed >= AUTO_CAPTURE_STABLE_MS) {
-            capture("auto");
-            return;
+            if (autoEnabledRef.current) {
+              capture("auto");
+              return;
+            } else {
+              // Auto desactivado — seguimos mostrando "listo" esperando tap manual
+              setState("stabilizing");
+              setMessage("Enfocado ✓ tocá capturar");
+            }
+          } else {
+            setState("stabilizing");
+            setMessage(
+              autoEnabledRef.current
+                ? `Capturando en ${Math.max(0, Math.ceil((AUTO_CAPTURE_STABLE_MS - elapsed) / 100) / 10).toFixed(1)}s…`
+                : "Enfocado ✓ tocá capturar",
+            );
           }
-          setState("stabilizing");
-          setMessage(`Listo en ${Math.max(0, Math.ceil((AUTO_CAPTURE_STABLE_MS - elapsed) / 100) / 10).toFixed(1)}s`);
         }
       }
 
@@ -204,13 +268,17 @@ export default function DniCaptureGuided({ onCaptured, onCancel }: Props) {
         ? "#F59E0B"
         : state === "captured"
           ? "#22C55E"
-          : "#EF4444";
+          : state === "preroll"
+            ? "#60A5FA"
+            : "#EF4444";
   const messageColor =
     state === "stabilizing" || state === "captured"
       ? "text-green-400"
       : state === "framing"
         ? "text-amber-400"
-        : "text-red-400";
+        : state === "preroll"
+          ? "text-blue-300"
+          : "text-red-400";
 
   return (
     <div className="fixed inset-0 z-50 bg-black flex flex-col">
@@ -270,9 +338,9 @@ export default function DniCaptureGuided({ onCaptured, onCancel }: Props) {
             </div>
 
             {/* Status message */}
-            <div className="absolute bottom-32 left-1/2 -translate-x-1/2 px-6">
+            <div className="absolute bottom-36 left-1/2 -translate-x-1/2 px-6 w-full max-w-md">
               <p className={`text-center text-base font-700 ${messageColor}`}>{message}</p>
-              {blurScore !== null && (
+              {blurScore !== null && state !== "preroll" && (
                 <p className="text-center text-xs text-white/40 mt-1">
                   foco {blurScore.toFixed(0)}
                 </p>
@@ -283,14 +351,23 @@ export default function DniCaptureGuided({ onCaptured, onCancel }: Props) {
       </div>
 
       {ready && !error && (
-        <div className="p-4 flex gap-3 bg-black">
+        <div className="p-4 pb-6 flex flex-col gap-3 bg-black">
           <button
             onClick={() => capture("manual")}
             disabled={!ready || capturedRef.current}
-            className="flex-1 py-3 rounded-full bg-white text-black font-700 text-sm disabled:opacity-50 cursor-pointer"
+            className="w-full py-4 rounded-full bg-white text-black font-800 text-base disabled:opacity-50 cursor-pointer shadow-lg"
           >
-            📸 Capturar manual
+            📸 Capturar ahora
           </button>
+          <label className="flex items-center justify-center gap-2 text-xs text-white/70 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={autoEnabled}
+              onChange={(e) => setAutoEnabled(e.target.checked)}
+              className="accent-blue-500"
+            />
+            Captura automática al estar enfocado
+          </label>
         </div>
       )}
     </div>
@@ -300,21 +377,45 @@ export default function DniCaptureGuided({ onCaptured, onCancel }: Props) {
 // ─── Quality helpers (canvas puro, sin deps) ───────────────────────────────
 
 /**
+ * Luminancia (Y = 0.299R + 0.587G + 0.114B) por pixel, subsampling cada 4.
+ */
+function toLuminance(img: ImageData): Float32Array {
+  const { data, width, height } = img;
+  const out = new Float32Array(Math.ceil((width * height) / 4));
+  let j = 0;
+  for (let i = 0; i < data.length; i += 16) {
+    out[j++] = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+  }
+  return out;
+}
+
+/**
+ * Delta promedio absoluto entre dos vectores de luminancia.
+ * Valores > ~12 indican que el usuario está moviendo la cámara o el DNI.
+ */
+function luminanceDelta(a: Float32Array, b: Float32Array): number {
+  const n = Math.min(a.length, b.length);
+  if (n === 0) return 0;
+  let sum = 0;
+  for (let i = 0; i < n; i++) sum += Math.abs(a[i] - b[i]);
+  return sum / n;
+}
+
+/**
  * Laplacian variance — proxy de enfoque. Valores bajos = borroso.
  * Operador 3×3: kernel [0,1,0, 1,-4,1, 0,1,0] aproximado.
- * Trabajamos en luminancia (Y = 0.299R + 0.587G + 0.114B).
+ * Devuelve también la luminancia full-res para medir motion.
  */
-function laplacianVariance(img: ImageData): number {
+function computeBlurAndLum(img: ImageData): { blur: number; lum: Float32Array } {
   const { data, width, height } = img;
-  if (width < 10 || height < 10) return 0;
   const lum = new Float32Array(width * height);
   for (let i = 0, j = 0; i < data.length; i += 4, j++) {
     lum[j] = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
   }
+  if (width < 10 || height < 10) return { blur: 0, lum };
   let sum = 0;
   let sumSq = 0;
   let count = 0;
-  // Subsample cada 4 pixels para velocidad (>60fps en 320×200)
   for (let y = 1; y < height - 1; y += 2) {
     for (let x = 1; x < width - 1; x += 2) {
       const c = lum[y * width + x];
@@ -328,28 +429,26 @@ function laplacianVariance(img: ImageData): number {
       count++;
     }
   }
-  if (count === 0) return 0;
+  if (count === 0) return { blur: 0, lum };
   const mean = sum / count;
   const variance = sumSq / count - mean * mean;
-  return variance;
+  return { blur: variance, lum };
 }
 
 /**
  * Chequea que el histograma de luminancia no esté saturado (sobre o sub expuesto).
- * 'good' = mediana en rango [60, 200], sin más del 15% en extremos.
+ * 'good' = sin más del 25% de pixels en la zona oscura y 15% en la clara.
  */
 function histogramBalance(img: ImageData): "good" | "bad" {
   const { data } = img;
   const hist = new Uint32Array(256);
   let n = 0;
   for (let i = 0; i < data.length; i += 16) {
-    // subsample cada 4 pixels
     const y = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
     hist[Math.min(255, Math.max(0, Math.round(y)))]++;
     n++;
   }
   if (n === 0) return "bad";
-  // extremos
   let dark = 0;
   let light = 0;
   for (let k = 0; k < 20; k++) dark += hist[k];
