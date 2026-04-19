@@ -19,12 +19,12 @@ export async function POST(
     const result = await query<{
       id: string;
       status: string;
-      mp_subscription_id: string | null;
+      external_subscription_id: string | null;
       product_name: string;
-      customer_name: string;
-      customer_email: string;
+      billing_name: string;
+      billing_email: string;
     }>(
-      `SELECT id, status, mp_subscription_id, product_name, customer_name, customer_email
+      `SELECT id, status, external_subscription_id, product_name, billing_name, billing_email
        FROM subscriptions WHERE id = $1 AND user_id = $2`,
       [id, session.userId],
     );
@@ -42,12 +42,12 @@ export async function POST(
     // Cancelar en Stripe si el id es una suscripción de Stripe.
     // Stripe IDs arrancan con "sub_" (ej. sub_1N4h2eLkd...). Culqi legacy era
     // "sxn_" o prefijos generados manualmente. Tratamos ambos por retrocompat.
-    if (sub.mp_subscription_id?.startsWith("sub_")) {
+    if (sub.external_subscription_id?.startsWith("sub_")) {
       try {
-        await cancelStripeSubscription(sub.mp_subscription_id);
-        console.log(`${tag} Stripe subscription cancelled id=${sub.mp_subscription_id}`);
+        await cancelStripeSubscription(sub.external_subscription_id);
+        console.log(`${tag} Stripe subscription cancelled id=${sub.external_subscription_id}`);
       } catch (cancelErr) {
-        console.error(`${tag} Stripe cancel failed id=${sub.mp_subscription_id}`, cancelErr);
+        console.error(`${tag} Stripe cancel failed id=${sub.external_subscription_id}`, cancelErr);
         // No bloqueamos — marcamos como cancelada localmente igual
       }
     }
@@ -55,9 +55,9 @@ export async function POST(
     await query(`UPDATE subscriptions SET status = 'cancelled', updated_at = NOW() WHERE id = $1`, [id]);
     console.log(`${tag} cancelled id=${id} user=${session.userId}`);
 
-    const firstName = sub.customer_name.split(" ")[0];
+    const firstName = sub.billing_name.split(" ")[0];
     sendEmail({
-      to: sub.customer_email,
+      to: sub.billing_email,
       subject: `Tu renta de ${sub.product_name} fue cancelada`,
       html: `
 <div style="font-family:Inter,sans-serif;max-width:560px;margin:0 auto;background:#fff;padding:32px 24px;border-radius:16px">
@@ -71,8 +71,8 @@ export async function POST(
 
     sendEmail({
       to: "operaciones@fluxperu.com",
-      subject: `[OPS] Cancelación por usuario: ${sub.customer_name} — ${sub.product_name}`,
-      html: `<div style="font-family:Inter,sans-serif;padding:24px"><h2>⚠️ Renta cancelada por usuario</h2><p><strong>${sub.customer_name}</strong> (${sub.customer_email}) — ${sub.product_name}</p><p>Stripe ID: ${sub.mp_subscription_id ?? "N/A"}</p><p>Coordinar devolución en 30 días.</p></div>`,
+      subject: `[OPS] Cancelación por usuario: ${sub.billing_name} — ${sub.product_name}`,
+      html: `<div style="font-family:Inter,sans-serif;padding:24px"><h2>⚠️ Renta cancelada por usuario</h2><p><strong>${sub.billing_name}</strong> (${sub.billing_email}) — ${sub.product_name}</p><p>Stripe ID: ${sub.external_subscription_id ?? "N/A"}</p><p>Coordinar devolución en 30 días.</p></div>`,
     }).catch(() => {});
 
     return NextResponse.json({ ok: true });

@@ -38,7 +38,7 @@ interface SubDetail {
   delivery_address: string | null;
   delivery_distrito: string | null;
   tracking_number: string | null;
-  mp_subscription_id: string | null;
+  external_subscription_id: string | null;
 }
 
 interface PaymentDetail {

@@ -16,7 +16,7 @@ import { sendConfirmationEmail, sendEmail } from "@/lib/email";
  *   STRIPE_WEBHOOK_SECRET — whsec_... (copiado al crear el endpoint)
  *
  * Idempotencia:
- *   - checkout.session.completed → dedupe por mp_subscription_id (subscription.id)
+ *   - checkout.session.completed → dedupe por external_subscription_id (subscription.id)
  *   - invoice.paid → dedupe por invoice.id en payments (vía subscription + period_label)
  */
 
@@ -122,7 +122,8 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
   }
 
   const meta = session.metadata ?? {};
-  const customerEmail = (session.customer_email ?? meta.customer_email ?? "").toLowerCase();
+  // session.customer_email viene del SDK de Stripe (no confundir con billing_* nuestro)
+  const customerEmail = (session.customer_email ?? meta.billing_email ?? "").toLowerCase();
   if (!customerEmail) {
     console.warn(`${tag} checkout.completed sin email session=${session.id}`);
     return;
@@ -131,7 +132,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
   console.log(`${tag} [2/8] dedupe check sub=${stripeSubscriptionId} email=${customerEmail}`);
   // Dedupe: si ya procesamos esta subscription antes, salimos.
   const existing = await query<{ id: string }>(
-    `SELECT id FROM subscriptions WHERE mp_subscription_id = $1 LIMIT 1`,
+    `SELECT id FROM subscriptions WHERE external_subscription_id = $1 LIMIT 1`,
     [stripeSubscriptionId],
   );
   if (existing.rows.length > 0) {
@@ -164,11 +165,11 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id`,
       [
-        meta.customer_name ?? "",
+        meta.billing_name ?? "",
         customerEmail,
-        meta.customer_phone ?? "",
-        meta.customer_company ?? "",
-        meta.customer_ruc || null,
+        meta.billing_phone ?? "",
+        meta.billing_company ?? "",
+        meta.billing_ruc || null,
         meta.dni_number || null,
         referralCode,
       ],
@@ -180,10 +181,10 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
     const resetToken = await signToken({
       userId,
       email: customerEmail,
-      name: meta.customer_name ?? customerEmail,
+      name: meta.billing_name ?? customerEmail,
     });
     const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.fluxperu.com";
-    const firstName = (meta.customer_name ?? "").split(" ")[0] || "";
+    const firstName = (meta.billing_name ?? "").split(" ")[0] || "";
     sendEmail({
       to: customerEmail,
       subject: "Bienvenido a FLUX — Configura tu contraseña",
@@ -234,8 +235,8 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
   const subResult = await query<{ id: string }>(
     `INSERT INTO subscriptions
       (user_id, product_slug, product_name, months, monthly_price, status,
-       started_at, ends_at, mp_subscription_id,
-       customer_name, customer_email, customer_phone, customer_company, customer_ruc,
+       started_at, ends_at, external_subscription_id,
+       billing_name, billing_email, billing_phone, billing_company, billing_ruc,
        apple_care, delivery_method, delivery_address, delivery_distrito, delivery_reference,
        delivery_place_type, delivery_apartment, delivery_floor,
        shipping_cost_pen, shipping_lat, shipping_lng,
@@ -250,11 +251,11 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
       monthlyPrice,
       endsAt,
       stripeSubscriptionId,
-      meta.customer_name ?? "",
+      meta.billing_name ?? "",
       customerEmail,
-      meta.customer_phone ?? "",
-      meta.customer_company ?? "",
-      meta.customer_ruc || null,
+      meta.billing_phone ?? "",
+      meta.billing_company ?? "",
+      meta.billing_ruc || null,
       appleCare,
       meta.delivery_method ?? "shipping",
       meta.delivery_address || null,
@@ -283,7 +284,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
         dni_number = COALESCE(NULLIF($5, ''), dni_number),
         updated_at = NOW()
       WHERE id = $1`,
-      [userId, meta.customer_phone ?? "", meta.customer_company ?? "", meta.customer_ruc ?? "", meta.dni_number ?? ""],
+      [userId, meta.billing_phone ?? "", meta.billing_company ?? "", meta.billing_ruc ?? "", meta.dni_number ?? ""],
     );
   }
 
@@ -313,8 +314,8 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
       console.warn(`${tag} NO STOCK for ${slug} — manual assignment needed`);
       sendEmail({
         to: "operaciones@fluxperu.com",
-        subject: `⚠️ SIN STOCK: ${productName} — pedido de ${meta.customer_name ?? customerEmail}`,
-        html: `<div style="font-family:Inter,sans-serif;padding:24px"><h2 style="color:#DC2626">⚠️ Sin stock disponible</h2><p><strong>${meta.customer_name ?? customerEmail}</strong> (${customerEmail}) acaba de pagar por <strong>${productName}</strong> pero no hay equipos disponibles en inventario.</p><p>Acción: asignar equipo manualmente desde /admin.</p></div>`,
+        subject: `⚠️ SIN STOCK: ${productName} — pedido de ${meta.billing_name ?? customerEmail}`,
+        html: `<div style="font-family:Inter,sans-serif;padding:24px"><h2 style="color:#DC2626">⚠️ Sin stock disponible</h2><p><strong>${meta.billing_name ?? customerEmail}</strong> (${customerEmail}) acaba de pagar por <strong>${productName}</strong> pero no hay equipos disponibles en inventario.</p><p>Acción: asignar equipo manualmente desde /admin.</p></div>`,
       }).catch(() => {});
     }
   }
@@ -335,7 +336,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
   // ── Confirmation email ──
   sendConfirmationEmail({
     to: customerEmail,
-    name: meta.customer_name ?? customerEmail,
+    name: meta.billing_name ?? customerEmail,
     productName,
     months,
     price: monthlyPrice,
@@ -370,16 +371,16 @@ async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<void> {
     user_id: string;
     months: number;
     started_at: string;
-    customer_name: string;
-    customer_email: string;
-    customer_phone: string;
+    billing_name: string;
+    billing_email: string;
+    billing_phone: string;
     product_name: string;
     monthly_price: string;
   }>(
-    `SELECT id, user_id, months, started_at, customer_name, customer_email,
-            customer_phone, product_name, monthly_price
+    `SELECT id, user_id, months, started_at, billing_name, billing_email,
+            billing_phone, product_name, monthly_price
      FROM subscriptions
-     WHERE mp_subscription_id = $1 AND status IN ('active', 'shipped', 'delivered')
+     WHERE external_subscription_id = $1 AND status IN ('active', 'shipped', 'delivered')
      LIMIT 1`,
     [stripeSubscriptionId],
   );
@@ -412,17 +413,17 @@ async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<void> {
       [sub.id, purchasePrice],
     );
 
-    const firstName = sub.customer_name.split(" ")[0];
+    const firstName = sub.billing_name.split(" ")[0];
     sendEmail({
-      to: sub.customer_email,
+      to: sub.billing_email,
       subject: `${firstName}, tu renta de ${sub.product_name} llegó al límite`,
       html: `<div style="font-family:Inter,sans-serif;max-width:560px;margin:0 auto;background:#fff;padding:32px 24px;border-radius:16px"><h1 style="font-size:22px;font-weight:900;color:#18191F;margin:0 0 8px">${firstName}, tu renta llegó al plazo máximo</h1><p style="color:#666;margin:0 0 16px">Tu <strong>${sub.product_name}</strong> cumplió el período máximo de alquiler. Tenés <strong>30 días</strong> para decidir:</p><div style="background:#EEF2FF;border-radius:12px;padding:16px;margin:0 0 12px"><p style="font-weight:700;color:#18191F;margin:0">💰 Comprar tu Mac por $${purchasePrice} USD</p></div><div style="background:#F7F7F7;border-radius:12px;padding:16px;margin:0 0 16px"><p style="font-weight:700;color:#18191F;margin:0">↩️ Devolver el equipo (sin costo)</p></div><p style="color:#DC2626;font-size:13px;font-weight:600;margin:0 0 16px">Si no respondés en 30 días, se cobra automáticamente el valor de compra ($${purchasePrice}).</p><a href="https://www.fluxperu.com/cuenta/rentas" style="display:inline-block;background:#1B4FFF;color:#fff;font-weight:700;padding:14px 32px;border-radius:999px;text-decoration:none;font-size:14px">Ver mis opciones</a></div>`,
     }).catch(() => {});
 
     sendEmail({
       to: "operaciones@fluxperu.com",
-      subject: `[OPS] ⚠️ Renta al límite: ${sub.customer_name} — ${sub.product_name} (${monthsUsed}m/${maxAllowed}m)`,
-      html: `<div style="font-family:Inter,sans-serif;padding:24px"><h2 style="color:#DC2626">⚠️ Renta alcanzó límite máximo</h2><p><strong>${sub.customer_name}</strong> (${sub.customer_email}) tiene ${monthsUsed} meses de uso (máximo ${maxAllowed}). Debe comprar ($${purchasePrice}) o devolver en 30 días.</p></div>`,
+      subject: `[OPS] ⚠️ Renta al límite: ${sub.billing_name} — ${sub.product_name} (${monthsUsed}m/${maxAllowed}m)`,
+      html: `<div style="font-family:Inter,sans-serif;padding:24px"><h2 style="color:#DC2626">⚠️ Renta alcanzó límite máximo</h2><p><strong>${sub.billing_name}</strong> (${sub.billing_email}) tiene ${monthsUsed} meses de uso (máximo ${maxAllowed}). Debe comprar ($${purchasePrice}) o devolver en 30 días.</p></div>`,
     }).catch(() => {});
     return;
   }
@@ -470,31 +471,31 @@ async function handleInvoiceFailed(invoice: Stripe.Invoice): Promise<void> {
 
   const subRow = await query<{
     id: string;
-    customer_name: string;
-    customer_email: string;
+    billing_name: string;
+    billing_email: string;
     product_name: string;
     monthly_price: string;
   }>(
-    `SELECT id, customer_name, customer_email, product_name, monthly_price
+    `SELECT id, billing_name, billing_email, product_name, monthly_price
      FROM subscriptions
-     WHERE mp_subscription_id = $1 AND status IN ('active', 'shipped', 'delivered')
+     WHERE external_subscription_id = $1 AND status IN ('active', 'shipped', 'delivered')
      LIMIT 1`,
     [stripeSubscriptionId],
   );
   if (subRow.rows.length === 0) return;
   const row = subRow.rows[0];
-  const firstName = row.customer_name.split(" ")[0];
+  const firstName = row.billing_name.split(" ")[0];
 
   sendEmail({
-    to: row.customer_email,
+    to: row.billing_email,
     subject: `⚠️ Tu pago de FLUX no pudo procesarse`,
     html: `<div style="font-family:Inter,sans-serif;max-width:560px;margin:0 auto;background:#fff;padding:32px 24px;border-radius:16px"><h1 style="font-size:22px;font-weight:900;color:#18191F;margin:0 0 8px">${firstName}, tu pago no pudo procesarse</h1><p style="color:#666;margin:0 0 16px">El cobro mensual de <strong>$${row.monthly_price}</strong> por tu <strong>${row.product_name}</strong> fue rechazado.</p><p style="color:#666;margin:0 0 16px">Puede ser porque tu tarjeta expiró, no tiene fondos, o el banco bloqueó el cargo.</p><p style="color:#666;margin:0 0 24px"><strong>Tenés 5 días hábiles para regularizar.</strong> Después podemos suspender el servicio.</p><a href="https://wa.me/51900164769" style="display:inline-block;background:#1B4FFF;color:#fff;font-weight:700;padding:14px 32px;border-radius:999px;text-decoration:none;font-size:14px">Contactar soporte</a></div>`,
   }).catch(() => {});
 
   sendEmail({
     to: "operaciones@fluxperu.com",
-    subject: `[OPS] Pago fallido: ${row.customer_name} — ${row.product_name}`,
-    html: `<div style="font-family:Inter,sans-serif;padding:24px"><h2 style="color:#DC2626">⚠️ Pago rechazado</h2><p><strong>${row.customer_name}</strong> (${row.customer_email})</p><p>Producto: ${row.product_name} — $${row.monthly_price}/mes</p></div>`,
+    subject: `[OPS] Pago fallido: ${row.billing_name} — ${row.product_name}`,
+    html: `<div style="font-family:Inter,sans-serif;padding:24px"><h2 style="color:#DC2626">⚠️ Pago rechazado</h2><p><strong>${row.billing_name}</strong> (${row.billing_email})</p><p>Producto: ${row.product_name} — $${row.monthly_price}/mes</p></div>`,
   }).catch(() => {});
 
   console.log(`${tag} invoice.payment_failed for sub=${row.id}`);
@@ -507,7 +508,7 @@ async function handleInvoiceFailed(invoice: Stripe.Invoice): Promise<void> {
 async function handleSubscriptionDeleted(sub: Stripe.Subscription): Promise<void> {
   await query(
     `UPDATE subscriptions SET status = 'cancelled', updated_at = NOW()
-     WHERE mp_subscription_id = $1 AND status != 'cancelled'`,
+     WHERE external_subscription_id = $1 AND status != 'cancelled'`,
     [sub.id],
   );
   console.log(`${tag} subscription cancelled via Stripe sub=${sub.id}`);

@@ -17,13 +17,13 @@ interface Sub {
   status: string;
   started_at: string;
   ends_at: string | null;
-  customer_name: string;
-  customer_email: string;
-  customer_phone: string;
-  customer_company: string;
-  customer_ruc: string | null;
+  billing_name: string;
+  billing_email: string;
+  billing_phone: string;
+  billing_company: string;
+  billing_ruc: string | null;
   admin_note: string | null;
-  mp_subscription_id: string | null;
+  external_subscription_id: string | null;
   apple_care: boolean | null;
   delivery_method: string | null;
   delivery_address: string | null;
@@ -75,9 +75,9 @@ export default async function AdminPage() {
     query<Sub>(`
       SELECT s.id, u.name AS user_name, u.email AS user_email,
              s.product_name, s.months, s.monthly_price, s.status,
-             s.started_at, s.ends_at, s.admin_note, s.mp_subscription_id,
-             s.customer_name, s.customer_email, s.customer_phone,
-             s.customer_company, s.customer_ruc, s.apple_care,
+             s.started_at, s.ends_at, s.admin_note, s.external_subscription_id,
+             s.billing_name, s.billing_email, s.billing_phone,
+             s.billing_company, s.billing_ruc, s.apple_care,
              s.delivery_method, s.delivery_address, s.delivery_distrito, s.delivery_reference,
              s.dni_number, s.dni_photo_url, s.selfie_url, s.identity_verified,
              s.payment_method

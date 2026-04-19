@@ -17,11 +17,11 @@ export async function GET(
   const result = await query<{
     id: string;
     user_id: string | null;
-    customer_name: string;
-    customer_email: string;
-    customer_phone: string;
-    customer_company: string;
-    customer_ruc: string | null;
+    billing_name: string;
+    billing_email: string;
+    billing_phone: string;
+    billing_company: string;
+    billing_ruc: string | null;
     product_name: string;
     months: number;
     monthly_price: string;
@@ -30,8 +30,8 @@ export async function GET(
     started_at: string;
     ends_at: string;
   }>(
-    `SELECT id, user_id, customer_name, customer_email, customer_phone,
-            customer_company, customer_ruc, product_name, months, monthly_price,
+    `SELECT id, user_id, billing_name, billing_email, billing_phone,
+            billing_company, billing_ruc, product_name, months, monthly_price,
             apple_care, delivery_method, started_at, ends_at
      FROM subscriptions WHERE id = $1`,
     [id]
@@ -53,11 +53,11 @@ export async function GET(
 
   const pdf = await generateContractPdf({
     contractNumber,
-    customerName: sub.customer_name,
-    customerEmail: sub.customer_email,
-    customerPhone: sub.customer_phone,
-    customerCompany: sub.customer_company,
-    customerRuc: sub.customer_ruc,
+    customerName: sub.billing_name,
+    customerEmail: sub.billing_email,
+    customerPhone: sub.billing_phone,
+    customerCompany: sub.billing_company,
+    customerRuc: sub.billing_ruc,
     productName: sub.product_name,
     months: sub.months,
     monthlyPrice: parseFloat(sub.monthly_price),

@@ -15,7 +15,7 @@ interface Subscription {
   status: string;
   started_at: string;
   ends_at: string | null;
-  mp_subscription_id: string | null;
+  external_subscription_id: string | null;
   delivery_address: string | null;
   delivery_distrito: string | null;
   end_action: string | null;
@@ -57,7 +57,7 @@ export default async function RentasPage() {
 
   const result = await query<Subscription>(
     `SELECT s.id, s.product_slug, s.product_name, s.months, s.monthly_price, s.status,
-            s.started_at, s.ends_at, s.mp_subscription_id,
+            s.started_at, s.ends_at, s.external_subscription_id,
             s.delivery_address, s.delivery_distrito, s.end_action, s.purchase_price_usd,
             s.equipment_code,
             e.numero_serie, e.modelo_completo, e.color, e.teclado,

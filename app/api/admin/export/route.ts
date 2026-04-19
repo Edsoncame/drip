@@ -17,15 +17,15 @@ export async function GET() {
     id: string; user_name: string; user_email: string;
     product_name: string; months: number; monthly_price: string;
     status: string; started_at: string; ends_at: string | null;
-    customer_name: string; customer_email: string;
-    customer_phone: string; customer_company: string; customer_ruc: string;
+    billing_name: string; billing_email: string;
+    billing_phone: string; billing_company: string; billing_ruc: string;
     apple_care: boolean;
   }>(`
     SELECT s.id, u.name AS user_name, u.email AS user_email,
            s.product_name, s.months, s.monthly_price, s.status,
            s.started_at, s.ends_at,
-           s.customer_name, s.customer_email, s.customer_phone,
-           s.customer_company, s.customer_ruc, s.apple_care
+           s.billing_name, s.billing_email, s.billing_phone,
+           s.billing_company, s.billing_ruc, s.apple_care
     FROM subscriptions s
     LEFT JOIN users u ON u.id = s.user_id
     ORDER BY s.started_at DESC
@@ -47,11 +47,11 @@ export async function GET() {
     r.status,
     r.started_at ? new Date(r.started_at).toISOString().split("T")[0] : "",
     r.ends_at ? new Date(r.ends_at).toISOString().split("T")[0] : "",
-    r.customer_name ?? "",
-    r.customer_email ?? "",
-    r.customer_phone ?? "",
-    r.customer_company ?? "",
-    r.customer_ruc ?? "",
+    r.billing_name ?? "",
+    r.billing_email ?? "",
+    r.billing_phone ?? "",
+    r.billing_company ?? "",
+    r.billing_ruc ?? "",
     r.apple_care ? "Sí" : "No",
   ]);
 

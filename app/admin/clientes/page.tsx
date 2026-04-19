@@ -46,7 +46,7 @@ interface SubDetail {
   delivery_address: string | null;
   delivery_distrito: string | null;
   tracking_number: string | null;
-  mp_subscription_id: string | null;
+  external_subscription_id: string | null;
 }
 
 interface PaymentDetail {
@@ -89,7 +89,7 @@ export default async function ClientesPage() {
     query<SubDetail>(`
       SELECT id, user_id, product_name, months, monthly_price, status,
              started_at, ends_at, apple_care, delivery_method, delivery_address,
-             delivery_distrito, tracking_number, mp_subscription_id
+             delivery_distrito, tracking_number, external_subscription_id
       FROM subscriptions
       WHERE user_id IS NOT NULL
       ORDER BY started_at DESC

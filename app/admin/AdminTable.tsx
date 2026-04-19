@@ -13,13 +13,13 @@ interface Sub {
   status: string;
   started_at: string;
   ends_at: string | null;
-  customer_name: string;
-  customer_email: string;
-  customer_phone: string;
-  customer_company: string;
-  customer_ruc: string | null;
+  billing_name: string;
+  billing_email: string;
+  billing_phone: string;
+  billing_company: string;
+  billing_ruc: string | null;
   admin_note: string | null;
-  mp_subscription_id: string | null;
+  external_subscription_id: string | null;
   apple_care: boolean | null;
   delivery_method: string | null;
   delivery_address: string | null;
@@ -86,7 +86,7 @@ export default function AdminTable({ subs }: { subs: Sub[] }) {
     const matchPay = payFilter === "todos" || (payFilter === "online" ? isOnline(s) : !isOnline(s));
     const q = search.toLowerCase();
     const matchSearch = !q || [
-      s.customer_name, s.customer_email, s.customer_company,
+      s.billing_name, s.billing_email, s.billing_company,
       s.product_name, s.user_email ?? "",
     ].some(v => v.toLowerCase().includes(q));
     return matchStatus && matchPay && matchSearch;
@@ -213,8 +213,8 @@ export default function AdminTable({ subs }: { subs: Sub[] }) {
                     onClick={() => setExpanded(isExpanded ? null : sub.id)}
                   >
                     <td className="px-4 py-3">
-                      <p className="font-600 text-[#18191F]">{sub.customer_name}</p>
-                      <p className="text-xs text-[#999999]">{sub.customer_company || sub.customer_email}</p>
+                      <p className="font-600 text-[#18191F]">{sub.billing_name}</p>
+                      <p className="text-xs text-[#999999]">{sub.billing_company || sub.billing_email}</p>
                     </td>
                     <td className="px-4 py-3 text-[#333333] max-w-[180px]">
                       <p className="font-500 truncate">{sub.product_name}</p>
@@ -315,9 +315,9 @@ export default function AdminTable({ subs }: { subs: Sub[] }) {
                       <td colSpan={7} className="px-6 pb-6 pt-3">
                         {/* Info general */}
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-                          <Info label="Email"     value={sub.customer_email} copy />
-                          <Info label="Teléfono"  value={sub.customer_phone} copy />
-                          <Info label="RUC"       value={sub.customer_ruc ?? "—"} />
+                          <Info label="Email"     value={sub.billing_email} copy />
+                          <Info label="Teléfono"  value={sub.billing_phone} copy />
+                          <Info label="RUC"       value={sub.billing_ruc ?? "—"} />
                           <Info label="AppleCare+" value={sub.apple_care ? "✅ Sí — activar" : "No"} />
                         </div>
 
@@ -381,7 +381,7 @@ export default function AdminTable({ subs }: { subs: Sub[] }) {
                         {/* Referencias de pago */}
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
                           <Info label="Método de pago" value={paymentBadge(sub).label} />
-                          <Info label="ID Stripe/Culqi" value={sub.mp_subscription_id ?? "—"} copy />
+                          <Info label="ID Stripe/Culqi" value={sub.external_subscription_id ?? "—"} copy />
                           <Info label={isOnline(sub) ? "Flujo" : "Flujo"} value={isOnline(sub) ? "Online (checkout + webhook)" : "Offline (transferencia → /admin/pagos)"} />
                         </div>
 

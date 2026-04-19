@@ -23,11 +23,11 @@ export async function POST(
     // Verify ownership
     const result = await query<{
       id: string; user_id: string; product_name: string; status: string;
-      customer_name: string; customer_email: string; customer_phone: string;
+      billing_name: string; billing_email: string; billing_phone: string;
       delivery_address: string | null; delivery_distrito: string | null;
     }>(
-      `SELECT id, user_id, product_name, status, customer_name, customer_email,
-              customer_phone, delivery_address, delivery_distrito
+      `SELECT id, user_id, product_name, status, billing_name, billing_email,
+              billing_phone, delivery_address, delivery_distrito
        FROM subscriptions WHERE id = $1 AND user_id = $2`,
       [id, session.userId]
     );
@@ -53,11 +53,11 @@ export async function POST(
       [id, method, returnAddress]
     );
 
-    const firstName = sub.customer_name.split(" ")[0];
+    const firstName = sub.billing_name.split(" ")[0];
 
     // Email to customer
     sendEmail({
-      to: sub.customer_email,
+      to: sub.billing_email,
       subject: `Tu devolución de ${sub.product_name} está en proceso`,
       html: `
 <div style="font-family:Inter,sans-serif;max-width:560px;margin:0 auto;background:#fff;padding:32px 24px;border-radius:16px">
@@ -84,13 +84,13 @@ export async function POST(
     // Alert ops
     sendEmail({
       to: "operaciones@fluxperu.com",
-      subject: `[OPS] Devolución solicitada: ${sub.customer_name} — ${sub.product_name}`,
+      subject: `[OPS] Devolución solicitada: ${sub.billing_name} — ${sub.product_name}`,
       html: `
 <div style="font-family:Inter,sans-serif;padding:24px">
   <h2 style="color:#18191F">📦 Devolución solicitada</h2>
   <table style="width:100%;font-size:14px;border-collapse:collapse">
-    <tr style="border-bottom:1px solid #eee"><td style="padding:8px 0;color:#999">Cliente</td><td style="font-weight:600">${sub.customer_name}</td></tr>
-    <tr style="border-bottom:1px solid #eee"><td style="padding:8px 0;color:#999">Teléfono</td><td><a href="https://wa.me/51${sub.customer_phone.replace(/\D/g, "").replace(/^51/, "")}">${sub.customer_phone}</a></td></tr>
+    <tr style="border-bottom:1px solid #eee"><td style="padding:8px 0;color:#999">Cliente</td><td style="font-weight:600">${sub.billing_name}</td></tr>
+    <tr style="border-bottom:1px solid #eee"><td style="padding:8px 0;color:#999">Teléfono</td><td><a href="https://wa.me/51${sub.billing_phone.replace(/\D/g, "").replace(/^51/, "")}">${sub.billing_phone}</a></td></tr>
     <tr style="border-bottom:1px solid #eee"><td style="padding:8px 0;color:#999">Producto</td><td style="font-weight:600">${sub.product_name}</td></tr>
     <tr style="border-bottom:1px solid #eee"><td style="padding:8px 0;color:#999">Método</td><td>${method === "pickup" ? "🚚 Recojo a domicilio" : "🏢 Entrega en oficina"}</td></tr>
     <tr><td style="padding:8px 0;color:#999">Dirección</td><td>${returnAddress}</td></tr>

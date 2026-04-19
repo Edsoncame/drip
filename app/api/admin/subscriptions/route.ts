@@ -62,17 +62,17 @@ export async function PATCH(req: NextRequest) {
 
   // Send email notifications based on status change
   const sub = (await query<{
-    customer_name: string; customer_email: string; product_name: string;
+    billing_name: string; billing_email: string; product_name: string;
     delivery_method: string | null; delivery_address: string | null;
     delivery_distrito: string | null; tracking_number: string | null;
-  }>(`SELECT customer_name, customer_email, product_name, delivery_method, delivery_address, delivery_distrito, tracking_number FROM subscriptions WHERE id = $1`, [id])).rows[0];
+  }>(`SELECT billing_name, billing_email, product_name, delivery_method, delivery_address, delivery_distrito, tracking_number FROM subscriptions WHERE id = $1`, [id])).rows[0];
 
   if (sub) {
-    const firstName = sub.customer_name.split(" ")[0];
+    const firstName = sub.billing_name.split(" ")[0];
 
-    if (status === "shipped" && sub.customer_email) {
+    if (status === "shipped" && sub.billing_email) {
       sendEmail({
-        to: sub.customer_email,
+        to: sub.billing_email,
         subject: `🚚 Tu ${sub.product_name} está en camino`,
         html: `
 <div style="font-family:Inter,sans-serif;max-width:560px;margin:0 auto;background:#fff;padding:32px 24px;border-radius:16px">
@@ -89,9 +89,9 @@ export async function PATCH(req: NextRequest) {
       }).catch(() => {});
     }
 
-    if (status === "shipped" && sub.delivery_method === "pickup" && sub.customer_email) {
+    if (status === "shipped" && sub.delivery_method === "pickup" && sub.billing_email) {
       sendEmail({
-        to: sub.customer_email,
+        to: sub.billing_email,
         subject: `🏢 Tu ${sub.product_name} está listo para recoger`,
         html: `
 <div style="font-family:Inter,sans-serif;max-width:560px;margin:0 auto;background:#fff;padding:32px 24px;border-radius:16px">

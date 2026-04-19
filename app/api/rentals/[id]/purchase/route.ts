@@ -20,10 +20,10 @@ export async function POST(
     const result = await query<{
       id: string; user_id: string; product_name: string; product_slug: string;
       months: number; monthly_price: string; status: string;
-      customer_name: string; customer_email: string; customer_phone: string;
+      billing_name: string; billing_email: string; billing_phone: string;
     }>(
       `SELECT id, user_id, product_name, product_slug, months, monthly_price,
-              status, customer_name, customer_email, customer_phone
+              status, billing_name, billing_email, billing_phone
        FROM subscriptions WHERE id = $1 AND user_id = $2`,
       [id, session.userId]
     );
@@ -48,11 +48,11 @@ export async function POST(
       [id, purchasePrice]
     );
 
-    const firstName = sub.customer_name.split(" ")[0];
+    const firstName = sub.billing_name.split(" ")[0];
 
     // Email to customer
     sendEmail({
-      to: sub.customer_email,
+      to: sub.billing_email,
       subject: `Solicitud de compra de tu ${sub.product_name}`,
       html: `
 <div style="font-family:Inter,sans-serif;max-width:560px;margin:0 auto;background:#fff;padding:32px 24px;border-radius:16px">
@@ -76,13 +76,13 @@ export async function POST(
     // Alert ops
     sendEmail({
       to: "operaciones@fluxperu.com",
-      subject: `[OPS] 💰 Compra solicitada: ${sub.customer_name} — ${sub.product_name} — $${purchasePrice}`,
+      subject: `[OPS] 💰 Compra solicitada: ${sub.billing_name} — ${sub.product_name} — $${purchasePrice}`,
       html: `
 <div style="font-family:Inter,sans-serif;padding:24px">
   <h2 style="color:#18191F">💰 Solicitud de compra</h2>
   <table style="width:100%;font-size:14px;border-collapse:collapse">
-    <tr style="border-bottom:1px solid #eee"><td style="padding:8px 0;color:#999">Cliente</td><td style="font-weight:600">${sub.customer_name}</td></tr>
-    <tr style="border-bottom:1px solid #eee"><td style="padding:8px 0;color:#999">Teléfono</td><td><a href="https://wa.me/51${sub.customer_phone.replace(/\D/g, "").replace(/^51/, "")}">${sub.customer_phone}</a></td></tr>
+    <tr style="border-bottom:1px solid #eee"><td style="padding:8px 0;color:#999">Cliente</td><td style="font-weight:600">${sub.billing_name}</td></tr>
+    <tr style="border-bottom:1px solid #eee"><td style="padding:8px 0;color:#999">Teléfono</td><td><a href="https://wa.me/51${sub.billing_phone.replace(/\D/g, "").replace(/^51/, "")}">${sub.billing_phone}</a></td></tr>
     <tr style="border-bottom:1px solid #eee"><td style="padding:8px 0;color:#999">Producto</td><td style="font-weight:600">${sub.product_name}</td></tr>
     <tr style="border-bottom:1px solid #eee"><td style="padding:8px 0;color:#999">Precio compra</td><td style="font-weight:900;color:#1B4FFF;font-size:18px">$${purchasePrice} USD</td></tr>
     <tr><td style="padding:8px 0;color:#999">Plan original</td><td>${sub.months}m · $${sub.monthly_price}/mes</td></tr>
