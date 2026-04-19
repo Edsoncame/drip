@@ -95,9 +95,14 @@ export function toDropchatProduct(p: ProductRow): DropchatProduct {
   const plan16 = plans.find((x) => x.months === 16);
   const plan24 = plans.find((x) => x.months === 24);
 
-  const mainPrice = plan16?.price ?? plan8?.price ?? plan24?.price ?? 0;
+  const prices = plans.map((x) => x.price).filter((n) => n > 0);
+  const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
+  const maxPrice = prices.length > 0 ? Math.max(...prices) : 0;
 
-  // Stock: usamos count de equipment.estado='Disponible' si hay; fallback al p.stock configurado
+  // "price" top-level = plan más barato ("desde $X/mes" es el gancho principal)
+  const mainPrice = minPrice;
+
+  // Stock: count de equipment.estado='Disponible' si hay; fallback al p.stock
   const liveStock = parseInt(p.live_available, 10);
   const stock = liveStock > 0 ? liveStock : p.stock;
 
@@ -107,7 +112,7 @@ export function toDropchatProduct(p: ProductRow): DropchatProduct {
     price: mainPrice,
     stock,
     custom_fields: {
-      // Metadatos del producto — IAn puede personalizar respuestas
+      // Metadatos del producto
       currency: "USD",
       billing_cycle: "monthly",
       type: "rental",
@@ -121,15 +126,60 @@ export function toDropchatProduct(p: ProductRow): DropchatProduct {
       badge: p.badge,
       image_url: p.image_url,
       product_url: `https://www.fluxperu.com/laptops/${p.slug}`,
-      // Pricing por plan — IAn cotiza el que el cliente pida
-      price_8m_usd: plan8?.price ?? null,
+
+      // Precios por plan — IAn cotiza el que el cliente pida
+      price_8m_usd:  plan8?.price  ?? null,
       price_16m_usd: plan16?.price ?? null,
       price_24m_usd: plan24?.price ?? null,
-      // Derivados útiles para campañas
+      min_monthly_price: minPrice,
+      max_monthly_price: maxPrice,
       total_plans: plans.length,
-      min_monthly_price: Math.min(...plans.map((x) => x.price).filter((n) => n > 0)),
-      max_monthly_price: Math.max(...plans.map((x) => x.price).filter((n) => n > 0)),
-      // Source tag
+      pricing_summary: plans
+        .map((x) => `${x.months}m: $${x.price}/mes`)
+        .join(" · "),
+
+      // ══════════════════════════════════════════════════════════════════════
+      // MODELO FLUX — qué pasa al finalizar el plazo (IAn debe saberlo)
+      // ══════════════════════════════════════════════════════════════════════
+      //
+      // Al finalizar cualquier plan, el cliente tiene 3 opciones:
+      //   (a) DEVOLVER sin costo  (b) COMPRAR  (c) SEGUIR RENTANDO (auto-extend)
+      //
+      // Límites máximos de extensión por plan original:
+      //   Plan 8m  → hasta 16m total (+8m extra)
+      //   Plan 16m → hasta 24m total (+8m extra)
+      //   Plan 24m → hasta 30m total (+6m extra)
+      end_of_contract_options: ["return", "buy", "extend"],
+      end_of_contract_policy:
+        "Al finalizar podés: (a) devolver el Mac sin costo, (b) comprarlo a precio especial coordinado con ventas, o (c) seguir alquilándolo mes a mes. La auto-extensión es automática — no hacés nada y tu plan sigue.",
+      max_extension_8m_plan_months: 16,
+      max_extension_16m_plan_months: 24,
+      max_extension_24m_plan_months: 30,
+      can_return_free: true,
+      can_buy_at_end: true,
+      can_extend_rental: true,
+      purchase_price_note:
+        "El precio final de compra se coordina con un asesor al finalizar el plazo. Depende del estado del equipo y del plan elegido.",
+
+      // AppleCare+ add-on
+      applecare_addon_usd_monthly: 12,
+      applecare_deductible_usd: 99,
+      applecare_note:
+        "Podés agregar AppleCare+ por +$12/mes. Cubre daños accidentales con deducible de $99 (líquidos, pantalla, caídas). Robo y pérdida NO cubiertos.",
+
+      // Entrega + soporte
+      delivery_lima_hours: 24,
+      delivery_provinces_note: "Por ahora solo Lima Metropolitana (41 distritos)",
+      delivery_free: true,
+      support_included: true,
+
+      // Links útiles para que IAn pueda referenciarlos
+      how_it_works_url: "https://www.fluxperu.com/como-funciona",
+      terms_url: "https://www.fluxperu.com/terminos",
+      compare_url: "https://www.fluxperu.com/laptops/comparar",
+      contact_whatsapp: "https://wa.me/51900164769",
+
+      // Source
       source: "flux",
     },
   };
