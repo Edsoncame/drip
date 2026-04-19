@@ -233,7 +233,8 @@ ${existingContext}
     instructions,
     tools: allTools,
     stopWhen: stepCountIs(maxSteps),
-    temperature: 0.7,
+    // `temperature` deprecated por Claude Opus 4.7 (conflicto con extended thinking).
+    // Default=1.0 de Anthropic es fine para agentes.
     onStepFinish: async (step) => {
       // Log cada paso para debug
       const toolNames = step.toolCalls?.map((tc) => tc.toolName).join(", ");
@@ -465,6 +466,6 @@ ${claudeMd}${strategyBlock}${blockersBlock}${runningBlock}${attachmentsBlock}${r
     instructions,
     tools,
     stopWhen: stepCountIs(12),
-    temperature: 0.7,
+    // `temperature` deprecated por Claude Opus 4.7 — default 1.0 es OK.
   });
 }
