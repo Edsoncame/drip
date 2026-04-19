@@ -864,21 +864,36 @@ export function delegateToAgentTool(actor: string) {
         .describe("Máximo de pasos del tool loop del subagente, default 6"),
     }),
     execute: async ({ agent, task, max_steps }) => {
-      // Dynamic import para evitar circular dependency con agent-runner
+      // Delegación ASÍNCRONA. El orquestador NO espera el resultado del subagente.
+      // Si esperábamos sync, 3 subagentes × 40s = >2min + razonamiento orq → >5min
+      // → Vercel mataba la función → chat nunca respondía.
+      // Ahora: disparamos el run con after(), retornamos al instante.
+      // El usuario ve el resultado en el panel de agentes (scene + runs history).
       const { runAgent } = await import("./agent-runner");
-      const result = await runAgent({
-        agentId: agent as AgentId,
-        task,
-        actor: `growth:${actor}`,
-        maxSteps: max_steps ?? 6,
-        depth: 1,
+      const { after } = await import("next/server");
+
+      after(async () => {
+        try {
+          const result = await runAgent({
+            agentId: agent as AgentId,
+            task,
+            actor: `growth:${actor}`,
+            maxSteps: max_steps ?? 6,
+            depth: 1,
+          });
+          console.log(
+            `[delegate-async] ${agent} done · success=${result.success} files=${result.filesWritten.length}`,
+          );
+        } catch (err) {
+          console.error(`[delegate-async] ${agent} failed`, err);
+        }
       });
+
       return {
-        success: result.success,
-        text: result.text.slice(0, 3500),
-        files_written: result.filesWritten,
-        duration_ms: result.durationMs,
-        error: result.error,
+        success: true,
+        status: "dispatched",
+        text: `✅ Tarea delegada a ${agent}. Corre en background — resultado disponible en el panel de agentes en ~30-60 segundos.`,
+        note: "Delegación async: no esperes este output, continúa la conversación o delega otra tarea si es necesario.",
       };
     },
   });
