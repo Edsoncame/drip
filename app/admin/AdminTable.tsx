@@ -7,6 +7,7 @@ interface Sub {
   id: string;
   user_name: string | null;
   user_email: string | null;
+  user_legal_name: string | null;
   product_name: string;
   months: number;
   monthly_price: string;
@@ -349,6 +350,14 @@ export default function AdminTable({ subs }: { subs: Sub[] }) {
                               : <span className="ml-2 text-orange-500 normal-case font-600">⏳ Pendiente</span>
                             }
                           </p>
+                          {sub.user_legal_name && sub.user_legal_name.toLowerCase() !== sub.billing_name.toLowerCase() && (
+                            <div className="mb-3 p-3 bg-amber-50 border border-amber-300 rounded-xl">
+                              <p className="text-[10px] font-700 text-amber-800 uppercase tracking-wider">⚠ Nombre form vs DNI</p>
+                              <p className="text-xs text-[#333] mt-1"><span className="text-[#999]">Digitó:</span> {sub.billing_name}</p>
+                              <p className="text-xs text-[#333]"><span className="text-[#999]">DNI:</span> <strong>{sub.user_legal_name}</strong></p>
+                              <p className="text-[10px] text-amber-700 mt-1">→ El contrato y la factura usan el del DNI.</p>
+                            </div>
+                          )}
                           {sub.dni_number || sub.dni_photo_url || sub.selfie_url ? (
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                               <Info label="DNI / CE" value={sub.dni_number ?? "—"} copy />

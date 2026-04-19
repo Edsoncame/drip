@@ -143,9 +143,22 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Update users si está logueado. La URL de las imágenes queda en kyc_dni_scans
-  // y kyc_face_matches — no duplicamos en users.
+  // Update users si está logueado.
+  //
+  // Al verificar, copiamos el IDENTIDAD LEGAL (apellidos + prenombres del DNI
+  // normalizados con INITCAP) a las columnas `legal_*` de users. Esa es la
+  // fuente de verdad para contratos, facturas y reclamos Indecopi.
+  // La columna `name` (nombre de uso) sigue siendo lo que el usuario digitó
+  // — la respetamos para no sobrescribirle su preferencia de nombre.
   if (userId) {
+    const apellidoPat = scan.apellido_paterno ?? null;
+    const apellidoMat = scan.apellido_materno ?? null;
+    const prenombres  = scan.prenombres ?? null;
+    const legalName   = [apellidoPat, apellidoMat, prenombres]
+      .filter((v): v is string => !!v)
+      .join(" ")
+      .trim() || null;
+
     await query(
       `UPDATE users SET
         kyc_status = $2,
@@ -153,9 +166,21 @@ export async function POST(req: NextRequest) {
         kyc_verified_at = CASE WHEN $2 = 'verified' THEN NOW() ELSE kyc_verified_at END,
         identity_verified = CASE WHEN $2 = 'verified' THEN true ELSE identity_verified END,
         dni_number = COALESCE($4, dni_number),
+        legal_name = CASE WHEN $2 = 'verified' THEN INITCAP($5) ELSE legal_name END,
+        legal_apellido_paterno = CASE WHEN $2 = 'verified' THEN INITCAP($6) ELSE legal_apellido_paterno END,
+        legal_apellido_materno = CASE WHEN $2 = 'verified' THEN INITCAP($7) ELSE legal_apellido_materno END,
+        legal_prenombres = CASE WHEN $2 = 'verified' THEN INITCAP($8) ELSE legal_prenombres END,
+        fecha_nacimiento = CASE WHEN $2 = 'verified' THEN COALESCE($9::date, fecha_nacimiento) ELSE fecha_nacimiento END,
+        sexo = CASE WHEN $2 = 'verified' THEN COALESCE($10, sexo) ELSE sexo END,
+        dni_fecha_emision = CASE WHEN $2 = 'verified' THEN COALESCE($11::date, dni_fecha_emision) ELSE dni_fecha_emision END,
+        dni_fecha_caducidad = CASE WHEN $2 = 'verified' THEN COALESCE($12::date, dni_fecha_caducidad) ELSE dni_fecha_caducidad END,
         updated_at = NOW()
        WHERE id = $1`,
-      [userId, status, correlation_id, scan.dni_number],
+      [
+        userId, status, correlation_id, scan.dni_number,
+        legalName, apellidoPat, apellidoMat, prenombres,
+        scan.fecha_nacimiento, scan.sexo, scan.fecha_emision, scan.fecha_caducidad,
+      ],
     );
   }
 

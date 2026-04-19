@@ -11,6 +11,7 @@ interface Sub {
   id: string;
   user_name: string | null;
   user_email: string | null;
+  user_legal_name: string | null;
   product_name: string;
   months: number;
   monthly_price: string;
@@ -73,7 +74,7 @@ export default async function AdminPage() {
       FROM subscriptions
     `),
     query<Sub>(`
-      SELECT s.id, u.name AS user_name, u.email AS user_email,
+      SELECT s.id, u.name AS user_name, u.email AS user_email, u.legal_name AS user_legal_name,
              s.product_name, s.months, s.monthly_price, s.status,
              s.started_at, s.ends_at, s.admin_note, s.external_subscription_id,
              s.billing_name, s.billing_email, s.billing_phone,

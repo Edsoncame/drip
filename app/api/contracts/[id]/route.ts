@@ -14,6 +14,8 @@ export async function GET(
   const isAdmin = !!(await requireAdmin());
 
   // Users can only download their own contracts; admins can download any
+  // Preferimos legal_name del users (DNI verificado) sobre billing_name (form)
+  // para que el contrato siempre tenga el nombre oficial.
   const result = await query<{
     id: string;
     user_id: string | null;
@@ -29,11 +31,16 @@ export async function GET(
     delivery_method: string;
     started_at: string;
     ends_at: string;
+    legal_name: string | null;
+    dni_number_legal: string | null;
   }>(
-    `SELECT id, user_id, billing_name, billing_email, billing_phone,
-            billing_company, billing_ruc, product_name, months, monthly_price,
-            apple_care, delivery_method, started_at, ends_at
-     FROM subscriptions WHERE id = $1`,
+    `SELECT s.id, s.user_id, s.billing_name, s.billing_email, s.billing_phone,
+            s.billing_company, s.billing_ruc, s.product_name, s.months, s.monthly_price,
+            s.apple_care, s.delivery_method, s.started_at, s.ends_at,
+            u.legal_name, u.dni_number AS dni_number_legal
+     FROM subscriptions s
+     LEFT JOIN users u ON u.id = s.user_id
+     WHERE s.id = $1`,
     [id]
   );
 
@@ -51,9 +58,13 @@ export async function GET(
   const seq = sub.id.slice(0, 8).toUpperCase();
   const contractNumber = `FLUX-${year}-${seq}`;
 
+  // Nombre legal del DNI verificado > nombre del form. Para factura/contrato
+  // la fuente de verdad es el OCR del DNI, no lo que el usuario digitó.
+  const contractName = sub.legal_name ?? sub.billing_name;
+
   const pdf = await generateContractPdf({
     contractNumber,
-    customerName: sub.billing_name,
+    customerName: contractName,
     customerEmail: sub.billing_email,
     customerPhone: sub.billing_phone,
     customerCompany: sub.billing_company,
