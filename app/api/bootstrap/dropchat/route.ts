@@ -54,8 +54,17 @@ export async function GET() {
   ]);
 
   const summary = {
-    contacts: { synced: contacts.synced, total: contacts.total, errors: contacts.errors.length },
-    catalog:  { synced: catalog.synced,  total: catalog.total,  errors: catalog.errors.length },
+    contacts: {
+      synced: contacts.synced,
+      total: contacts.total,
+      skipped: contacts.skipped,
+      errors: contacts.errors,
+    },
+    catalog: {
+      synced: catalog.synced,
+      total: catalog.total,
+      errors: catalog.errors,
+    },
   };
 
   await query(
