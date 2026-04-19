@@ -186,6 +186,110 @@ export async function pullStripeReceivedInvoices(period: string): Promise<{
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// AWS Rekognition — computed desde kyc_face_matches
+// Precio oficial: $0.001 por CompareFaces API call (primeros 1M)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function pullAwsRekognition(period: string): Promise<number> {
+  const [y, m] = period.split("-").map(Number);
+  const start = new Date(Date.UTC(y, m - 1, 1));
+  const end = new Date(Date.UTC(y, m, 1));
+
+  const res = await query<{ n: string }>(
+    `SELECT COUNT(*) AS n FROM kyc_face_matches WHERE created_at >= $1 AND created_at < $2`,
+    [start, end],
+  );
+  const calls = parseInt(res.rows[0]?.n ?? "0", 10);
+  const cost = calls * 0.001;
+  if (cost > 0) {
+    await upsertExpense({
+      provider_slug: "aws",
+      period,
+      amount_usd: Math.round(cost * 100) / 100,
+      source: "vercel-auto" as const, // reusamos slug genérico "auto"
+      notes: `${calls} CompareFaces × $0.001`,
+    });
+  }
+  console.log(`${tag} aws-rekognition period=${period} calls=${calls} cost=$${cost}`);
+  return cost;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Vercel Blob — computed desde tamaño de imágenes KYC
+// Precio: $0.15/GB almacenado × meses
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function pullVercelBlobComputed(period: string): Promise<number> {
+  const [y, m] = period.split("-").map(Number);
+  const monthEnd = new Date(Date.UTC(y, m, 1));
+  // Cantidad de pares DNI+selfie guardados al cierre del mes (asumimos ~800KB por par)
+  const res = await query<{ n: string }>(
+    `SELECT COUNT(*) AS n FROM kyc_dni_scans WHERE created_at < $1 AND imagen_anverso_key IS NOT NULL`,
+    [monthEnd],
+  );
+  const pairs = parseInt(res.rows[0]?.n ?? "0", 10);
+  const gbStored = (pairs * 0.8) / 1024; // MB → GB
+  const cost = gbStored * 0.15;
+  if (cost > 0) {
+    await upsertExpense({
+      provider_slug: "vercel-blob",
+      period,
+      amount_usd: Math.max(0.01, Math.round(cost * 100) / 100),
+      source: "vercel-auto",
+      notes: `${pairs} pares KYC (~${gbStored.toFixed(3)}GB × $0.15)`,
+    });
+  }
+  console.log(`${tag} vercel-blob-computed period=${period} pairs=${pairs} gb=${gbStored.toFixed(3)} cost=$${cost}`);
+  return cost;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Fixed-cost auto-fill — para subscriptions/annuals donde no hay API pública.
+// Rellena el mes actual con typical_monthly_usd si no hay entry manual.
+// Source: fixed-auto (distinto de manual para no pisarlo si el user sube factura real)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const FIXED_SLUGS = ["vercel", "resend", "railway", "godaddy", "stripe-atlas", "simplemdm", "dropchat"];
+
+export async function pullFixedCosts(period: string): Promise<{ count: number; total: number }> {
+  const res = await query<{ slug: string; typical_monthly_usd: string | null; billing_type: string }>(
+    `SELECT slug, typical_monthly_usd::text, billing_type FROM finance_providers
+     WHERE slug = ANY($1::text[]) AND active = true`,
+    [FIXED_SLUGS],
+  );
+
+  let count = 0;
+  let total = 0;
+  for (const p of res.rows) {
+    const typical = parseFloat(p.typical_monthly_usd ?? "0");
+    if (!typical || typical <= 0) continue;
+
+    // Si es annual, dividimos /12 para mostrar mensualizado
+    const monthly = p.billing_type === "annual" ? typical / 12 : typical;
+
+    // Solo fill si NO hay entry manual del user para este mes
+    const existing = await query(
+      `SELECT 1 FROM finance_expenses WHERE provider_slug = $1 AND period = $2 AND source = 'manual' LIMIT 1`,
+      [p.slug, period],
+    );
+    if (existing.rows.length > 0) continue;
+
+    await upsertExpense({
+      provider_slug: p.slug,
+      period,
+      amount_usd: Math.round(monthly * 100) / 100,
+      source: "vercel-auto", // reusamos "auto" como fuente
+      notes: `typical_monthly_usd (${p.billing_type === "annual" ? "annual /12" : "subscription"})`,
+    });
+    count++;
+    total += monthly;
+  }
+
+  console.log(`${tag} fixed-costs period=${period} filled=${count} total=$${total.toFixed(2)}`);
+  return { count, total };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // ALERTS — providers que exceden typical_monthly_usd × threshold
 // ═══════════════════════════════════════════════════════════════════════════
 

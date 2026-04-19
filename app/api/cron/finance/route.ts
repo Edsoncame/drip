@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   pullVercelUsage,
   pullStripeReceivedInvoices,
+  pullAwsRekognition,
+  pullVercelBlobComputed,
+  pullFixedCosts,
   checkBudgetAlerts,
 } from "@/lib/finance-pullers";
 
@@ -31,18 +34,27 @@ export async function GET(req: NextRequest) {
 
   console.log(`${tag} start period=${period}`);
 
-  const [vercelResult, stripeResult, alerts] = await Promise.allSettled([
+  const [vercel, stripe, aws, blob, fixed, alerts] = await Promise.allSettled([
     pullVercelUsage(period),
     pullStripeReceivedInvoices(period),
+    pullAwsRekognition(period),
+    pullVercelBlobComputed(period),
+    pullFixedCosts(period),
     checkBudgetAlerts({ period, threshold: 1.5 }),
   ]);
 
+  const val = <T,>(p: PromiseSettledResult<T>) =>
+    p.status === "fulfilled" ? p.value : { error: String(p.reason) };
+
   const summary = {
     period,
-    vercel: vercelResult.status === "fulfilled" ? vercelResult.value : { error: String(vercelResult.reason) },
-    stripe: stripeResult.status === "fulfilled" ? stripeResult.value : { error: String(stripeResult.reason) },
+    vercel: val(vercel),
+    stripe: val(stripe),
+    aws_rekognition: val(aws),
+    vercel_blob_computed: val(blob),
+    fixed_costs: val(fixed),
     alerts_triggered: alerts.status === "fulfilled" ? alerts.value?.length ?? 0 : 0,
-    alerts_detail: alerts.status === "fulfilled" ? alerts.value : { error: String(alerts.reason) },
+    alerts_detail: val(alerts),
   };
 
   console.log(`${tag} done`, JSON.stringify(summary));
