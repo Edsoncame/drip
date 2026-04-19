@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
 import { fireSyncFromSubscription } from "@/lib/dropchat-sync";
+import { fireSyncCatalog } from "@/lib/dropchat-catalog";
 
 const tag = "[admin/subscriptions]";
 
@@ -59,6 +60,8 @@ export async function PATCH(req: NextRequest) {
       [equipment_code]
     );
     console.log(`${tag} assigned equipment ${equipment_code} to subscription ${id}`);
+    // El stock de ese modelo cambió → sync catálogo a Drop Chat
+    fireSyncCatalog();
   }
 
   // Send email notifications based on status change

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { syncAllContacts } from "@/lib/dropchat-sync";
+import { syncAllProducts } from "@/lib/dropchat-catalog";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,11 +26,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ skipped: true, reason: "no api key" });
   }
 
-  console.log(`${tag} iniciando full sync`);
-  const result = await syncAllContacts();
+  console.log(`${tag} iniciando full sync (contactos + catálogo)`);
+  const [contacts, catalog] = await Promise.all([
+    syncAllContacts(),
+    syncAllProducts(),
+  ]);
   console.log(
-    `${tag} done · synced=${result.synced}/${result.total} skipped=${result.skipped} errors=${result.errors.length}`,
+    `${tag} done · contactos=${contacts.synced}/${contacts.total} catalog=${catalog.synced}/${catalog.total} errors=${contacts.errors.length + catalog.errors.length}`,
   );
 
-  return NextResponse.json(result);
+  return NextResponse.json({ contacts, catalog });
 }

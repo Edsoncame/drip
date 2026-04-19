@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { query } from "@/lib/db";
+import { fireSyncCatalog } from "@/lib/dropchat-catalog";
 
 async function checkAdmin() {
   return await requireAdmin();
@@ -103,6 +104,8 @@ export async function PATCH(req: NextRequest) {
     `UPDATE equipment SET ${updates.join(', ')} WHERE id = $${idx}`,
     values
   );
+  // Drop Chat sync — si cambió el estado_actual, el stock del catálogo cambia
+  if (fields.estado_actual !== undefined) fireSyncCatalog();
   return NextResponse.json({ ok: true });
 }
 
@@ -111,5 +114,6 @@ export async function DELETE(req: NextRequest) {
   const { id } = await req.json();
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
   await query(`DELETE FROM equipment WHERE id = $1`, [id]);
+  fireSyncCatalog();
   return NextResponse.json({ ok: true });
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { query } from "@/lib/db";
+import { fireSyncCatalog } from "@/lib/dropchat-catalog";
 
 async function checkAdmin() {
   return await requireAdmin();
@@ -22,6 +23,7 @@ export async function PATCH(req: NextRequest) {
     `UPDATE pricing SET precio_usd = $1, residual_pct = $2, updated_at = NOW() WHERE id = $3`,
     [precio_usd, residual_pct ?? null, id]
   );
+  fireSyncCatalog();
   return NextResponse.json({ ok: true });
 }
 
@@ -40,5 +42,6 @@ export async function POST(req: NextRequest) {
      RETURNING *`,
     [modelo, plan, precio_usd, residual_pct ?? null]
   );
+  fireSyncCatalog();
   return NextResponse.json({ pricing: result.rows[0] }, { status: 201 });
 }

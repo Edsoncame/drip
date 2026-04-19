@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { query } from "@/lib/db";
+import { fireSyncCatalog } from "@/lib/dropchat-catalog";
 
 interface ProductBody {
   slug: string;
@@ -71,6 +72,7 @@ export async function POST(req: NextRequest) {
         body.active !== false,
       ]
     );
+    fireSyncCatalog();
     return NextResponse.json({ ok: true, product: result.rows[0] }, { status: 201 });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Error";
@@ -105,6 +107,8 @@ export async function PATCH(req: NextRequest) {
       body.active !== false,
     ]
   );
+  // Drop Chat sync real-time — catálogo cambió
+  fireSyncCatalog();
   return NextResponse.json({ ok: true });
 }
 
@@ -116,5 +120,6 @@ export async function DELETE(req: NextRequest) {
   if (!id) return NextResponse.json({ error: "id requerido" }, { status: 400 });
 
   await query(`DELETE FROM products WHERE id = $1`, [id]);
+  fireSyncCatalog();
   return NextResponse.json({ ok: true });
 }
