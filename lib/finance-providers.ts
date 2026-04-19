@@ -29,7 +29,7 @@ export interface FinanceExpense {
   period: string; // YYYY-MM
   amount_usd: string | null;
   amount_pen: string | null;
-  source: "manual" | "anthropic-auto" | "stripe-auto";
+  source: "manual" | "anthropic-auto" | "stripe-auto" | "vercel-auto";
   invoice_url: string | null;
   notes: string | null;
   paid_at: Date | null;
@@ -144,6 +144,58 @@ export async function computeStripeFees(period: string): Promise<number> {
   const totalAmount = parseFloat(res.rows[0]?.total_amount ?? "0") || 0;
   const txCount = parseInt(res.rows[0]?.tx_count ?? "0", 10) || 0;
   return totalAmount * 0.029 + txCount * 0.3;
+}
+
+/**
+ * Histórico de los últimos N meses — gasto total por categoría por mes.
+ * Devuelve {period, categories: {slug: usd}} para graficar stacked bar.
+ */
+export async function getBurnHistory(months = 6): Promise<Array<{
+  period: string;
+  total_usd: number;
+  by_category: Record<string, number>;
+}>> {
+  const now = new Date();
+  const periods: string[] = [];
+  for (let i = months - 1; i >= 0; i--) {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+    periods.push(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`);
+  }
+
+  // Providers (catálogo) — para cruzar categoría
+  const providers = await listProviders();
+  const catByProvider = new Map(providers.map((p) => [p.slug, p.category]));
+
+  const history: Array<{ period: string; total_usd: number; by_category: Record<string, number> }> = [];
+
+  for (const period of periods) {
+    const expenses = await listExpensesByPeriod(period);
+    const anthropicSpend = await computeAnthropicSpend(period);
+    const stripeFees = await computeStripeFees(period);
+
+    const byCategory: Record<string, number> = {};
+    let total = 0;
+
+    const addTo = (slug: string, usd: number) => {
+      if (usd <= 0) return;
+      const cat = catByProvider.get(slug) ?? "otros";
+      byCategory[cat] = (byCategory[cat] ?? 0) + usd;
+      total += usd;
+    };
+
+    // Manual expenses
+    for (const e of expenses) {
+      if (e.source !== "manual") continue;
+      addTo(e.provider_slug, parseFloat(e.amount_usd ?? "0") || 0);
+    }
+    // Auto-calculated
+    addTo("anthropic", anthropicSpend);
+    addTo("stripe", stripeFees);
+
+    history.push({ period, total_usd: total, by_category: byCategory });
+  }
+
+  return history;
 }
 
 /**

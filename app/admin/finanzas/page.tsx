@@ -1,10 +1,11 @@
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { query } from "@/lib/db";
-import { getFinanceSnapshot } from "@/lib/finance-providers";
+import { getFinanceSnapshot, getBurnHistory } from "@/lib/finance-providers";
 import type { Metadata } from "next";
 import AdminNav from "../AdminNav";
 import ProvidersSection from "./ProvidersSection";
+import BurnChart from "./BurnChart";
 
 export const metadata: Metadata = {
   title: "Finanzas | Admin FLUX",
@@ -78,8 +79,9 @@ export default async function FinanzasPage({
     availablePeriods.push(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`);
   }
 
-  const [financeSnapshot] = await Promise.all([
+  const [financeSnapshot, burnHistory] = await Promise.all([
     getFinanceSnapshot(period),
+    getBurnHistory(6),
   ]);
 
   const result = await query<Row>(
@@ -249,6 +251,12 @@ export default async function FinanzasPage({
         <p className="text-[11px] text-[#999] mt-6">
           * &quot;Pagado&quot; se calcula desde la fecha de compra del equipo. Ajusta la fecha en Inventario si no coincide con el primer vencimiento real.
         </p>
+
+        <div className="mt-12">
+          <h2 className="text-xl font-800 text-[#18191F] mb-3">Burn mes a mes</h2>
+          <p className="text-xs text-[#999] mb-4">Gasto total apilado por categoría · hover para ver breakdown</p>
+          <BurnChart history={burnHistory} />
+        </div>
 
         <ProvidersSection snapshot={financeSnapshot} availablePeriods={availablePeriods} />
       </div>
