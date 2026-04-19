@@ -4,6 +4,7 @@ import { query } from "@/lib/db";
 import { signToken, sessionCookieOptions } from "@/lib/auth";
 import { generateUniqueReferralCode, applyReferralCode } from "@/lib/referrals";
 import { sendWelcomeEmail } from "@/lib/email";
+import { fireSyncToDropchat } from "@/lib/dropchat-sync";
 
 export async function POST(req: NextRequest) {
   try {
@@ -52,6 +53,9 @@ export async function POST(req: NextRequest) {
     const token = await signToken({ userId: user.id, email: user.email, name: user.name });
 
     sendWelcomeEmail({ to: user.email, name: user.name, referralCode: myReferralCode }).catch(() => {});
+
+    // Drop Chat sync real-time — nuevo cliente
+    fireSyncToDropchat(user.id);
 
     const res = NextResponse.json({ user: { id: user.id, name: user.name, email: user.email } }, { status: 201 });
     res.cookies.set(sessionCookieOptions(token));

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { query } from "@/lib/db";
+import { fireSyncToDropchat } from "@/lib/dropchat-sync";
 
 export async function POST(req: NextRequest) {
   const session = await requireAdmin();
@@ -14,6 +15,9 @@ export async function POST(req: NextRequest) {
   );
 
   console.log(`[admin/verify-identity] ${session.email} set identity_verified=${verified} for user=${userId}`);
+
+  // Drop Chat sync — tag kyc-verified cambió
+  fireSyncToDropchat(userId);
 
   return NextResponse.json({ ok: true });
 }

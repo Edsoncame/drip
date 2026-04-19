@@ -186,6 +186,47 @@ export async function syncContact(userId: string): Promise<{ ok: boolean; error?
 }
 
 /**
+ * Fire-and-forget. Para usar en route handlers después de cualquier write:
+ *   - Crear user → fireSyncToDropchat(userId)
+ *   - Update sub / payment / kyc → fireSyncToDropchat(sub.user_id)
+ *
+ * Nunca throws ni bloquea. Si no hay API key o Drop Chat está caído,
+ * loguea warning y sigue. El cron nocturno compensa los fails.
+ *
+ * Ideal: envolver en `after(() => fireSyncToDropchat(id))` para que corra
+ * después de enviar la response al cliente.
+ */
+export function fireSyncToDropchat(userId: string): Promise<void> {
+  if (!process.env.DROPCHAT_API_KEY) return Promise.resolve();
+  return syncContact(userId)
+    .then((r) => {
+      if (!r.ok) console.warn(`${tag} fire sync user=${userId} err=${r.error}`);
+    })
+    .catch((err) => {
+      console.warn(`${tag} fire sync user=${userId} error`, err);
+    });
+}
+
+/**
+ * Igual que fireSyncToDropchat pero recibe subscription.id. Resuelve el
+ * user_id antes de sincronizar — útil cuando el handler tiene la sub pero
+ * no directamente el user.
+ */
+export async function fireSyncFromSubscription(subId: string): Promise<void> {
+  if (!process.env.DROPCHAT_API_KEY) return;
+  try {
+    const res = await query<{ user_id: string }>(
+      `SELECT user_id FROM subscriptions WHERE id = $1 AND user_id IS NOT NULL LIMIT 1`,
+      [subId],
+    );
+    const userId = res.rows[0]?.user_id;
+    if (userId) await fireSyncToDropchat(userId);
+  } catch (err) {
+    console.warn(`${tag} fire-from-sub ${subId}`, err);
+  }
+}
+
+/**
  * Batch sync de todos (o un subset) de users. Usa /api/v1/sync/contacts.
  * Divide en chunks de 5000 (límite de Drop Chat).
  */

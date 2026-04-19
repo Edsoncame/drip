@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { signToken, sessionCookieOptions } from "@/lib/auth";
 import { generateUniqueReferralCode } from "@/lib/referrals";
+import { fireSyncToDropchat } from "@/lib/dropchat-sync";
 
 const tag = "[auth/google/callback]";
 
@@ -107,6 +108,8 @@ export async function GET(req: NextRequest) {
       );
       user = created.rows[0];
       console.log(`${tag} new user created via Google id=${user.id}`);
+      // Drop Chat sync — nuevo cliente
+      fireSyncToDropchat(user.id);
     }
 
     // 4 — Issue session cookie

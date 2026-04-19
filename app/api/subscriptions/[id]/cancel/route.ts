@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
 import { cancelSubscription as cancelStripeSubscription } from "@/lib/stripe";
+import { fireSyncToDropchat } from "@/lib/dropchat-sync";
 
 export async function POST(
   _req: NextRequest,
@@ -54,6 +55,8 @@ export async function POST(
 
     await query(`UPDATE subscriptions SET status = 'cancelled', updated_at = NOW() WHERE id = $1`, [id]);
     console.log(`${tag} cancelled id=${id} user=${session.userId}`);
+    // Drop Chat sync — tags/segment cambian (deja de estar "renting")
+    fireSyncToDropchat(session.userId);
 
     const firstName = sub.billing_name.split(" ")[0];
     sendEmail({

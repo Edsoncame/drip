@@ -3,6 +3,7 @@ import type Stripe from "stripe";
 import { constructWebhookEvent } from "@/lib/stripe";
 import { query } from "@/lib/db";
 import { sendConfirmationEmail, sendEmail } from "@/lib/email";
+import { fireSyncToDropchat, fireSyncFromSubscription } from "@/lib/dropchat-sync";
 
 /**
  * Stripe Webhook Handler
@@ -346,6 +347,9 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
   console.log(
     `${tag} subscription bootstrapped sub=${stripeSubscriptionId} db=${dbSubscriptionId} user=${userId}`,
   );
+
+  // Drop Chat sync fire-and-forget
+  if (userId) fireSyncToDropchat(userId);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -459,6 +463,9 @@ async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<void> {
   );
 
   console.log(`${tag} recurring charge for sub=${sub.id} amount=$${amount} (${monthsUsed}/${maxAllowed}m)`);
+
+  // Drop Chat sync — LTV cambió
+  if (sub.user_id) fireSyncToDropchat(sub.user_id);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -512,4 +519,6 @@ async function handleSubscriptionDeleted(sub: Stripe.Subscription): Promise<void
     [sub.id],
   );
   console.log(`${tag} subscription cancelled via Stripe sub=${sub.id}`);
+  // Drop Chat sync — tags cambian (ya no "renting")
+  fireSyncFromSubscription(sub.id);
 }

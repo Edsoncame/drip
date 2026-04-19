@@ -9,6 +9,7 @@ import {
   type KycStatus,
 } from "@/lib/kyc/db";
 import { arbitrateKyc } from "@/lib/kyc/arbiter";
+import { fireSyncToDropchat } from "@/lib/dropchat-sync";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -202,6 +203,9 @@ export async function POST(req: NextRequest) {
   console.log(
     `${tag} corr=${correlation_id} status=${status} reason=${reason} face=${face.score} name=${name_score} arbiter=${arbiterUsed}`,
   );
+
+  // Drop Chat sync real-time — legal_name y kyc_status cambiaron
+  if (userId && status === "verified") fireSyncToDropchat(userId);
 
   return NextResponse.json({
     status,

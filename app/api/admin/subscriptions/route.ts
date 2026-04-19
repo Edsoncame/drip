@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
+import { fireSyncFromSubscription } from "@/lib/dropchat-sync";
 
 const tag = "[admin/subscriptions]";
 
@@ -110,5 +111,9 @@ export async function PATCH(req: NextRequest) {
   }
 
   console.log(`${tag} ${session.email} updated subscription id=${id} status=${status}${tracking_number ? ` tracking=${tracking_number}` : ""}`);
+
+  // Drop Chat sync real-time — status cambia → actualiza tags y segment en Drop Chat
+  fireSyncFromSubscription(id);
+
   return NextResponse.json({ ok: true });
 }

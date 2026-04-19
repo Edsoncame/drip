@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
+import { fireSyncToDropchat } from "@/lib/dropchat-sync";
 
 export async function PATCH(req: NextRequest) {
   const session = await requireAdmin();
@@ -28,6 +29,9 @@ export async function PATCH(req: NextRequest) {
       `UPDATE payments SET status = 'validated', validated_at = NOW(), validated_by = $2, admin_note = $3 WHERE id = $1`,
       [paymentId, session.email, note ?? null]
     );
+
+    // Drop Chat sync — LTV cambia al validar un pago
+    fireSyncToDropchat(payment.user_id);
 
     if (user) {
       sendEmail({
