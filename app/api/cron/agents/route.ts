@@ -64,9 +64,13 @@ export async function GET(req: Request) {
 
   // Job especial: autopilot — corre N agentes proactivamente
   if (jobKey === "autopilot") {
+    // Antes del tick, limpiamos runs colgados (>10min en 'running').
+    // Esto evita que el orquestador vea "todos ocupados" y no delegue.
+    const { cleanupStuckRuns } = await import("@/lib/agents-db");
+    const cleaned = await cleanupStuckRuns().catch(() => 0);
     const max = parseInt(searchParams.get("max") ?? "3", 10);
     const result = await runAutopilotTick({ max });
-    return NextResponse.json({ job: "autopilot", ...result });
+    return NextResponse.json({ job: "autopilot", stuckCleaned: cleaned, ...result });
   }
 
   const job = JOBS[jobKey];

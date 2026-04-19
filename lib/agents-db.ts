@@ -258,12 +258,37 @@ export async function recentRunsForAgent(agentId: AgentId, limit = 10): Promise<
   return res.rows;
 }
 
+/**
+ * Agentes que están corriendo AHORA MISMO.
+ *
+ * Filtramos por `started_at > NOW() - 10min` para ignorar runs colgados
+ * (serverless timeouts que no limpiaron su status). Sin este filtro el
+ * orquestador ve "todos ocupados" y no delega a nadie. Paralelamente, el
+ * cron /api/cron/agents-cleanup marca como 'error' los runs abandonados.
+ */
 export async function runningAgents(): Promise<AgentId[]> {
   await ensureSchema();
   const res = await query<{ agent_id: AgentId }>(
-    `SELECT DISTINCT agent_id FROM marketing_agent_runs WHERE status = 'running'`,
+    `SELECT DISTINCT agent_id FROM marketing_agent_runs
+     WHERE status = 'running' AND started_at > NOW() - INTERVAL '10 minutes'`,
   );
   return res.rows.map((r) => r.agent_id);
+}
+
+/**
+ * Marca como 'error' los runs que quedaron colgados en 'running' por más
+ * de 10 minutos. Lo corre el cron /api/cron/agents-cleanup.
+ */
+export async function cleanupStuckRuns(): Promise<number> {
+  await ensureSchema();
+  const res = await query(
+    `UPDATE marketing_agent_runs
+     SET status = 'error',
+         error = COALESCE(error, 'abandoned — serverless timeout'),
+         finished_at = NOW()
+     WHERE status = 'running' AND started_at < NOW() - INTERVAL '10 minutes'`,
+  );
+  return res.rowCount ?? 0;
 }
 
 export async function listAgentFiles(agentId: AgentId): Promise<DbAgentFile[]> {
