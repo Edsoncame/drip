@@ -1,8 +1,8 @@
 # Flux — Database schema & API map
 
-> Última auditoría: 2026-04-18
+> Última auditoría: 2026-04-19
 
-Postgres en Railway (`drip` database). 31 tablas. Este doc es la **fuente de verdad** para saber qué existe, cómo se relaciona, y cómo se va a exponer por API.
+Postgres en Railway (`drip` database). **33 tablas** (31 originales + `api_keys` + `api_key_usage`). Este doc es la **fuente de verdad** para saber qué existe, cómo se relaciona, y cómo se va a exponer por API.
 
 ---
 
@@ -100,47 +100,38 @@ Todas enganchan con `marketing_strategies` con `strategy_id` CASCADE o SET NULL.
 
 ---
 
-## 3. Issues pendientes (decisiones del dueño)
+## 3. Issues resueltos (19-abr-2026)
 
-### 3.1 Denormalización `subscriptions` ↔ `users` (RIESGO MEDIO)
+### 3.1 Denormalización `subscriptions` — columnas `billing_*` ✅
+Se agregaron columnas `billing_name`, `billing_email`, `billing_phone`, `billing_company`, `billing_ruc` como copias de las `customer_*`. Código refactorizado para usar las nuevas. **Trigger `subs_sync_legacy`** mantiene ambas columnas en sync. Las viejas `customer_*` permanecen activas como fallback — se droppean más adelante.
 
-`subscriptions` tiene: `customer_name`, `customer_email`, `customer_phone`, `customer_company`, `customer_ruc`, `dni_number`.
+### 3.2 `equipment.cliente_actual` → `subscription_id UUID FK` ✅
+Nueva columna `subscription_id` con FK a `subscriptions(id) ON DELETE SET NULL`. Los 12 equipos de Securex Perú mapeados automáticamente por modelo + orden. Columna vieja `cliente_actual` (text) sigue ahí para UI del admin.
 
-Todo ya existe en `users`. La duplicación se justifica si:
-- El cliente pagó como **guest** y la cuenta se creó después (hoy pasa: webhook auto-crea user).
-- Los datos del cliente al momento del pago tienen que preservarse aunque `users.*` cambie.
+### 3.3 `mp_subscription_id` → `external_subscription_id` ✅
+Nueva columna `external_subscription_id` con valor copiado. Código refactorizado. Trigger de sync mantiene ambas alineadas.
 
-**Propuesta:** mantener duplicación por razones contables (los datos de facturación deben ser inmutables post-pago), pero renombrar a `billing_*` para dejar claro el propósito:
-```
-customer_name → billing_name
-customer_email → billing_email
-...
-```
+### 3.4 `marketing_media_matrix` / `marketing_competitor_benchmarks` — mantener
+Tienen INSERTs en `lib/strategy-db.ts` + lectura en `/admin/strategy/export-pdf`. Están vacías porque aún no se usaron, **no se droppean**.
 
-### 3.2 `equipment.cliente_actual` sin FK (RIESGO BAJO)
+### 3.5 Libro de reclamaciones ✅
+- `POST /api/reclamaciones` — form público en `/reclamaciones`, inserta en `libro_reclamaciones`, envía email al reclamante (copia legal) + a ops
+- `/admin/reclamaciones` — tabla con countdown de 30 días hábiles, respuesta inline que envía email formal
+- Link en footer
 
-Hoy es texto libre (ej: `"EDSON"`, `"VANESSA"`). Debería ser `subscription_id UUID NULL REFERENCES subscriptions(id)`.
+### 3.6 API Keys + endpoints B2B ✅
+- Tablas nuevas: `api_keys`, `api_key_usage`
+- `lib/api-keys.ts` con `authenticateApiKey(req, scope)` middleware
+- 4 scopes: `subscriptions:read`, `payments:read`, `invoices:read`, `users:read:self`
+- Endpoints `/api/v1/b2b/me`, `/api/v1/b2b/subscriptions`, `/api/v1/b2b/payments`
+- Admin UI en `/admin/api-keys` para crear/revocar/ver uso
 
-**Acción:** migración con mapping manual (la flota es 12 equipos).
+## 4. Issues pendientes para el futuro
 
-### 3.3 Columnas `mp_*` legacy (bajo impacto)
-
-`subscriptions.mp_subscription_id` — nombre viene de MercadoPago (migrado a Culqi, ahora Stripe). El campo guarda IDs de cualquiera.
-
-**Propuesta:** renombrar a `external_subscription_id` en una migración. Cambiar código que lo lee.
-
-### 3.4 Tablas de marketing sin uso
-
-- `marketing_media_matrix` (0 filas)
-- `marketing_competitor_benchmarks` (0 filas)
-
-**Acción:** chequear si el código las escribe alguna vez. Si no, `DROP TABLE`.
-
-### 3.5 Libro de reclamaciones
-
-`libro_reclamaciones` existe pero no hay formulario público que lo popule. Indecopi exige que cualquier consumidor pueda registrarse.
-
-**Acción:** construir `/reclamaciones` (public form) → INSERT en esta tabla. Pendiente.
+- **Drop `customer_*` y `mp_subscription_id`**: después de 2-4 semanas confirmando que ningún código o sistema externo los consume. Luego de eso, drop trigger `subs_sync_legacy`.
+- **Rate limiting real**: hoy `rate_limit` se guarda pero no se enforza. Usar Vercel Runtime Cache para contador por `api_key_id`.
+- **Webhook para clientes B2B**: notificar cambios de status por HTTP cuando una sub pasa a `shipped`/`delivered`.
+- **API key rotation**: endpoint que permita al cliente rotar su propia key sin admin.
 
 ---
 
