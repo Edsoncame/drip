@@ -90,6 +90,34 @@ function extraToolsForAgent(agentId: AgentId): Record<string, any> {
       if (meta.metaCommunityReady()) Object.assign(extras, meta.metaCommunityTools());
     } catch {}
   }
+
+  // Google Ads — sem-manager maneja campañas (read+write), data-analyst solo lee.
+  if (agentId === "sem-manager" || agentId === "data-analyst") {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const ga = require("./google-ads-tools") as typeof import("./google-ads-tools");
+      Object.assign(extras, ga.googleAdsTools(agentId === "data-analyst"));
+    } catch {}
+  }
+
+  // GA4 Data API — data-analyst lee tráfico real del sitio.
+  if (agentId === "data-analyst" || agentId === "seo-specialist") {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const ga4 = require("./ga4") as typeof import("./ga4");
+      Object.assign(extras, ga4.ga4Tools());
+    } catch {}
+  }
+
+  // Search Console — seo-specialist es el principal, market-researcher también.
+  if (agentId === "seo-specialist" || agentId === "market-researcher") {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const gsc = require("./gsc") as typeof import("./gsc");
+      Object.assign(extras, gsc.gscTools());
+    } catch {}
+  }
+
   return extras;
 }
 
