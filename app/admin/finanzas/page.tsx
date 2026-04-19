@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { query } from "@/lib/db";
+import { getFinanceSnapshot } from "@/lib/finance-providers";
 import type { Metadata } from "next";
 import AdminNav from "../AdminNav";
+import ProvidersSection from "./ProvidersSection";
 
 export const metadata: Metadata = {
   title: "Finanzas | Admin FLUX",
@@ -55,9 +57,30 @@ function nextDueDate(fechaCompra: string | null, plazo: number): string | null {
   return null; // all paid
 }
 
-export default async function FinanzasPage() {
+export default async function FinanzasPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string }>;
+}) {
   const session = await requireAdmin();
   if (!session) redirect("/");
+
+  // Período para la sección de proveedores — default: mes actual
+  const sp = await searchParams;
+  const now = new Date();
+  const defaultPeriod = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+  const period = sp.period && /^\d{4}-\d{2}$/.test(sp.period) ? sp.period : defaultPeriod;
+
+  // Últimos 6 meses + los que ya tienen registros
+  const availablePeriods: string[] = [];
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+    availablePeriods.push(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`);
+  }
+
+  const [financeSnapshot] = await Promise.all([
+    getFinanceSnapshot(period),
+  ]);
 
   const result = await query<Row>(
     `SELECT id, codigo_interno, modelo_completo, tipo_financiamiento, cuota_credito_soles,
@@ -123,9 +146,12 @@ export default async function FinanzasPage() {
 
       <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-8">
         <div className="mb-6">
-          <h1 className="text-2xl font-800 text-[#18191F]">Finanzas · Pagos a bancos</h1>
-          <p className="text-sm text-[#999999] mt-0.5">Cuotas mensuales pendientes por banco/tarjeta — vista para contador</p>
+          <h1 className="text-2xl font-800 text-[#18191F]">Finanzas</h1>
+          <p className="text-sm text-[#999999] mt-0.5">Cuotas a bancos (equipos) + proveedores tech/SaaS</p>
         </div>
+
+        <h2 className="text-xl font-800 text-[#18191F] mb-3">Pagos a bancos</h2>
+        <p className="text-xs text-[#999] mb-4">Cuotas mensuales por equipo financiado</p>
 
         {/* Totals */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
@@ -223,6 +249,8 @@ export default async function FinanzasPage() {
         <p className="text-[11px] text-[#999] mt-6">
           * &quot;Pagado&quot; se calcula desde la fecha de compra del equipo. Ajusta la fecha en Inventario si no coincide con el primer vencimiento real.
         </p>
+
+        <ProvidersSection snapshot={financeSnapshot} availablePeriods={availablePeriods} />
       </div>
     </div>
   );
