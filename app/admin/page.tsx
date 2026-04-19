@@ -193,18 +193,6 @@ export default async function AdminPage() {
           ))}
         </div>
 
-        {/* Webhook setup reminder */}
-        <div className="bg-[#FFFBEB] border border-yellow-200 rounded-xl px-5 py-3 mb-8 flex items-start gap-3 text-sm">
-          <span className="text-lg flex-shrink-0">⚡</span>
-          <div>
-            <span className="font-700 text-yellow-800">Webhook de Stripe — </span>
-            <span className="text-yellow-700">
-              Configura la URL <code className="bg-yellow-100 px-1 rounded text-xs font-mono">fluxperu.com/api/webhooks/stripe</code> en Stripe Dashboard → Developers → Webhooks
-              (eventos: checkout.session.completed, invoice.paid, invoice.payment_failed, customer.subscription.deleted).
-            </span>
-          </div>
-        </div>
-
         {/* Interactive table (client component) */}
         <AdminTable subs={subs} />
 
