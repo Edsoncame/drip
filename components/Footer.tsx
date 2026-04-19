@@ -19,7 +19,7 @@ const legal = [
   { label: "Términos y condiciones", href: "/terminos" },
   { label: "Política de privacidad", href: "/privacidad" },
   { label: "Cancelaciones y devoluciones", href: "/cancelaciones" },
-  { label: "Libro de Reclamaciones", href: "/libro-de-reclamaciones" },
+  { label: "Libro de Reclamaciones", href: "/reclamaciones" },
 ];
 
 export default function Footer() {
