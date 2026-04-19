@@ -21,6 +21,12 @@ const API_URL =
 
 const tag = "[dropchat-catalog]";
 
+/** Limpia el API key: trim + quita caracteres no-ASCII printables (emojis, BOM, ZWSP). */
+function cleanApiKey(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  return raw.trim().replace(/[^\x21-\x7E]/g, "");
+}
+
 export interface DropchatProduct {
   sku: string;
   name: string;
@@ -146,7 +152,7 @@ export function fireSyncCatalog(): Promise<void> {
  * Sync individual — util para cuando se edita UN producto.
  */
 export async function syncProduct(slug: string): Promise<{ ok: boolean; error?: string }> {
-  const apiKey = process.env.DROPCHAT_API_KEY;
+  const apiKey = cleanApiKey(process.env.DROPCHAT_API_KEY);
   if (!apiKey) return { ok: false, error: "DROPCHAT_API_KEY no seteado" };
 
   const res = await query<ProductRow>(
@@ -188,7 +194,7 @@ export async function syncAllProducts(): Promise<{
   synced: number;
   errors: Array<{ sku: string; error: string }>;
 }> {
-  const apiKey = process.env.DROPCHAT_API_KEY;
+  const apiKey = cleanApiKey(process.env.DROPCHAT_API_KEY);
   if (!apiKey) {
     return { ok: false, total: 0, synced: 0, errors: [{ sku: "-", error: "DROPCHAT_API_KEY no seteado" }] };
   }

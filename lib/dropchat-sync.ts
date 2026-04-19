@@ -18,6 +18,17 @@ const API_URL =
 
 const tag = "[dropchat-sync]";
 
+/**
+ * Limpia la API key: trim + quita TODO caracter fuera de ASCII/latin1.
+ * Los headers HTTP son ByteString, no permiten chars >255. A veces el user
+ * copia el token con un emoji decorativo al final (🔑) o con caracteres
+ * invisibles (ZWSP, BOM) que rompen la request.
+ */
+function cleanApiKey(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  return raw.trim().replace(/[^\x21-\x7E]/g, "");
+}
+
 export interface DropchatContact {
   phone: string;
   name: string;
@@ -157,7 +168,7 @@ export function toContact(row: UserRow): DropchatContact | null {
  * Envía un único contacto. Usa /api/v1/sync/contact.
  */
 export async function syncContact(userId: string): Promise<{ ok: boolean; error?: string }> {
-  const apiKey = process.env.DROPCHAT_API_KEY;
+  const apiKey = cleanApiKey(process.env.DROPCHAT_API_KEY);
   if (!apiKey) return { ok: false, error: "DROPCHAT_API_KEY no seteado" };
 
   const users = await loadUsers([userId]);
@@ -240,7 +251,7 @@ export async function syncAllContacts(opts?: {
   skipped: number;
   errors: Array<{ batch: number; error: string }>;
 }> {
-  const apiKey = process.env.DROPCHAT_API_KEY;
+  const apiKey = cleanApiKey(process.env.DROPCHAT_API_KEY);
   if (!apiKey) {
     return { ok: false, total: 0, synced: 0, skipped: 0, errors: [{ batch: 0, error: "DROPCHAT_API_KEY no seteado" }] };
   }
