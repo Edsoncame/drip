@@ -134,6 +134,7 @@ export default function ClientsTable({ clients, allSubs, allPayments }: { client
             onChange={e => setSearch(e.target.value)}
             className="px-3 py-2 text-sm border border-[#E5E5E5] rounded-xl outline-none focus:border-[#1B4FFF] w-64"
           />
+          <DropchatSyncButton />
           <button
             onClick={exportCsv}
             className="flex items-center gap-1.5 px-4 py-2 bg-[#18191F] text-white text-xs font-700 rounded-full hover:bg-[#333333] transition-colors cursor-pointer"
@@ -423,6 +424,60 @@ function InfoCard({ label, value, copy }: { label: string; value: string; copy?:
           </button>
         )}
       </div>
+    </div>
+  );
+}
+
+function DropchatSyncButton() {
+  const [syncing, setSyncing] = useState(false);
+  const [result, setResult] = useState<{ synced: number; total: number; skipped: number; errors: number } | null>(null);
+
+  async function handleSync() {
+    if (syncing) return;
+    setSyncing(true);
+    setResult(null);
+    try {
+      const res = await fetch("/api/admin/dropchat/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok && json.error) {
+        alert(`Error: ${json.error ?? json.errors?.[0]?.error ?? "falló el sync"}`);
+      } else {
+        setResult({
+          synced: json.synced ?? 0,
+          total: json.total ?? 0,
+          skipped: json.skipped ?? 0,
+          errors: json.errors?.length ?? 0,
+        });
+        setTimeout(() => setResult(null), 6000);
+      }
+    } catch (err) {
+      alert(`Error de red: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        onClick={handleSync}
+        disabled={syncing}
+        className="flex items-center gap-1.5 px-4 py-2 bg-[#3AED8B] text-[#0A0A14] text-xs font-700 rounded-full hover:bg-[#2ccf74] transition-colors cursor-pointer disabled:opacity-60"
+        title="Empuja todos los clientes a Drop Chat (contactos, segmentos, LTV)"
+      >
+        {syncing ? "↻ Sincronizando…" : "💬 Sync a Drop Chat"}
+      </button>
+      {result && (
+        <span className="text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-full">
+          ✓ {result.synced}/{result.total}
+          {result.skipped > 0 && ` · ${result.skipped} sin teléfono`}
+          {result.errors > 0 && ` · ${result.errors} errores`}
+        </span>
+      )}
     </div>
   );
 }
