@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
       COUNT(p.id)::int AS generated_payments
     FROM subscriptions s
     LEFT JOIN payments p ON p.subscription_id = s.id
-    WHERE s.status IN ('active', 'delivered')
+    WHERE s.status IN ('preparing', 'shipped', 'delivered', 'active')
     GROUP BY s.id
     HAVING COUNT(p.id) < s.months
   `);

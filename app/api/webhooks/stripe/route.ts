@@ -384,7 +384,8 @@ async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<void> {
     `SELECT id, user_id, months, started_at, billing_name, billing_email,
             billing_phone, product_name, monthly_price
      FROM subscriptions
-     WHERE external_subscription_id = $1 AND status IN ('active', 'shipped', 'delivered')
+     WHERE external_subscription_id = $1
+       AND status IN ('preparing', 'shipped', 'delivered', 'active')
      LIMIT 1`,
     [stripeSubscriptionId],
   );
@@ -485,7 +486,8 @@ async function handleInvoiceFailed(invoice: Stripe.Invoice): Promise<void> {
   }>(
     `SELECT id, billing_name, billing_email, product_name, monthly_price
      FROM subscriptions
-     WHERE external_subscription_id = $1 AND status IN ('active', 'shipped', 'delivered')
+     WHERE external_subscription_id = $1
+       AND status IN ('preparing', 'shipped', 'delivered', 'active')
      LIMIT 1`,
     [stripeSubscriptionId],
   );
