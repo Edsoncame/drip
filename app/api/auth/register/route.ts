@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { query } from "@/lib/db";
 import { signToken, sessionCookieOptions } from "@/lib/auth";
 import { generateUniqueReferralCode, applyReferralCode } from "@/lib/referrals";
-import { sendWelcomeEmail } from "@/lib/email";
+import { sendWelcomeEmail, safeSend } from "@/lib/email";
 import { fireSyncToDropchat } from "@/lib/dropchat-sync";
 
 export async function POST(req: NextRequest) {
@@ -52,7 +52,9 @@ export async function POST(req: NextRequest) {
 
     const token = await signToken({ userId: user.id, email: user.email, name: user.name });
 
-    sendWelcomeEmail({ to: user.email, name: user.name, referralCode: myReferralCode }).catch(() => {});
+    void safeSend("auth_register_welcome", () =>
+      sendWelcomeEmail({ to: user.email, name: user.name, referralCode: myReferralCode }),
+    );
 
     // Drop Chat sync real-time — nuevo cliente
     fireSyncToDropchat(user.id);

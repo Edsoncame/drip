@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { query } from "@/lib/db";
-import { sendEmail } from "@/lib/email";
+import { sendEmail, safeSend } from "@/lib/email";
 import { cancelSubscription as cancelStripeSubscription } from "@/lib/stripe";
 import { fireSyncToDropchat } from "@/lib/dropchat-sync";
 
@@ -59,7 +59,7 @@ export async function POST(
     fireSyncToDropchat(session.userId);
 
     const firstName = sub.billing_name.split(" ")[0];
-    sendEmail({
+    void safeSend("sub_cancel_customer", () => sendEmail({
       to: sub.billing_email,
       subject: `Tu renta de ${sub.product_name} fue cancelada`,
       html: `
@@ -70,13 +70,13 @@ export async function POST(
   <p style="color:#666;margin:0 0 24px">Si crees que esto fue un error, contáctanos:</p>
   <a href="https://wa.me/51900164769" style="display:inline-block;background:#1B4FFF;color:#fff;font-weight:700;padding:12px 28px;border-radius:999px;text-decoration:none;font-size:14px">Contactar soporte</a>
 </div>`,
-    }).catch(() => {});
+    }));
 
-    sendEmail({
+    void safeSend("sub_cancel_ops", () => sendEmail({
       to: "operaciones@fluxperu.com",
       subject: `[OPS] Cancelación por usuario: ${sub.billing_name} — ${sub.product_name}`,
       html: `<div style="font-family:Inter,sans-serif;padding:24px"><h2>⚠️ Renta cancelada por usuario</h2><p><strong>${sub.billing_name}</strong> (${sub.billing_email}) — ${sub.product_name}</p><p>Stripe ID: ${sub.external_subscription_id ?? "N/A"}</p><p>Coordinar devolución en 30 días.</p></div>`,
-    }).catch(() => {});
+    }));
 
     return NextResponse.json({ ok: true });
   } catch (err) {
