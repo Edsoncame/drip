@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { query } from "@/lib/db";
-import { sendEmail } from "@/lib/email";
+import { sendEmail, safeSend } from "@/lib/email";
 
 const tag = "[rentals/purchase]";
 
@@ -51,7 +51,7 @@ export async function POST(
     const firstName = sub.billing_name.split(" ")[0];
 
     // Email to customer
-    sendEmail({
+    void safeSend("rental_purchase_customer", () => sendEmail({
       to: sub.billing_email,
       subject: `Solicitud de compra de tu ${sub.product_name}`,
       html: `
@@ -71,10 +71,10 @@ export async function POST(
   </ul>
   <p style="color:#999;font-size:12px;margin-top:24px">© 2026 FLUX — Tika Services S.A.C.</p>
 </div>`,
-    }).catch(() => {});
+    }));
 
     // Alert ops
-    sendEmail({
+    void safeSend("rental_purchase_ops", () => sendEmail({
       to: "operaciones@fluxperu.com",
       subject: `[OPS] 💰 Compra solicitada: ${sub.billing_name} — ${sub.product_name} — $${purchasePrice}`,
       html: `
@@ -89,7 +89,7 @@ export async function POST(
   </table>
   <p style="color:#666;font-size:13px;margin-top:16px"><strong>Acción:</strong> Contactar cliente, coordinar pago, remover MDM, emitir factura de venta.</p>
 </div>`,
-    }).catch(() => {});
+    }));
 
     console.log(`${tag} purchase requested id=${id} price=$${purchasePrice} user=${session.userId}`);
 

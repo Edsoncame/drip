@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { query } from "@/lib/db";
-import { sendEmail } from "@/lib/email";
+import { sendEmail, safeSend } from "@/lib/email";
 
 const tag = "[rentals/return]";
 
@@ -56,7 +56,7 @@ export async function POST(
     const firstName = sub.billing_name.split(" ")[0];
 
     // Email to customer
-    sendEmail({
+    void safeSend("rental_return_customer", () => sendEmail({
       to: sub.billing_email,
       subject: `Tu devolución de ${sub.product_name} está en proceso`,
       html: `
@@ -79,10 +79,10 @@ export async function POST(
   <p style="color:#666;font-size:13px">Te contactaremos por WhatsApp para coordinar el día y hora exactos.</p>
   <p style="color:#999;font-size:12px;margin-top:24px">© 2026 FLUX — Tika Services S.A.C.</p>
 </div>`,
-    }).catch(() => {});
+    }));
 
     // Alert ops
-    sendEmail({
+    void safeSend("rental_return_ops", () => sendEmail({
       to: "operaciones@fluxperu.com",
       subject: `[OPS] Devolución solicitada: ${sub.billing_name} — ${sub.product_name}`,
       html: `
@@ -97,7 +97,7 @@ export async function POST(
   </table>
   <p style="color:#666;font-size:13px;margin-top:16px"><strong>Acción:</strong> Contactar al cliente por WhatsApp para coordinar fecha y hora.</p>
 </div>`,
-    }).catch(() => {});
+    }));
 
     console.log(`${tag} return requested id=${id} method=${method} user=${session.userId}`);
 
