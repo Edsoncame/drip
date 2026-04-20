@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { put } from "@vercel/blob";
 import { requireAdmin } from "@/lib/auth";
 import { query } from "@/lib/db";
-import { sendEmail } from "@/lib/email";
+import { sendEmail, safeSend } from "@/lib/email";
 
 const MAX_SIZE = 15 * 1024 * 1024; // 15MB
 const ALLOWED = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
@@ -86,7 +86,7 @@ export async function POST(
     )).rows[0];
 
     if (payment) {
-      sendEmail({
+      void safeSend("admin_invoice_ready", () => sendEmail({
         to: payment.user_email,
         subject: `Factura disponible — ${payment.period_label}`,
         html: `
@@ -100,7 +100,7 @@ export async function POST(
   <a href="https://www.fluxperu.com/cuenta/pagos" style="display:inline-block;background:#1B4FFF;color:#fff;font-weight:700;padding:14px 32px;border-radius:999px;text-decoration:none;font-size:14px">Ver mi factura</a>
   <p style="color:#999;font-size:12px;margin-top:24px">© 2026 FLUX — Tika Services S.A.C.</p>
 </div>`,
-      }).catch(() => {});
+      }));
     }
 
     console.log(`[admin/invoice] ${session.email} uploaded invoice ${invoiceNumber} for payment ${id}`);

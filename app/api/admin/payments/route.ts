@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { query } from "@/lib/db";
-import { sendEmail } from "@/lib/email";
+import { sendEmail, safeSend } from "@/lib/email";
 import { fireSyncToDropchat } from "@/lib/dropchat-sync";
 
 export async function PATCH(req: NextRequest) {
@@ -34,7 +34,7 @@ export async function PATCH(req: NextRequest) {
     fireSyncToDropchat(payment.user_id);
 
     if (user) {
-      sendEmail({
+      void safeSend("admin_payment_validated", () => sendEmail({
         to: user.email,
         subject: `✅ Pago validado — ${payment.period_label}`,
         html: `
@@ -44,7 +44,7 @@ export async function PATCH(req: NextRequest) {
   <a href="https://www.fluxperu.com/cuenta/pagos" style="display:inline-block;background:#1B4FFF;color:#fff;font-weight:700;padding:12px 28px;border-radius:999px;text-decoration:none;font-size:14px">Ver mis pagos</a>
   <p style="color:#999;font-size:12px;margin-top:24px">© 2026 FLUX — Tika Services S.A.C.</p>
 </div>`,
-      }).catch(() => {});
+      }));
     }
   } else {
     await query(
@@ -53,7 +53,7 @@ export async function PATCH(req: NextRequest) {
     );
 
     if (user) {
-      sendEmail({
+      void safeSend("admin_payment_rejected", () => sendEmail({
         to: user.email,
         subject: `⚠️ Comprobante rechazado — ${payment.period_label}`,
         html: `
@@ -65,7 +65,7 @@ export async function PATCH(req: NextRequest) {
   <a href="https://www.fluxperu.com/cuenta/pagos" style="display:inline-block;background:#1B4FFF;color:#fff;font-weight:700;padding:12px 28px;border-radius:999px;text-decoration:none;font-size:14px">Subir nuevo comprobante</a>
   <p style="color:#999;font-size:12px;margin-top:24px">© 2026 FLUX — Tika Services S.A.C.</p>
 </div>`,
-      }).catch(() => {});
+      }));
     }
   }
 
