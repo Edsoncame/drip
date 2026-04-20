@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { constructWebhookEvent } from "@/lib/stripe";
 import { query } from "@/lib/db";
-import { sendConfirmationEmail, sendEmail } from "@/lib/email";
+import { sendConfirmationEmail, sendEmail, safeSend } from "@/lib/email";
 import { fireSyncToDropchat, fireSyncFromSubscription } from "@/lib/dropchat-sync";
 
 /**
@@ -186,7 +186,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
     });
     const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.fluxperu.com";
     const firstName = (meta.billing_name ?? "").split(" ")[0] || "";
-    sendEmail({
+    void safeSend("stripe_checkout_welcome", () => sendEmail({
       to: customerEmail,
       subject: "Bienvenido a FLUX — Configura tu contraseña",
       html: `
@@ -197,7 +197,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
   <a href="${APP_URL}/auth/nueva-password?token=${resetToken}" style="display:inline-block;background:#1B4FFF;color:#fff;font-weight:700;padding:14px 32px;border-radius:999px;text-decoration:none;font-size:14px">Crear mi contraseña</a>
   <p style="color:#999;font-size:12px;margin-top:24px">© 2026 FLUX — Flux Peru, LLC</p>
 </div>`,
-    }).catch(() => {});
+    }));
   }
 
   console.log(`${tag} [4/8] hydrate KYC corr=${meta.kyc_correlation_id}`);
@@ -313,11 +313,11 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
       console.log(`${tag} auto-assigned equipment ${eqResult.rows[0].codigo_interno} to ${customerEmail}`);
     } else {
       console.warn(`${tag} NO STOCK for ${slug} — manual assignment needed`);
-      sendEmail({
+      void safeSend("stripe_ops_no_stock", () => sendEmail({
         to: "operaciones@fluxperu.com",
         subject: `⚠️ SIN STOCK: ${productName} — pedido de ${meta.billing_name ?? customerEmail}`,
         html: `<div style="font-family:Inter,sans-serif;padding:24px"><h2 style="color:#DC2626">⚠️ Sin stock disponible</h2><p><strong>${meta.billing_name ?? customerEmail}</strong> (${customerEmail}) acaba de pagar por <strong>${productName}</strong> pero no hay equipos disponibles en inventario.</p><p>Acción: asignar equipo manualmente desde /admin.</p></div>`,
-      }).catch(() => {});
+      }));
     }
   }
 
@@ -335,14 +335,14 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
 
   console.log(`${tag} [8/8] send confirmation email`);
   // ── Confirmation email ──
-  sendConfirmationEmail({
+  void safeSend("stripe_checkout_confirmation", () => sendConfirmationEmail({
     to: customerEmail,
     name: meta.billing_name ?? customerEmail,
     productName,
     months,
     price: monthlyPrice,
     endsAt,
-  }).catch(() => {});
+  }));
 
   console.log(
     `${tag} subscription bootstrapped sub=${stripeSubscriptionId} db=${dbSubscriptionId} user=${userId}`,
@@ -419,17 +419,17 @@ async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<void> {
     );
 
     const firstName = sub.billing_name.split(" ")[0];
-    sendEmail({
+    void safeSend("stripe_max_rental_customer", () => sendEmail({
       to: sub.billing_email,
       subject: `${firstName}, tu renta de ${sub.product_name} llegó al límite`,
       html: `<div style="font-family:Inter,sans-serif;max-width:560px;margin:0 auto;background:#fff;padding:32px 24px;border-radius:16px"><h1 style="font-size:22px;font-weight:900;color:#18191F;margin:0 0 8px">${firstName}, tu renta llegó al plazo máximo</h1><p style="color:#666;margin:0 0 16px">Tu <strong>${sub.product_name}</strong> cumplió el período máximo de alquiler. Tenés <strong>30 días</strong> para decidir:</p><div style="background:#EEF2FF;border-radius:12px;padding:16px;margin:0 0 12px"><p style="font-weight:700;color:#18191F;margin:0">💰 Comprar tu Mac por $${purchasePrice} USD</p></div><div style="background:#F7F7F7;border-radius:12px;padding:16px;margin:0 0 16px"><p style="font-weight:700;color:#18191F;margin:0">↩️ Devolver el equipo (sin costo)</p></div><p style="color:#DC2626;font-size:13px;font-weight:600;margin:0 0 16px">Si no respondés en 30 días, se cobra automáticamente el valor de compra ($${purchasePrice}).</p><a href="https://www.fluxperu.com/cuenta/rentas" style="display:inline-block;background:#1B4FFF;color:#fff;font-weight:700;padding:14px 32px;border-radius:999px;text-decoration:none;font-size:14px">Ver mis opciones</a></div>`,
-    }).catch(() => {});
+    }));
 
-    sendEmail({
+    void safeSend("stripe_max_rental_ops", () => sendEmail({
       to: "operaciones@fluxperu.com",
       subject: `[OPS] ⚠️ Renta al límite: ${sub.billing_name} — ${sub.product_name} (${monthsUsed}m/${maxAllowed}m)`,
       html: `<div style="font-family:Inter,sans-serif;padding:24px"><h2 style="color:#DC2626">⚠️ Renta alcanzó límite máximo</h2><p><strong>${sub.billing_name}</strong> (${sub.billing_email}) tiene ${monthsUsed} meses de uso (máximo ${maxAllowed}). Debe comprar ($${purchasePrice}) o devolver en 30 días.</p></div>`,
-    }).catch(() => {});
+    }));
     return;
   }
 
@@ -495,17 +495,17 @@ async function handleInvoiceFailed(invoice: Stripe.Invoice): Promise<void> {
   const row = subRow.rows[0];
   const firstName = row.billing_name.split(" ")[0];
 
-  sendEmail({
+  void safeSend("stripe_payment_failed_customer", () => sendEmail({
     to: row.billing_email,
     subject: `⚠️ Tu pago de FLUX no pudo procesarse`,
     html: `<div style="font-family:Inter,sans-serif;max-width:560px;margin:0 auto;background:#fff;padding:32px 24px;border-radius:16px"><h1 style="font-size:22px;font-weight:900;color:#18191F;margin:0 0 8px">${firstName}, tu pago no pudo procesarse</h1><p style="color:#666;margin:0 0 16px">El cobro mensual de <strong>$${row.monthly_price}</strong> por tu <strong>${row.product_name}</strong> fue rechazado.</p><p style="color:#666;margin:0 0 16px">Puede ser porque tu tarjeta expiró, no tiene fondos, o el banco bloqueó el cargo.</p><p style="color:#666;margin:0 0 24px"><strong>Tenés 5 días hábiles para regularizar.</strong> Después podemos suspender el servicio.</p><a href="https://wa.me/51900164769" style="display:inline-block;background:#1B4FFF;color:#fff;font-weight:700;padding:14px 32px;border-radius:999px;text-decoration:none;font-size:14px">Contactar soporte</a></div>`,
-  }).catch(() => {});
+  }));
 
-  sendEmail({
+  void safeSend("stripe_payment_failed_ops", () => sendEmail({
     to: "operaciones@fluxperu.com",
     subject: `[OPS] Pago fallido: ${row.billing_name} — ${row.product_name}`,
     html: `<div style="font-family:Inter,sans-serif;padding:24px"><h2 style="color:#DC2626">⚠️ Pago rechazado</h2><p><strong>${row.billing_name}</strong> (${row.billing_email})</p><p>Producto: ${row.product_name} — $${row.monthly_price}/mes</p></div>`,
-  }).catch(() => {});
+  }));
 
   console.log(`${tag} invoice.payment_failed for sub=${row.id}`);
 }
