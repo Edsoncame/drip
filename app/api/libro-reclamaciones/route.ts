@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { sendEmail } from "@/lib/email";
+import { sendEmail, safeSend } from "@/lib/email";
 
 interface Body {
   tipo_documento: string;
@@ -81,14 +81,14 @@ export async function POST(req: NextRequest) {
   <p style="color:#666;margin:0 0 24px">Te responderemos en un plazo máximo de <strong>30 días calendario</strong> al correo ${body.email}.</p>
   <p style="color:#999;font-size:12px;margin:0">Tika Services S.A.C. — RUC 20605702512 — Av. Primavera 543, Piso 4, San Borja, Lima, Perú</p>
 </div>`;
-    sendEmail({
+    void safeSend("libro_customer_receipt", () => sendEmail({
       to: body.email,
       subject: `Comprobante de Hoja de Reclamación N° ${numeroHoja} — FLUX`,
       html,
-    }).catch(() => {});
+    }));
 
     // Email to admin
-    sendEmail({
+    void safeSend("libro_admin_notification", () => sendEmail({
       to: "hola@fluxperu.com",
       subject: `[Libro de Reclamaciones] Nueva hoja N° ${numeroHoja} — ${body.tipo_reclamo.toUpperCase()}`,
       html: `
@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
   <p><strong>Pedido:</strong><br/>${body.pedido.replace(/\n/g, "<br/>")}</p>
   <p>Ver en admin: https://www.fluxperu.com/admin/reclamaciones</p>
 </div>`,
-    }).catch(() => {});
+    }));
 
     console.log(`[libro] New complaint ${numeroHoja} from ${body.email}`);
 

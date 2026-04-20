@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { sendEmail } from "@/lib/email";
+import { sendEmail, safeSend } from "@/lib/email";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -110,7 +110,7 @@ export async function POST(req: NextRequest) {
   }).catch((err) => console.error(`${tag} email falló`, err));
 
   // Copia al reclamante (constancia legal)
-  sendEmail({
+  void safeSend("reclamaciones_customer_receipt", () => sendEmail({
     to: String(body.email).trim().toLowerCase(),
     subject: `Hemos recibido tu ${tipoReclamo} — Hoja Nº ${numero_hoja} | FLUX`,
     html: `
@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
   <p style="color:#666;font-size:13px;margin-top:24px">Si tu caso es urgente, escríbenos directamente a <a href="mailto:hola@fluxperu.com">hola@fluxperu.com</a> o a <a href="https://wa.me/51900164769">WhatsApp +51 900 164 769</a>.</p>
   <p style="color:#999;font-size:11px;margin-top:24px">© FLUX · Tika Services S.A.C.</p>
 </div>`,
-  }).catch(() => {});
+  }));
 
   return NextResponse.json({ ok: true, numero_hoja, id }, { status: 201 });
 }
