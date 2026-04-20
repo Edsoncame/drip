@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { query } from "@/lib/db";
-import { sendEmail } from "@/lib/email";
+import { sendEmail, safeSend } from "@/lib/email";
 import { fireSyncFromSubscription } from "@/lib/dropchat-sync";
 import { fireSyncCatalog } from "@/lib/dropchat-catalog";
 
@@ -75,7 +75,7 @@ export async function PATCH(req: NextRequest) {
     const firstName = sub.billing_name.split(" ")[0];
 
     if (status === "shipped" && sub.billing_email) {
-      sendEmail({
+      void safeSend("admin_sub_shipped", () => sendEmail({
         to: sub.billing_email,
         subject: `🚚 Tu ${sub.product_name} está en camino`,
         html: `
@@ -90,11 +90,11 @@ export async function PATCH(req: NextRequest) {
   <p style="color:#666;font-size:13px">¿Tienes dudas? Escríbenos a <a href="https://wa.me/51900164769" style="color:#1B4FFF">WhatsApp</a> o a <a href="mailto:hola@fluxperu.com" style="color:#1B4FFF">hola@fluxperu.com</a>.</p>
   <p style="color:#999;font-size:12px;margin-top:24px">© 2026 FLUX — Tika Services S.A.C.</p>
 </div>`,
-      }).catch(() => {});
+      }));
     }
 
     if (status === "shipped" && sub.delivery_method === "pickup" && sub.billing_email) {
-      sendEmail({
+      void safeSend("admin_sub_pickup_ready", () => sendEmail({
         to: sub.billing_email,
         subject: `🏢 Tu ${sub.product_name} está listo para recoger`,
         html: `
@@ -109,7 +109,7 @@ export async function PATCH(req: NextRequest) {
   <p style="color:#666;font-size:13px">Coordina tu recojo: <a href="https://wa.me/51900164769" style="color:#1B4FFF">WhatsApp +51 900 164 769</a></p>
   <p style="color:#999;font-size:12px;margin-top:24px">© 2026 FLUX — Tika Services S.A.C.</p>
 </div>`,
-      }).catch(() => {});
+      }));
     }
   }
 
