@@ -122,3 +122,26 @@ export async function sendB2BLeadEmail({
 </div>`,
   });
 }
+
+// Helper: dispara un envío de email sin que una falla rompa el flujo del caller,
+// pero loguea el error en vez de comérselo silenciosamente (el patrón anterior
+// `.catch(() => {})` ocultaba key expiradas, rate limits, DKIM rotos, etc.).
+//
+// Uso:
+//   await safeSend("checkout_confirmation", () =>
+//     sendConfirmationEmail({ to, name, productName, months, price, endsAt })
+//   );
+//
+// El `context` es una etiqueta libre que aparece en el log del servidor y
+// facilita buscar qué envío falló cuando se revisan los logs.
+export async function safeSend(
+  context: string,
+  fn: () => Promise<unknown>,
+): Promise<void> {
+  try {
+    await fn();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[email:${context}] send failed:`, msg);
+  }
+}
