@@ -130,7 +130,16 @@ export async function POST(req: NextRequest) {
           `${tag} arbiter corr=${correlation_id} verdict=${verdict.verdict} confidence=${verdict.confidence.toFixed(2)} checks=${JSON.stringify(verdict.checks)}`,
         );
       } else {
-        // Sin URLs absolutas no podemos arbitrar — conservador: rechazar
+        // Las URLs guardadas no son absolutas. Hoy (20-abr-2026) todas las
+        // rows en kyc_dni_scans + kyc_face_matches tienen URL absoluta, así
+        // que este branch es defensivo — si algún upload futuro guardara el
+        // blob key sin prefijo http://, caería acá.
+        //
+        // Logueamos ruidosamente para detectarlo y ser conservadores: rechazar.
+        console.error(
+          `${tag} ARBITER_SKIPPED corr=${correlation_id} non-URL keys ` +
+            `dniUrl=${dniUrl?.slice(0, 30)}... selfieUrl=${selfieUrl?.slice(0, 30)}...`,
+        );
         status = "rejected";
         reason = "borderline_no_arbiter";
       }
