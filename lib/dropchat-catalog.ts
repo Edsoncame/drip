@@ -27,11 +27,27 @@ function cleanApiKey(raw: string | undefined): string | undefined {
   return raw.trim().replace(/[^\x21-\x7E]/g, "");
 }
 
+export interface DropchatSubscriptionPlan {
+  months: number;
+  monthly_price: number;
+  setup_fee?: number;
+  label?: string;
+}
+
 export interface DropchatProduct {
   sku: string;
   name: string;
+  description?: string;
+  category?: string;
   price: number;
+  price_currency?: string;
   stock: number;
+  image_url?: string;
+  url?: string;
+  attributes?: {
+    pricing_model: "subscription";
+    plans: DropchatSubscriptionPlan[];
+  };
   custom_fields?: Record<string, unknown>;
 }
 
@@ -106,13 +122,30 @@ export function toDropchatProduct(p: ProductRow): DropchatProduct {
   const liveStock = parseInt(p.live_available, 10);
   const stock = liveStock > 0 ? liveStock : p.stock;
 
+  const productUrl = `https://www.fluxperu.com/laptops/${p.slug}`;
+  // Descripción corta basada en las specs principales — la consume IAn
+  // cuando el cliente pregunta "¿qué MacBook es X?".
+  const description = [p.chip, p.ram, p.ssd, p.color].filter(Boolean).join(" · ");
+
   return {
     sku: p.slug,
     name: p.name,
+    description,
+    category: "laptops",
     price: mainPrice,
+    price_currency: "USD",
     stock,
+    image_url: p.image_url,
+    url: productUrl,
+    // Spec Drop Chat /sync/products — IAn cotiza con estos 3 planes reales
+    // en vez de inventar. Order del array no importa (backend lo ordena).
+    attributes: {
+      pricing_model: "subscription",
+      plans: plans.map((x) => ({ months: x.months, monthly_price: x.price })),
+    },
     custom_fields: {
-      // Metadatos del producto
+      // Metadatos del producto (se mantienen para retrocompatibilidad —
+      // IAn y otros consumers de Drop Chat pueden estar leyéndolos)
       currency: "USD",
       billing_cycle: "monthly",
       type: "rental",
@@ -125,7 +158,7 @@ export function toDropchatProduct(p: ProductRow): DropchatProduct {
       is_new: p.is_new,
       badge: p.badge,
       image_url: p.image_url,
-      product_url: `https://www.fluxperu.com/laptops/${p.slug}`,
+      product_url: productUrl,
 
       // Precios por plan — IAn cotiza el que el cliente pida
       price_8m_usd:  plan8?.price  ?? null,
