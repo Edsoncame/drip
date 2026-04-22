@@ -151,17 +151,20 @@ El auditor original no las encontró probablemente porque el grep no cubrió
 
 ---
 
-## 🟡 P2-3 — `SELECT *` en tablas de marketing
+## ⚪ P2-3 — `SELECT *` diferido (22-abr-2026)
 
-**Archivos:** `lib/strategy-db.ts` (muchas), `app/api/admin/equipment/route.ts`
+**Auditoría:** 36 ocurrencias de `SELECT *` en 9 archivos (`lib/strategy-db.ts`, `lib/agents-db.ts`, `lib/agent-blockers.ts`, `lib/finance-providers.ts`, `lib/api-keys.ts`, `app/api/admin/{equipment,pricing,vault}/route.ts`, `app/api/admin/strategy/export-pdf/route.ts`, `app/api/kyc/{match,verify,selfie}/route.ts`).
 
-**Problema:**
-Cuando las tablas crecen (jsonb, campos nuevos), `SELECT *` trae payloads innecesarios y rompe compatibilidad de tipos cuando se agrega una columna.
+**Decisión:** diferir el refactor. Razones:
 
-**Fix propuesto:**
-Cambiar a columnas explícitas en queries que van a APIs públicas/admin.
+1. **Volumen de datos actual es bajo** — las tablas `marketing_*` tienen <100 filas, `subscriptions` 13 filas. Payload overhead despreciable.
+2. **Types genéricos actúan como filter** — `DbStrategy`, `ApiKey`, `Blocker` ya tipan el select.
+3. **Riesgo de breaking** — 36 cambios mecánicos sin tests integrales detrás = alta chance de romper alguna feature silenciosamente.
+4. **Valor incremental bajo** — el único caso con data potencialmente sensible es `/api/admin/vault` (contiene `value_encrypted` + `iv`), pero es admin y necesita esos campos.
 
-**Costo:** 1h (no urgente).
+**Cuándo revisitar:** si alguna tabla pasa 10K filas o si se agrega una columna sensible que NO debe salir vía API pública.
+
+**Mitigación actual:** mantener los types explícitos en `query<T>()` — eso ya prevenía el problema cuando lo describimos originalmente.
 
 ---
 
