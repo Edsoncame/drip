@@ -102,10 +102,10 @@ const SIGNALS_SQL = /* sql */ `
     SELECT
       s.user_id,
       MIN(s.started_at) AS first_sub_date,
-      COUNT(*) FILTER (WHERE s.status IN ('active','delivered','shipped','preparing')) AS total_active_subs,
+      COUNT(*) FILTER (WHERE s.status IN ('preparing','shipped','delivered')) AS total_active_subs,
       COUNT(*) AS total_subs_ever,
       COALESCE(SUM(s.monthly_price::numeric * s.months) FILTER (WHERE s.status != 'cancelled'), 0) AS total_spent,
-      MAX(s.ends_at) FILTER (WHERE s.status IN ('active','delivered','shipped','preparing')) AS next_end_date,
+      MAX(s.ends_at) FILTER (WHERE s.status IN ('preparing','shipped','delivered')) AS next_end_date,
       BOOL_OR(COALESCE(s.apple_care, false)) AS has_applecare,
       BOOL_OR(s.product_name ILIKE '%ipad%') AS has_ipad_ever,
       (ARRAY_AGG(s.product_name ORDER BY s.started_at DESC))[1] AS max_product_name

@@ -73,7 +73,7 @@ async function loadUsers(userIds?: string[]): Promise<UserRow[]> {
     `SELECT u.id, u.name, u.email, u.phone, u.company, u.ruc, u.legal_name,
             u.dni_number, u.kyc_status, u.identity_verified, u.created_at,
             COALESCE((SELECT COUNT(*) FROM subscriptions s WHERE s.user_id = u.id), 0) AS subs_count,
-            COALESCE((SELECT COUNT(*) FROM subscriptions s WHERE s.user_id = u.id AND s.status IN ('preparing','shipped','delivered','active')), 0) AS active_subs_count,
+            COALESCE((SELECT COUNT(*) FROM subscriptions s WHERE s.user_id = u.id AND s.status IN ('preparing','shipped','delivered')), 0) AS active_subs_count,
             COALESCE((SELECT SUM(p.amount::numeric) FROM payments p WHERE p.user_id = u.id AND p.status = 'validated'), 0) AS total_ltv_usd,
             (SELECT MAX(s.started_at) FROM subscriptions s WHERE s.user_id = u.id) AS last_sub_started_at,
             (SELECT s.payment_method FROM subscriptions s WHERE s.user_id = u.id ORDER BY s.started_at DESC LIMIT 1) AS last_payment_method
