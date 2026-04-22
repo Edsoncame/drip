@@ -8,9 +8,10 @@
  * Reglas de diseño:
  *
  * 1. TODAS las queries sobre `subscriptions` tratan como "activas" los estados
- *      ('active','delivered','shipped','preparing')
- *    (cancelled es el único que se excluye). Esto matchea el fix commit 289306c
- *    y el set que usa `lib/expansion-engine.ts`.
+ *      ('preparing','shipped','delivered')
+ *    que son los 3 estados productivos post-migración del 18-abr-2026.
+ *    `cancelled`, `paused`, `completed` se excluyen. `active` es legacy
+ *    pre-migración y ya no se genera (verificado: 0 filas en DB).
  *
  * 2. Ninguna función lanza si una tabla opcional no existe. `expansion_opportunities`
  *    y la extensión KYC sobre `users` pueden no estar migradas en algunos ambientes

@@ -51,7 +51,7 @@
  * - users: id UUID, name, email, phone, company, ruc, is_admin, created_at
  * - subscriptions: id, user_id, product_name, months, monthly_price, status,
  *     started_at, ends_at, apple_care, delivery_method, delivery_address, ...
- *     status ∈ ('active','shipped','delivered','preparing','cancelled')
+ *     status ∈ ('preparing','shipped','delivered','paused','cancelled','completed')
  * - payments: id, user_id, amount, due_date, status, validated_at, receipt_uploaded_at, ...
  */
 import { query } from "@/lib/db";
