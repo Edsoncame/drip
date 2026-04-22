@@ -139,14 +139,15 @@ app/admin/agentes/
 
 ---
 
-## 🟡 P2-2 — Env vars huérfanas en `.env.example`
+## ~~🟡 P2-2 — Env vars huérfanas~~ (RESUELTO — falso positivo)
 
-- `NEXT_PUBLIC_KYC_BLUR_THRESHOLD` — documentado pero **no usado** en ningún archivo TS
-- `KYC_LIVENESS_YAW_MIN` — idem
+**Verificación 22-abr-2026:** ambas variables SÍ se usan:
 
-**Fix:** remover de `.env.example` o implementar su uso en `lib/kyc/face.ts`.
+- `KYC_LIVENESS_YAW_MIN` → `lib/kyc/face.ts:36` (`LIVENESS_YAW_THRESHOLD = Number(process.env.KYC_LIVENESS_YAW_MIN ?? "8")`)
+- `NEXT_PUBLIC_KYC_BLUR_THRESHOLD` → `components/kyc/DniCaptureGuided.tsx:22` (`BLUR_THRESHOLD = Number(process.env.NEXT_PUBLIC_KYC_BLUR_THRESHOLD ?? "90")`)
 
-**Costo:** 5 min (decidir + borrar).
+El auditor original no las encontró probablemente porque el grep no cubrió
+`components/` o se saltó archivos `.tsx`. **No hay acción pendiente.**
 
 ---
 
