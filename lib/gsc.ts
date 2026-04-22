@@ -79,7 +79,9 @@ function notConfigured() {
 }
 
 async function searchAnalytics(body: Record<string, unknown>): Promise<unknown> {
-  const site = process.env.GSC_SITE_URL;
+  // .trim() defensivo: si la env var se pega con un \n al final desde la UI
+  // de Vercel, la URL resultante es inválida y la API devuelve 400 silencioso.
+  const site = process.env.GSC_SITE_URL?.trim();
   if (!site) throw new Error("GSC_SITE_URL no seteado");
   const token = await getAccessToken();
   if (!token) throw new Error("No se pudo autenticar con Search Console");

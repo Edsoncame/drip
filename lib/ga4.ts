@@ -93,7 +93,9 @@ interface RunReportInput {
 }
 
 async function runReport(body: RunReportInput): Promise<unknown> {
-  const propertyId = process.env.GA4_PROPERTY_ID;
+  // .trim() defensivo: si la env var se pega con un \n al final desde la UI
+  // de Vercel, la URL resultante es properties/NNN\n:runReport → 400 silencioso.
+  const propertyId = process.env.GA4_PROPERTY_ID?.trim();
   if (!propertyId) throw new Error("GA4_PROPERTY_ID no seteado");
   const token = await getAccessToken();
   if (!token) throw new Error("No se pudo obtener access token GA4");
