@@ -165,17 +165,20 @@ Cambiar a columnas explícitas en queries que van a APIs públicas/admin.
 
 ---
 
-## 🟡 P2-4 — Status enum con valor legacy que nadie sabe si borrar
+## ~~🟡 P2-4 — Status 'active' legacy~~ (RESUELTO 22-abr-2026)
 
-**Schema:** `subscriptions.status` acepta `active` aunque todo código nuevo crea con `preparing/shipped/delivered/...`.
+**Verificación DB producción:** 0 filas con `status='active'`. Solo hay 12 en `delivered` + 1 en `preparing`. El valor `'active'` era puramente histórico del código.
 
-**Decisión pendiente:**
-1. **Opción A** — borrar `active` del CHECK constraint + migrar las ~N filas legacy a su estado real
-2. **Opción B** — documentar como "legacy, sólo para subs anteriores al 18-abr-2026, no usar"
+**Nota:** tampoco existe CHECK constraint en la tabla (no se valida a nivel DB). Agregar uno es opcional pero queda fuera del scope de P2-4.
 
-Hacer esto elimina ambigüedad en queries + onboarding de devs nuevos.
+**Acción ejecutada:** removido `'active'` de 8 queries productivas (commits 59fa10a + 0c038d9) y 2 docstrings (f5fd849). Archivos tocados:
 
-**Costo:** Opción A = 1h (migración cuidadosa). Opción B = 10 min.
+- `app/admin/page.tsx`, `app/admin/clientes/page.tsx`
+- `app/api/v1/b2b/me/route.ts`, `app/(main)/cuenta/pagos/page.tsx`
+- `app/api/webhooks/stripe/route.ts`, `app/api/cron/generate-payments/route.ts`
+- `lib/dropchat-sync.ts`, `lib/expansion-engine.ts`, `lib/kpi-queries.ts`
+
+Si en el futuro aparece un INSERT con `'active'`, las queries productivas lo ignorarán — defensa silenciosa de la consistencia del estado.
 
 ---
 
