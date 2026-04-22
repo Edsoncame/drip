@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { AgentId, AgentMeta, AgentState, FileEntry, ActivityEvent, AgentBlocker } from "@/lib/agents";
 import PixelAvatar, { type AgentMood } from "./PixelAvatar";
+import { parseOrchestratorText, computeMood, timeAgo } from "./orchestrator-utils";
+import { playNotificationSound, sendBrowserNotification } from "./audio-utils";
 
 type StatePayload = {
   agents: AgentMeta[];
@@ -60,96 +62,6 @@ type Beam = {
   createdAt: number;
 };
 
-/**
- * Parses orchestrator stream for [[agente:slug]], [[plan]]…[[/plan]],
- * and [[delegate:slug]]…[[/delegate]] tokens. Returns the plain-text
- * response for rendering + an event list to drive scene animations.
- */
-function parseOrchestratorText(text: string) {
-  const events: { agent: AgentId; kind: "mention" | "delegate"; message?: string }[] = [];
-  let plan: string | null = null;
-
-  const planMatch = text.match(/\[\[plan\]\]([\s\S]*?)\[\[\/plan\]\]/);
-  if (planMatch) plan = planMatch[1].trim();
-
-  const delegateRe = /\[\[delegate:([a-z-]+)\]\]([\s\S]*?)\[\[\/delegate\]\]/g;
-  let dm: RegExpExecArray | null;
-  while ((dm = delegateRe.exec(text)) !== null) {
-    events.push({ agent: dm[1] as AgentId, kind: "delegate", message: dm[2].trim() });
-  }
-
-  const mentionRe = /\[\[agente:([a-z-]+)\]\]/g;
-  let mm: RegExpExecArray | null;
-  while ((mm = mentionRe.exec(text)) !== null) {
-    events.push({ agent: mm[1] as AgentId, kind: "mention" });
-  }
-
-  // strip tokens for display
-  const clean = text
-    .replace(/\[\[plan\]\]([\s\S]*?)\[\[\/plan\]\]/g, "")
-    .replace(/\[\[delegate:[a-z-]+\]\]([\s\S]*?)\[\[\/delegate\]\]/g, "$1")
-    .replace(/\[\[agente:([a-z-]+)\]\]/g, "@$1")
-    .trim();
-
-  return { clean, events, plan };
-}
-
-/**
- * Deriva un mood desde el estado real del agente + un toque de aleatoriedad
- * que rota cada N minutos para que el equipo se sienta vivo.
- *
- * Heurísticas:
- *   - sin actividad > 6h     → sleepy
- *   - sin actividad > 2h     → tired
- *   - actividad < 5 min      → motivated
- *   - muchos archivos nuevos → stressed
- *   - diseñador/content/copy → creative (si nada más aplica)
- *   - fallback               → normal
- */
-function computeMood(
-  agent: AgentMeta,
-  state: AgentState | undefined,
-  seed: number,
-  awakeUntil = 0,
-): AgentMood {
-  // 1. Trabajando AHORA → motivated (el cuerpo también se anima working por
-  //    state.isRunning en el avatar)
-  if (state?.isRunning) return "motivated";
-
-  // 2. Recién despierto (timer interno post-delegación) → motivated
-  if (Date.now() < awakeUntil) return "motivated";
-
-  // 3. Nunca trabajó O hace >10 min que terminó → DORMIDO (default)
-  //    El usuario quiere que los inactivos estén dormidos, no en standby.
-  if (!state || state.lastActivity === null) return "sleepy";
-
-  const age = Date.now() - state.lastActivity;
-  const MIN = 60 * 1000;
-
-  // 4. Acaba de terminar hace poco (<10 min) → motivated/normal
-  if (age < 5 * MIN) return "motivated";
-  if (age < 10 * MIN) return "normal";
-
-  // 5. Pasaron 10+ min sin nada → a dormir
-  if (state.filesCount > 20) return "stressed"; // salvo que esté sobrecargado
-  return "sleepy";
-
-  // Default (fallback si ninguna regla match): dormido
-  return "sleepy";
-}
-
-function timeAgo(ts: number) {
-  const diff = Date.now() - ts;
-  const s = Math.floor(diff / 1000);
-  if (s < 60) return `hace ${s}s`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `hace ${m}m`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `hace ${h}h`;
-  const d = Math.floor(h / 24);
-  return `hace ${d}d`;
-}
-
 const AGENT_EMOJI: Record<AgentId, string> = {
   orquestador: "👑",
   "estratega-oferta": "🎯",
@@ -166,46 +78,6 @@ const AGENT_EMOJI: Record<AgentId, string> = {
   "customer-success": "🎧",
   "finance-controller": "💰",
 };
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Notification sound — chime agradable generado con Web Audio API
-// ═══════════════════════════════════════════════════════════════════════════
-
-function playNotificationSound() {
-  try {
-    const ctx = new AudioContext();
-    const now = ctx.currentTime;
-
-    // Chime: dos tonos cortos ascendentes
-    [523.25, 659.25].forEach((freq, i) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0.15, now + i * 0.15);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.15 + 0.4);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(now + i * 0.15);
-      osc.stop(now + i * 0.15 + 0.5);
-    });
-  } catch {}
-}
-
-function sendBrowserNotification(title: string, body: string) {
-  try {
-    if (typeof Notification === "undefined") return;
-    if (Notification.permission === "granted") {
-      new Notification(title, {
-        body,
-        icon: "/icon.png",
-        badge: "/icon.png",
-        silent: true, // usamos nuestro propio sonido
-      });
-      playNotificationSound();
-    }
-  } catch {}
-}
 
 export default function AgentsScene() {
   const [data, setData] = useState<StatePayload | null>(null);
