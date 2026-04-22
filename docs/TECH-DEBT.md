@@ -105,37 +105,35 @@ Si por cualquier razón los uploads guardaron keys **sin prefijo `http://`** (le
 
 ---
 
-## 🟡 P2-1 — `AgentsScene.tsx` es un monolito de 3885 líneas
+## 🟡 P2-1 — Refactor `AgentsScene.tsx` — EN PROGRESO (22-abr-2026)
 
-**Archivo:** `app/admin/agentes/AgentsScene.tsx` (3885 líneas)
+**Antes:** 3885 líneas (monolito con 14+ subcomponentes + 23 useState inline)
 
-**Problema:**
-Mezcla:
-- UI 3D pixel-art de los 14 agentes
-- Formulario de delegar tarea
-- Galería de outputs
-- Chat de blockers
-- Render de 14 subcomponentes inline
-- State management masivo (~30 useState)
+**Ahora:** 3265 líneas + 5 módulos satellite nuevos
 
-**Recomendación:**
-Dividir en:
-```
-app/admin/agentes/
-├── page.tsx                      (wrapper)
-├── AgentsScene.tsx               (solo el canvas 3D + posiciones)
-├── components/
-│   ├── AgentAvatar.tsx
-│   ├── DelegateForm.tsx
-│   ├── Gallery.tsx
-│   ├── BlockersChat.tsx
-│   └── AgentCard.tsx
-└── state/
-    ├── useAgentsState.ts
-    └── useDelegation.ts
-```
+**Fases completadas:**
 
-**Costo estimado:** 3-4h (refactor grande pero mecánico). **No urgente** — solo afecta DX.
+| Fase | Módulo extraído | Delta | Commit |
+|---|---|---|---|
+| 1 | `orchestrator-utils.ts` + `audio-utils.ts` | -128 | `f363a59` |
+| 2 | `types.ts` | -46 | `2737e43` |
+| 3 | `MarkdownLite.tsx` (+ CopyableCode, CopyButton) | -237 | `f716c14` |
+| 4 | `chat-visuals.tsx` (ChatBubble, ClusterRing) | -56 | `3616891` |
+| 5 | `agent-panels.tsx` (CurrentTaskPanel, StepsPanel) | -153 | `320be49` |
+
+**Total reducido:** 620 líneas (~16%). Typecheck + tests pasando en cada commit.
+
+**Fases pendientes (diferidas a próxima sesión):**
+
+- **Fase 6** — extraer `AgentAvatar` (~235 líneas, lógica motion compleja)
+- **Fase 7** — extraer `RecordingPanel` (~108 líneas, Web Speech API)
+- **Fase 8** — extraer `BlockerChatCard` (~410 líneas, API calls + estado)
+- **Fase 9** — extraer modales: `FinanceModal`, `GalleryModal`, `AgentDetailPanel`, `FileViewerModal` (~785 líneas)
+- **Fase 10** — custom hooks: `useAgentState`, `useAutopilot`, `useChat`, `useVoiceRecording`, `useDragDrop`, `useMusic`
+
+**Estado final esperado:** AgentsScene.tsx como glue ~500 líneas + 10-12 módulos satellite. Estimación: 2-3h más trabajo.
+
+**Por qué pausamos acá:** las fases 6-10 tocan componentes con estado interno + API calls. Cada uno requiere verificación cuidadosa contra regresiones en la UI de `/admin/agentes` (feature crítica de operaciones). Mejor hacerlo en sesión dedicada con ventana de tiempo para QA manual del admin.
 
 ---
 
