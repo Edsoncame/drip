@@ -179,17 +179,16 @@ Hacer esto elimina ambigüedad en queries + onboarding de devs nuevos.
 
 ---
 
-## 🟡 P2-5 — Columnas `shipped_at` y `delivered_at` convivendo con status enum
+## ~~🟡 P2-5 — Columnas `shipped_at` y `delivered_at`~~ (RESUELTO — no son audit-only)
 
-**Archivos:** `app/api/admin/subscriptions/route.ts:46,50`
+**Verificación 22-abr-2026:** estas columnas **NO** son audit-only:
 
-Cuando el admin cambia status a `shipped` o `delivered`, se setean también las columnas timestamp. Pero ninguna query actual las usa como fuente de verdad — se usa `status` directamente.
+- **Write:** `app/api/admin/subscriptions/route.ts:46,50` — seteadas en NOW() cuando status cambia
+- **Read:** `app/api/v1/b2b/subscriptions/route.ts:55-86` — expuestas en el contrato público de la **API B2B** a clientes externos
 
-**Decisión pendiente:**
-- Mantenerlas como audit log (útil para analytics)
-- O borrarlas y depender solo de `marketing_agent_runs` para audit
+Son parte del contrato público. Los clientes B2B pueden estar parseando estas fechas para tracking. **No tocar ni renombrar** sin versionar la API.
 
-**Recomendación:** mantener, son útiles para SLA reports. Pero documentar en el schema que son "audit-only", no state.
+Documentado en ARCHITECTURE.md sección "APIs" como contrato estable.
 
 ---
 
