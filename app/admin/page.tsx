@@ -66,10 +66,10 @@ export default async function AdminPage() {
       SELECT
         COUNT(*) FILTER (WHERE status = 'preparing')                AS preparing_count,
         COUNT(*) FILTER (WHERE status = 'shipped')                  AS shipped_count,
-        COUNT(*) FILTER (WHERE status IN ('delivered','active'))    AS delivered_count,
+        COUNT(*) FILTER (WHERE status = 'delivered')                AS delivered_count,
         COALESCE(
           SUM(monthly_price::numeric)
-          FILTER (WHERE status IN ('preparing','shipped','delivered','active')),
+          FILTER (WHERE status IN ('preparing','shipped','delivered')),
           0
         ) AS mrr_activo,
         (SELECT COUNT(*) FROM users WHERE COALESCE(is_admin, false) = false) AS total_users,

@@ -47,7 +47,7 @@ export default async function PagosPage() {
     `SELECT id, product_name, monthly_price, status, next_billing_at,
             payment_method, started_at
      FROM subscriptions
-     WHERE user_id = $1 AND status IN ('active','delivered','shipped','preparing')
+     WHERE user_id = $1 AND status IN ('preparing','shipped','delivered')
      ORDER BY started_at DESC`,
     [session.userId],
   );

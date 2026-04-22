@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
     total_subs: string;
   }>(
     `SELECT u.id, u.name, u.email, u.company, u.ruc, u.created_at,
-            (SELECT COUNT(*) FROM subscriptions s WHERE s.user_id = u.id AND s.status IN ('preparing','shipped','delivered','active')) AS active_subs,
+            (SELECT COUNT(*) FROM subscriptions s WHERE s.user_id = u.id AND s.status IN ('preparing','shipped','delivered')) AS active_subs,
             (SELECT COUNT(*) FROM subscriptions s WHERE s.user_id = u.id) AS total_subs
      FROM users u WHERE u.id = $1`,
     [auth.apiKey.user_id],
