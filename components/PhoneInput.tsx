@@ -97,13 +97,18 @@ export default function PhoneInput({
   const [filter, setFilter] = useState("");
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  // Sync desde afuera (ej. prefill de /api/auth/me)
+  // Sync desde afuera (ej. prefill de /api/auth/me) — controlled-like pattern.
+  // setState en effect está flaggeado por React Compiler pero es legítimo acá:
+  // los setters usan updater functions que no disparan re-render si el valor
+  // no cambió, así que no hay cascada. Alternativa ideal sería usar <key={value}>
+  // en el caller para reset, pero eso desplaza el cambio a 4+ callers.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     const s = splitE164(value);
     setCountry((c) => (c.code === s.country.code ? c : s.country));
     setNational((n) => (n === s.national ? n : s.national));
-     
   }, [value]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Emit E.164 al padre cada vez que cambie algo
   const emit = (c: Country, nat: string) => {

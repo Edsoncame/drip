@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { calcPlan, PLAN_RESIDUAL_PCT } from "@/lib/finance";
 
@@ -45,23 +45,21 @@ export default function PricingTable({ pricing }: { pricing: PricingRow[] }) {
   const [newModelo, setNewModelo] = useState("");
 
   // ── Financial params ──────────────────────────────────────────────────────
-  const [tasa, setTasa]   = useState(0);
-  const [plazo, setPlazo] = useState(12);
-  const [opex, setOpex]   = useState(25);
-  const [mpFee, setMpFee] = useState(4.12); // MP Peru: 3.49% + IGV 18% ≈ 4.12%
-  const [costos, setCostos] = useState<Record<string, string>>({});
-
-  // Load persisted params from localStorage
-  useEffect(() => {
-    try {
-      const p = JSON.parse(localStorage.getItem(LS_KEY) ?? "{}");
-      if (p.tasa  !== undefined) setTasa(p.tasa);
-      if (p.plazo !== undefined) setPlazo(p.plazo);
-      if (p.opex  !== undefined) setOpex(p.opex);
-      if (p.mpFee !== undefined) setMpFee(p.mpFee);
-      if (p.costos) setCostos(p.costos);
-    } catch { /* ignore */ }
-  }, []);
+  // Lazy init desde localStorage (cliente-only; en SSR retorna defaults).
+  // Antes usábamos useEffect+setState para hidratar tras el mount, pero eso
+  // disparaba un cascade render innecesario (React Compiler set-state-in-effect).
+  const persistedDefaults = () => {
+    if (typeof window === "undefined") return null;
+    try { return JSON.parse(localStorage.getItem(LS_KEY) ?? "{}"); }
+    catch { return null; }
+  };
+  const [tasa, setTasa]   = useState(() => persistedDefaults()?.tasa  ?? 0);
+  const [plazo, setPlazo] = useState(() => persistedDefaults()?.plazo ?? 12);
+  const [opex, setOpex]   = useState(() => persistedDefaults()?.opex  ?? 25);
+  const [mpFee, setMpFee] = useState(() => persistedDefaults()?.mpFee ?? 4.12); // MP Peru: 3.49% + IGV 18% ≈ 4.12%
+  const [costos, setCostos] = useState<Record<string, string>>(
+    () => persistedDefaults()?.costos ?? {},
+  );
 
   function persist(patch: object) {
     try {
