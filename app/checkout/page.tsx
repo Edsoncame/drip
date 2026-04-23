@@ -431,7 +431,7 @@ function Step2({
       const data = await res.json();
       if (!res.ok) {
         if (data.debug) {
-          // eslint-disable-next-line no-console
+           
           console.error(
             `[kyc/dni] category=${data.category} corr=${data.correlation_id}`,
             data.debug,

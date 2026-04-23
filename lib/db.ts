@@ -21,7 +21,7 @@ import { Pool, QueryResultRow } from "pg";
 // Permite cachear el pool en `globalThis` para que hot-reload de Next.js no
 // cree conexiones nuevas en cada cambio de archivo durante desarrollo.
 declare global {
-  // eslint-disable-next-line no-var
+   
   var _pgPool: Pool | undefined;
 }
 

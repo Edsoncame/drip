@@ -102,7 +102,7 @@ export default function PhoneInput({
     const s = splitE164(value);
     setCountry((c) => (c.code === s.country.code ? c : s.country));
     setNational((n) => (n === s.national ? n : s.national));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [value]);
 
   // Emit E.164 al padre cada vez que cambie algo

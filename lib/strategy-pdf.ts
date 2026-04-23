@@ -95,7 +95,7 @@ function ensureSpace(
 }
 
 function drawH1(cursor: Cursor, doc: PDFDocument, text: string, font: PDFFont): Cursor {
-  let c = ensureSpace(cursor, doc, 40);
+  const c = ensureSpace(cursor, doc, 40);
   c.page.drawText(text.replace(/[^\x00-\x7F]/g, ""), {
     x: MARGIN.left,
     y: c.y - 20,
@@ -114,7 +114,7 @@ function drawH1(cursor: Cursor, doc: PDFDocument, text: string, font: PDFFont): 
 }
 
 function drawH2(cursor: Cursor, doc: PDFDocument, text: string, font: PDFFont): Cursor {
-  let c = ensureSpace(cursor, doc, 30);
+  const c = ensureSpace(cursor, doc, 30);
   c.page.drawText(text.replace(/[^\x00-\x7F]/g, ""), {
     x: MARGIN.left,
     y: c.y - 16,
@@ -126,7 +126,7 @@ function drawH2(cursor: Cursor, doc: PDFDocument, text: string, font: PDFFont): 
 }
 
 function drawH3(cursor: Cursor, doc: PDFDocument, text: string, font: PDFFont): Cursor {
-  let c = ensureSpace(cursor, doc, 24);
+  const c = ensureSpace(cursor, doc, 24);
   c.page.drawText(text.replace(/[^\x00-\x7F]/g, ""), {
     x: MARGIN.left,
     y: c.y - 14,
@@ -240,7 +240,7 @@ function drawKeyValue(
 }
 
 function drawDivider(cursor: Cursor, doc: PDFDocument): Cursor {
-  let c = ensureSpace(cursor, doc, 12);
+  const c = ensureSpace(cursor, doc, 12);
   c.page.drawLine({
     start: { x: MARGIN.left, y: c.y - 4 },
     end: { x: PAGE.width - MARGIN.right, y: c.y - 4 },
