@@ -7,7 +7,7 @@ import { fireSyncToDropchat } from "@/lib/dropchat-sync";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-// Con las 4 capas forenses (Promise.all con timeout 8s c/u) + arbiter ~3s,
+// Con las 5 capas forenses (Promise.all con timeout 8s c/u) + arbiter ~3s,
 // subimos a 60s. Vercel Fluid Compute con memory=2048 lo soporta nativo.
 export const maxDuration = 60;
 
@@ -118,6 +118,8 @@ export async function POST(req: NextRequest) {
       template_layout: result.templateResult?.layout_score ?? null,
       age_deviation: result.ageResult?.deviation_years ?? null,
       duplicate_flag: result.duplicatesResult?.dni_reused_by_other_user ?? false,
+      sanctions_hit: result.sanctionsResult?.hit ?? false,
+      sanctions_risk: result.sanctionsResult?.risk_score ?? null,
     },
   });
 

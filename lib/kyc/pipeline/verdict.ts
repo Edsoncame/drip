@@ -31,6 +31,9 @@ import {
   type AgeConsistencyResult,
 } from "../age-consistency";
 import { checkDuplicates, type DuplicateCheckResult } from "../duplicates";
+import { ensureSanctionsSchema } from "../sanctions/schema";
+import { checkSanctions } from "../sanctions/match";
+import type { SanctionsCheckResult } from "../sanctions/types";
 
 const tag = "[kyc/pipeline/verdict]";
 const LAYER_TIMEOUT_MS = 8000;
@@ -58,6 +61,7 @@ export interface ComputeVerdictOutput {
   templateResult: TemplateMatchResult | null;
   ageResult: AgeConsistencyResult | null;
   duplicatesResult: DuplicateCheckResult | null;
+  sanctionsResult: SanctionsCheckResult | null;
   enforceFlag: boolean;
 }
 
@@ -93,13 +97,20 @@ async function runForensicsLayers(args: {
   selfieBuffer: Buffer | null;
   dniDob: string | null;
   dupParams: { correlation_id: string; user_id: string | null; dni_number: string | null };
+  sanctionsParams: {
+    correlation_id: string;
+    dni_number: string | null;
+    full_name: string | null;
+    date_of_birth: string | null;
+  };
 }): Promise<{
   forensics: ForensicsResult | null;
   template: TemplateMatchResult | null;
   age: AgeConsistencyResult | null;
   duplicates: DuplicateCheckResult | null;
+  sanctions: SanctionsCheckResult | null;
 }> {
-  const [forensics, template, age, duplicates] = await Promise.all([
+  const [forensics, template, age, duplicates, sanctions] = await Promise.all([
     args.dniBuffer
       ? withTimeout(analyzeDniForensics(args.dniBuffer), LAYER_TIMEOUT_MS, "forensics").catch(
           (err) => {
@@ -134,9 +145,17 @@ async function runForensicsLayers(args: {
       console.error(`${tag} duplicates layer failed:`, err instanceof Error ? err.message : err);
       return null;
     }),
+    withTimeout(
+      checkSanctions(args.sanctionsParams, async (sql, params) => query(sql, params)),
+      LAYER_TIMEOUT_MS,
+      "sanctions",
+    ).catch((err) => {
+      console.error(`${tag} sanctions layer failed:`, err instanceof Error ? err.message : err);
+      return null;
+    }),
   ]);
 
-  return { forensics, template, age, duplicates };
+  return { forensics, template, age, duplicates, sanctions };
 }
 
 export async function computeKycVerdict(
@@ -173,6 +192,7 @@ export async function computeKycVerdict(
       templateResult: null,
       ageResult: null,
       duplicatesResult: null,
+      sanctionsResult: null,
       enforceFlag,
     };
   }
@@ -189,6 +209,7 @@ export async function computeKycVerdict(
       templateResult: null,
       ageResult: null,
       duplicatesResult: null,
+      sanctionsResult: null,
       enforceFlag,
     };
   }
@@ -203,6 +224,7 @@ export async function computeKycVerdict(
     template_json?: TemplateMatchResult | null;
     age_consistency_json?: AgeConsistencyResult | null;
     duplicates_json?: DuplicateCheckResult | null;
+    sanctions_json?: SanctionsCheckResult | null;
   };
   const cached = scan as ScanCache;
 
@@ -210,36 +232,56 @@ export async function computeKycVerdict(
   let templateResult: TemplateMatchResult | null = cached.template_json ?? null;
   let ageResult: AgeConsistencyResult | null = cached.age_consistency_json ?? null;
   let duplicatesResult: DuplicateCheckResult | null = cached.duplicates_json ?? null;
+  let sanctionsResult: SanctionsCheckResult | null = cached.sanctions_json ?? null;
 
   const needsCompute =
-    !forensicsResult || !templateResult || !ageResult || !duplicatesResult;
+    !forensicsResult ||
+    !templateResult ||
+    !ageResult ||
+    !duplicatesResult ||
+    !sanctionsResult;
 
   if (hasAbsoluteUrls && needsCompute && dniUrl && selfieUrl) {
+    await ensureSanctionsSchema();
     const [dniBuf, selfieBuf] = await Promise.all([
       fetchBuffer(dniUrl),
       fetchBuffer(selfieUrl),
     ]);
+    const fullNameFromScan = [scan.apellido_paterno, scan.apellido_materno, scan.prenombres]
+      .filter((v): v is string => !!v)
+      .join(" ") || formName || null;
+    const dobFromScan = scan.fecha_nacimiento
+      ? String(scan.fecha_nacimiento).slice(0, 10)
+      : null;
     const layers = await runForensicsLayers({
       dniBuffer: dniBuf,
       selfieBuffer: selfieBuf,
-      dniDob: scan.fecha_nacimiento ? String(scan.fecha_nacimiento).slice(0, 10) : null,
+      dniDob: dobFromScan,
       dupParams: {
         correlation_id: correlationId,
         user_id: userId,
         dni_number: scan.dni_number,
+      },
+      sanctionsParams: {
+        correlation_id: correlationId,
+        dni_number: scan.dni_number,
+        full_name: fullNameFromScan,
+        date_of_birth: dobFromScan,
       },
     });
     forensicsResult = layers.forensics ?? forensicsResult;
     templateResult = layers.template ?? templateResult;
     ageResult = layers.age ?? ageResult;
     duplicatesResult = layers.duplicates ?? duplicatesResult;
+    sanctionsResult = layers.sanctions ?? sanctionsResult;
 
     await query(
       `UPDATE kyc_dni_scans SET
         forensics_json = COALESCE($2::jsonb, forensics_json),
         template_json = COALESCE($3::jsonb, template_json),
         age_consistency_json = COALESCE($4::jsonb, age_consistency_json),
-        duplicates_json = COALESCE($5::jsonb, duplicates_json)
+        duplicates_json = COALESCE($5::jsonb, duplicates_json),
+        sanctions_json = COALESCE($6::jsonb, sanctions_json)
        WHERE id = $1`,
       [
         scan.id,
@@ -247,6 +289,7 @@ export async function computeKycVerdict(
         templateResult ? JSON.stringify(templateResult) : null,
         ageResult ? JSON.stringify(ageResult) : null,
         duplicatesResult ? JSON.stringify(duplicatesResult) : null,
+        sanctionsResult ? JSON.stringify(sanctionsResult) : null,
       ],
     );
   }
@@ -277,6 +320,21 @@ export async function computeKycVerdict(
   const ARBITER_THRESHOLD = Number(process.env.KYC_FORENSICS_ARBITER_THRESHOLD ?? 0.4);
   const TEMPLATE_MIN = Number(process.env.KYC_TEMPLATE_MIN_SCORE ?? 0.6);
   const AGE_DEVIATION_LIMIT = 5;
+  const sanctionsEnforce = process.env.KYC_SANCTIONS_ENFORCE === "true";
+  const SANCTIONS_REJECT = Number(process.env.KYC_SANCTIONS_REJECT_THRESHOLD ?? 0.85);
+
+  // Sanctions se evalúa primero — prioridad regulatoria.
+  if (
+    sanctionsEnforce &&
+    status !== "rejected" &&
+    sanctionsResult?.hit &&
+    sanctionsResult.risk_score >= SANCTIONS_REJECT
+  ) {
+    const top = sanctionsResult.hits[0];
+    status = "rejected";
+    reason = `sanctions: ${top.source}/${top.list_type} (${top.match_type} ${top.match_score.toFixed(2)})`;
+    console.log(`${tag} ENFORCE auto-reject by sanctions corr=${correlationId}`);
+  }
 
   if (enforceFlag && status !== "rejected") {
     if (duplicatesResult?.dni_reused_by_other_user) {
@@ -319,6 +377,19 @@ export async function computeKycVerdict(
           template: templateResult ?? undefined,
           age_consistency: ageResult ?? undefined,
           duplicates: duplicatesResult ?? undefined,
+          sanctions: sanctionsResult
+            ? {
+                hit: sanctionsResult.hit,
+                risk_score: sanctionsResult.risk_score,
+                hits: sanctionsResult.hits.slice(0, 5).map((h) => ({
+                  source: h.source,
+                  list_type: h.list_type,
+                  full_name: h.full_name,
+                  match_type: h.match_type,
+                  match_score: h.match_score,
+                })),
+              }
+            : undefined,
         };
         const verdict = await arbitrateKyc({
           formName: formName ?? "",
@@ -367,6 +438,7 @@ export async function computeKycVerdict(
     templateResult,
     ageResult,
     duplicatesResult,
+    sanctionsResult,
     enforceFlag,
   };
 }
