@@ -17,6 +17,13 @@ export const maxDuration = 30;
 
 const tag = "[kyc/sdk/upload]";
 const MAX_BYTES = 10 * 1024 * 1024; // 10 MB por frame
+// Hard cap por sesión — protege contra abuse con session_token robado:
+// con 3 selfie frames + dni_front + dni_back + márgen para retries (15) =
+// 20 uploads cubre cualquier flujo legítimo. >20 indica abuse o bug del cliente.
+const MAX_UPLOADS_PER_SESSION = 20;
+// Hard cap del array selfie_frames específicamente — evita inflar metadata
+// con index=999 etc.
+const MAX_SELFIE_FRAMES = 10;
 
 type Kind = "dni_front" | "dni_back" | "selfie" | "liveness_frame";
 
@@ -66,6 +73,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "session_closed" }, { status: 409 });
   }
 
+  // Rate limit por sesión — defensa contra session_token robado.
+  const uploadsCount =
+    Number((session.metadata as Record<string, unknown>).uploads_count ?? 0) || 0;
+  if (uploadsCount >= MAX_UPLOADS_PER_SESSION) {
+    console.warn(
+      `${tag} session=${session.id} hit MAX_UPLOADS_PER_SESSION=${MAX_UPLOADS_PER_SESSION}`,
+    );
+    return NextResponse.json(
+      { error: "upload_limit", detail: `max ${MAX_UPLOADS_PER_SESSION} uploads per session` },
+      { status: 429 },
+    );
+  }
+
   const body = (await req.json().catch(() => null)) as {
     kind?: Kind;
     image?: string;
@@ -80,6 +100,17 @@ export async function POST(req: NextRequest) {
   }
   if (!(body.kind in BLOB_KIND)) {
     return NextResponse.json({ error: "invalid_kind" }, { status: 400 });
+  }
+  // Cap selfie_frames index para evitar metadata inflation
+  if (
+    (body.kind === "selfie" || body.kind === "liveness_frame") &&
+    typeof body.frame_index === "number" &&
+    (body.frame_index < 0 || body.frame_index >= MAX_SELFIE_FRAMES)
+  ) {
+    return NextResponse.json(
+      { error: "invalid_frame_index", detail: `0..${MAX_SELFIE_FRAMES - 1}` },
+      { status: 400 },
+    );
   }
 
   const bytes = decodeBase64(body.image);
@@ -121,10 +152,16 @@ export async function POST(req: NextRequest) {
     uploads.selfie_frames[idx] = entry;
   }
 
+  // Update atomically — uploads + uploads_count en un solo UPDATE para que el
+  // contador no quede desincronizado con uploads en escritura concurrente.
   await query(
     `UPDATE kyc_sdk_sessions
        SET status = CASE WHEN status = 'pending' THEN 'capturing' ELSE status END,
-           metadata = jsonb_set(metadata, '{uploads}', $2::jsonb)
+           metadata = jsonb_set(
+             jsonb_set(metadata, '{uploads}', $2::jsonb),
+             '{uploads_count}',
+             to_jsonb(COALESCE((metadata->>'uploads_count')::int, 0) + 1)
+           )
      WHERE id = $1`,
     [session.id, JSON.stringify(uploads)],
   );

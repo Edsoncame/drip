@@ -4,6 +4,7 @@ import { query } from "@/lib/db";
 import { ensureSdkSchema, type DbSdkSession } from "@/lib/kyc/sdk/schema";
 import { authenticateTenant } from "@/lib/kyc/sdk/tenant-auth";
 import { signSessionToken } from "@/lib/kyc/sdk/session-token";
+import { isValidWebhookUrl } from "@/lib/kyc/sdk/webhook-url";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,6 +15,15 @@ const tag = "[kyc/sdk/sessions]";
 function toIso(d: Date): string {
   return d.toISOString();
 }
+
+/**
+ * Valida que la URL de webhook sea segura para emitir POST desde Vercel:
+ *   - Esquema https obligatorio (no http, no file://, no data:)
+ *   - Bloquea localhost / IPs privadas / link-local — protección SSRF
+ *     (incluso si un tenant tiene api_key comprometida, no puede usar el
+ *     webhook saliente para escanear infra interna).
+ *   - Permite cualquier hostname público resoluble.
+ */
 
 export async function POST(req: NextRequest) {
   await ensureSdkSchema();
@@ -36,6 +46,12 @@ export async function POST(req: NextRequest) {
   const expiresAt = new Date(Date.now() + TTL_MIN_DEFAULT * 60 * 1000);
 
   const webhookUrl = body.webhook_url ?? auth.tenant.default_webhook_url ?? null;
+  if (webhookUrl && !isValidWebhookUrl(webhookUrl)) {
+    return NextResponse.json(
+      { error: "invalid_webhook_url", detail: "https only, sin IPs privadas/localhost" },
+      { status: 400 },
+    );
+  }
 
   const ins = await query<DbSdkSession>(
     `INSERT INTO kyc_sdk_sessions
