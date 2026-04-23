@@ -16,6 +16,9 @@ import {
   type AgeConsistencyResult,
 } from "@/lib/kyc/age-consistency";
 import { checkDuplicates, type DuplicateCheckResult } from "@/lib/kyc/duplicates";
+import { ensureSanctionsSchema } from "@/lib/kyc/sanctions/schema";
+import { checkSanctions } from "@/lib/kyc/sanctions/match";
+import type { SanctionsCheckResult } from "@/lib/kyc/sanctions/types";
 import { fireSyncToDropchat } from "@/lib/dropchat-sync";
 
 export const runtime = "nodejs";
@@ -68,13 +71,20 @@ async function runForensicsLayers(args: {
   selfieBuffer: Buffer | null;
   dniDob: string | null;
   dupParams: { correlation_id: string; user_id: string | null; dni_number: string | null };
+  sanctionsParams: {
+    correlation_id: string;
+    dni_number: string | null;
+    full_name: string | null;
+    date_of_birth: string | null;
+  };
 }): Promise<{
   forensics: ForensicsResult | null;
   template: TemplateMatchResult | null;
   age: AgeConsistencyResult | null;
   duplicates: DuplicateCheckResult | null;
+  sanctions: SanctionsCheckResult | null;
 }> {
-  const [forensics, template, age, duplicates] = await Promise.all([
+  const [forensics, template, age, duplicates, sanctions] = await Promise.all([
     args.dniBuffer
       ? withTimeout(analyzeDniForensics(args.dniBuffer), LAYER_TIMEOUT_MS, "forensics").catch(
           (err) => {
@@ -109,9 +119,17 @@ async function runForensicsLayers(args: {
       console.error(`${tag} duplicates layer failed:`, err instanceof Error ? err.message : err);
       return null;
     }),
+    withTimeout(
+      checkSanctions(args.sanctionsParams, async (sql, params) => query(sql, params)),
+      LAYER_TIMEOUT_MS,
+      "sanctions",
+    ).catch((err) => {
+      console.error(`${tag} sanctions layer failed:`, err instanceof Error ? err.message : err);
+      return null;
+    }),
   ]);
 
-  return { forensics, template, age, duplicates };
+  return { forensics, template, age, duplicates, sanctions };
 }
 
 /**
@@ -199,6 +217,7 @@ export async function POST(req: NextRequest) {
     template_json?: TemplateMatchResult | null;
     age_consistency_json?: AgeConsistencyResult | null;
     duplicates_json?: DuplicateCheckResult | null;
+    sanctions_json?: SanctionsCheckResult | null;
   };
   const cached = scan as ScanCache;
 
@@ -206,29 +225,48 @@ export async function POST(req: NextRequest) {
   let templateResult: TemplateMatchResult | null = cached.template_json ?? null;
   let ageResult: AgeConsistencyResult | null = cached.age_consistency_json ?? null;
   let duplicatesResult: DuplicateCheckResult | null = cached.duplicates_json ?? null;
+  let sanctionsResult: SanctionsCheckResult | null = cached.sanctions_json ?? null;
 
   const needsCompute =
-    !forensicsResult || !templateResult || !ageResult || !duplicatesResult;
+    !forensicsResult ||
+    !templateResult ||
+    !ageResult ||
+    !duplicatesResult ||
+    !sanctionsResult;
 
   if (hasAbsoluteUrls && needsCompute && dniUrl && selfieUrl) {
+    await ensureSanctionsSchema();
     const [dniBuf, selfieBuf] = await Promise.all([
       fetchBuffer(dniUrl),
       fetchBuffer(selfieUrl),
     ]);
+    const fullNameFromScan = [scan.apellido_paterno, scan.apellido_materno, scan.prenombres]
+      .filter((v): v is string => !!v)
+      .join(" ") || form_name || null;
+    const dobFromScan = scan.fecha_nacimiento
+      ? String(scan.fecha_nacimiento).slice(0, 10)
+      : null;
     const layers = await runForensicsLayers({
       dniBuffer: dniBuf,
       selfieBuffer: selfieBuf,
-      dniDob: scan.fecha_nacimiento ? String(scan.fecha_nacimiento).slice(0, 10) : null,
+      dniDob: dobFromScan,
       dupParams: {
         correlation_id,
         user_id: userId,
         dni_number: scan.dni_number,
+      },
+      sanctionsParams: {
+        correlation_id,
+        dni_number: scan.dni_number,
+        full_name: fullNameFromScan,
+        date_of_birth: dobFromScan,
       },
     });
     forensicsResult = layers.forensics ?? forensicsResult;
     templateResult = layers.template ?? templateResult;
     ageResult = layers.age ?? ageResult;
     duplicatesResult = layers.duplicates ?? duplicatesResult;
+    sanctionsResult = layers.sanctions ?? sanctionsResult;
 
     // Persistir cache — update idempotente de las columnas JSONB
     await query(
@@ -236,7 +274,8 @@ export async function POST(req: NextRequest) {
         forensics_json = COALESCE($2::jsonb, forensics_json),
         template_json = COALESCE($3::jsonb, template_json),
         age_consistency_json = COALESCE($4::jsonb, age_consistency_json),
-        duplicates_json = COALESCE($5::jsonb, duplicates_json)
+        duplicates_json = COALESCE($5::jsonb, duplicates_json),
+        sanctions_json = COALESCE($6::jsonb, sanctions_json)
        WHERE id = $1`,
       [
         scan.id,
@@ -244,6 +283,7 @@ export async function POST(req: NextRequest) {
         templateResult ? JSON.stringify(templateResult) : null,
         ageResult ? JSON.stringify(ageResult) : null,
         duplicatesResult ? JSON.stringify(duplicatesResult) : null,
+        sanctionsResult ? JSON.stringify(sanctionsResult) : null,
       ],
     );
   }
@@ -276,10 +316,29 @@ export async function POST(req: NextRequest) {
   // Fase 4 — aplicar reglas forenses SOLO si KYC_FORENSICS_ENFORCE=true
   // ════════════════════════════════════════════════════════════════════════
   const enforce = process.env.KYC_FORENSICS_ENFORCE === "true";
+  const sanctionsEnforce = process.env.KYC_SANCTIONS_ENFORCE === "true";
   const REJECT_THRESHOLD = Number(process.env.KYC_FORENSICS_REJECT_THRESHOLD ?? 0.75);
   const ARBITER_THRESHOLD = Number(process.env.KYC_FORENSICS_ARBITER_THRESHOLD ?? 0.4);
   const TEMPLATE_MIN = Number(process.env.KYC_TEMPLATE_MIN_SCORE ?? 0.6);
   const AGE_DEVIATION_LIMIT = 5;
+  // Sanctions reject threshold: un hit doc_exact siempre es >= 1.0 × severity.
+  // Con default 0.85 cortamos TERRORISM/SANCTION/AML doc_exact y name_fuzzy
+  // ≥0.95 contra TERRORISM, pero dejamos PEP (max 0.5) para que pase al
+  // arbiter, no auto-reject.
+  const SANCTIONS_REJECT = Number(process.env.KYC_SANCTIONS_REJECT_THRESHOLD ?? 0.85);
+
+  // Sanctions se evalúa SIEMPRE cuando hit con risk alto — prioridad regulatoria.
+  if (
+    sanctionsEnforce &&
+    status !== "rejected" &&
+    sanctionsResult?.hit &&
+    sanctionsResult.risk_score >= SANCTIONS_REJECT
+  ) {
+    const top = sanctionsResult.hits[0];
+    status = "rejected";
+    reason = `sanctions: ${top.source}/${top.list_type} (${top.match_type} ${top.match_score.toFixed(2)})`;
+    console.log(`${tag} ENFORCE auto-reject by sanctions corr=${correlation_id}`);
+  }
 
   if (enforce && status !== "rejected") {
     // Auto-reject por fraude obvio
@@ -329,6 +388,19 @@ export async function POST(req: NextRequest) {
           template: templateResult ?? undefined,
           age_consistency: ageResult ?? undefined,
           duplicates: duplicatesResult ?? undefined,
+          sanctions: sanctionsResult
+            ? {
+                hit: sanctionsResult.hit,
+                risk_score: sanctionsResult.risk_score,
+                hits: sanctionsResult.hits.slice(0, 5).map((h) => ({
+                  source: h.source,
+                  list_type: h.list_type,
+                  full_name: h.full_name,
+                  match_type: h.match_type,
+                  match_score: h.match_score,
+                })),
+              }
+            : undefined,
         };
         const verdict = await arbitrateKyc({
           formName: form_name ?? "",
@@ -424,6 +496,8 @@ export async function POST(req: NextRequest) {
       template_layout: templateResult?.layout_score ?? null,
       age_deviation: ageResult?.deviation_years ?? null,
       duplicate_flag: duplicatesResult?.dni_reused_by_other_user ?? false,
+      sanctions_hit: sanctionsResult?.hit ?? false,
+      sanctions_risk: sanctionsResult?.risk_score ?? null,
     },
   });
 
