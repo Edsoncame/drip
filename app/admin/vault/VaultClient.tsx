@@ -239,6 +239,11 @@ export default function VaultClient() {
     setLoading(false);
   }, []);
 
+  // Fetch inicial on mount — load() hace setEntries internamente, lo cual
+  // el Compiler flaggea. Patrón legítimo data-fetch-on-mount (no hay SSR
+  // para vault por seguridad; siempre client-only). Alternativa sería React
+  // Query o SWR pero agrega dep innecesaria.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load(); }, [load]);
 
   const presentCategories = ["Todas", ...Array.from(new Set(entries.map(e => e.category)))];
