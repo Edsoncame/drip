@@ -33,6 +33,19 @@ pero escribe el verdict en `kyc_sdk_sessions` en vez de en `users`.
                             X-Flux-KYC-Signature: t=TS,v1=HMAC
 ```
 
+## Formas de integración
+
+Tres opciones según qué controle el tenant:
+
+1. **Hosted web** (más rápido, sin SDK nativo):
+   - Tenant crea sesión en su backend con tenant API key
+   - Redirige al usuario a `https://fluxperu.com/kyc/s/<session_id>?t=<session_token>`
+   - Flux muestra la captura, corre el pipeline, postea webhook, devuelve al usuario
+2. **iOS / Android SDK nativo**: tenant embebe la captura en su app usando
+   `flux-kyc-ios` / `flux-kyc-android`. El SDK llama a los endpoints directo.
+3. **Web custom**: tenant hace su propio cliente JS/TS contra estos endpoints
+   — útil si quiere la captura embebida en su dominio y controla la UX.
+
 ## Flujo completo (curl)
 
 ### 0. Seed tenant (una sola vez)
