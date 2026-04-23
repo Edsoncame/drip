@@ -618,7 +618,7 @@ function ProductModal({
             </Row>
             <label className="flex items-center gap-2 text-sm text-[#333] cursor-pointer">
               <input type="checkbox" checked={form.is_new} onChange={(e) => setForm({ ...form, is_new: e.target.checked })} />
-              Marcar como "Nuevo"
+              Marcar como &ldquo;Nuevo&rdquo;
             </label>
           </Section>
 

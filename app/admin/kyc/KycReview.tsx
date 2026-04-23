@@ -76,7 +76,7 @@ export default function KycReview({ cases }: { cases: KycCase[] }) {
               {filtered.length === 0 && (
                 <tr>
                   <td colSpan={7} className="text-center py-8 text-[#999]">
-                    No hay casos con status "{filter}"
+                    No hay casos con status &ldquo;{filter}&rdquo;
                   </td>
                 </tr>
               )}
