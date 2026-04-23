@@ -22,6 +22,14 @@ function resolveAgentsRoot(): string {
   return "/Users/securex07/flux-marketing";
 }
 
+// NOTA: Turbopack emite un warning cosmético al build
+// ("Encountered unexpected file in NFT list") porque statSync() con path
+// dinámico (process.cwd()) en import-time confunde al tracer y hace que
+// marque el NFT list con "whole project". Infla un poco el bundle
+// serverless pero NO rompe correctness ni runtime. Se probó un wrapper
+// lazy con Proxy — path.join() rechaza el resultado por `typeof !== "string"`
+// → descartado. Un refactor a `getAgentsRoot()` function queda como deuda
+// documentada en AUDIT_NOTES.md.
 export const AGENTS_ROOT = resolveAgentsRoot();
 
 export type AgentId =

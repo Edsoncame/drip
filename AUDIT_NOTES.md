@@ -1,5 +1,33 @@
 # AUDIT NOTES — issues found but not fixed
 
+## P3 — Turbopack NFT tracer warning en `lib/agents.ts`
+
+Al hacer `npm run build`, Turbopack emite 1 warning:
+
+```
+Encountered unexpected file in NFT list
+A file was traced that indicates that the whole project was traced unintentionally.
+
+Import trace:
+  App Route:
+    ./next.config.ts
+    ./lib/agents.ts
+    ./app/api/admin/agents/state/route.ts
+```
+
+**Causa:** `resolveAgentsRoot()` se ejecuta en import-time (`export const AGENTS_ROOT = resolveAgentsRoot()`) y llama `statSync(path.join(process.cwd(), ...))`. El tracer estático de Turbopack ve una fs operation con path dinámico y marca el NFT list con "whole project", inflando el bundle serverless.
+
+**Intentos fallidos (documentados en audit commits):**
+- `/*turbopackIgnore: true*/` comment en `statSync` — no aceptado por el tracer acá.
+- Wrapper con `Proxy` lazy — rompe `path.join(AGENTS_ROOT, ...)` porque Node valida `typeof === 'string'` antes de coerce.
+
+**Fix pendiente (refactor grande):** convertir `AGENTS_ROOT` de `const` a `getAgentsRoot()` function y actualizar todos los call sites (~10+). Queda como deuda.
+
+**Impacto real:** bundle serverless un poco inflado (cuántos MB extra: no medido). Runtime correctness: **cero impacto**. Decisión: aceptar el warning para esta iteración.
+
+---
+
+
 > Audit date: 2026-04-22 · Branch `audit/2026-04-22` · Non-trivial issues
 > deferred for dedicated review because the fix could change semantics.
 
