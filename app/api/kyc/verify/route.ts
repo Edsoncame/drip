@@ -8,15 +8,111 @@ import {
   type DbKycFaceMatch,
   type KycStatus,
 } from "@/lib/kyc/db";
-import { arbitrateKyc } from "@/lib/kyc/arbiter";
+import { arbitrateKyc, type ArbiterForensicsSignals } from "@/lib/kyc/arbiter";
+import { analyzeDniForensics, type ForensicsResult } from "@/lib/kyc/forensics";
+import { matchDniTemplate, type TemplateMatchResult } from "@/lib/kyc/template";
+import {
+  checkAgeConsistency,
+  type AgeConsistencyResult,
+} from "@/lib/kyc/age-consistency";
+import { checkDuplicates, type DuplicateCheckResult } from "@/lib/kyc/duplicates";
 import { fireSyncToDropchat } from "@/lib/dropchat-sync";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-// El arbiter con Claude agrega ~3s; dejamos 30s de margen.
-export const maxDuration = 30;
+// Con las 4 capas forenses (Promise.all con timeout 8s c/u) + arbiter ~3s,
+// subimos a 60s. Vercel Fluid Compute con memory=2048 lo soporta nativo.
+export const maxDuration = 60;
 
 const tag = "[kyc/verify]";
+
+/** Fetch un blob público (imagen_anverso_key o selfie_key) y retorna Buffer. */
+async function fetchBuffer(url: string): Promise<Buffer | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    return Buffer.from(await res.arrayBuffer());
+  } catch (err) {
+    console.error(`${tag} fetchBuffer failed:`, err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
+/** Promise con timeout hard — si excede el deadline, rechaza con timeout error. */
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(`${label} timeout (${ms}ms)`)), ms);
+    p.then(
+      (v) => {
+        clearTimeout(t);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(t);
+        reject(e);
+      },
+    );
+  });
+}
+
+const LAYER_TIMEOUT_MS = 8000;
+
+/**
+ * Corre las 4 capas forenses en paralelo con timeouts individuales.
+ * Si una falla o excede timeout, retorna null en su slot — el verify
+ * no bloquea y los JSONB de cache quedan sin esa capa (se puede
+ * recomputar en re-verify).
+ */
+async function runForensicsLayers(args: {
+  dniBuffer: Buffer | null;
+  selfieBuffer: Buffer | null;
+  dniDob: string | null;
+  dupParams: { correlation_id: string; user_id: string | null; dni_number: string | null };
+}): Promise<{
+  forensics: ForensicsResult | null;
+  template: TemplateMatchResult | null;
+  age: AgeConsistencyResult | null;
+  duplicates: DuplicateCheckResult | null;
+}> {
+  const [forensics, template, age, duplicates] = await Promise.all([
+    args.dniBuffer
+      ? withTimeout(analyzeDniForensics(args.dniBuffer), LAYER_TIMEOUT_MS, "forensics").catch(
+          (err) => {
+            console.error(`${tag} forensics layer failed:`, err instanceof Error ? err.message : err);
+            return null;
+          },
+        )
+      : Promise.resolve(null),
+    args.dniBuffer
+      ? withTimeout(matchDniTemplate(args.dniBuffer, "front"), LAYER_TIMEOUT_MS, "template").catch(
+          (err) => {
+            console.error(`${tag} template layer failed:`, err instanceof Error ? err.message : err);
+            return null;
+          },
+        )
+      : Promise.resolve(null),
+    args.selfieBuffer && args.dniDob
+      ? withTimeout(
+          checkAgeConsistency(args.selfieBuffer, args.dniDob),
+          LAYER_TIMEOUT_MS,
+          "age",
+        ).catch((err) => {
+          console.error(`${tag} age layer failed:`, err instanceof Error ? err.message : err);
+          return null;
+        })
+      : Promise.resolve(null),
+    withTimeout(
+      checkDuplicates(args.dupParams, async (sql, params) => query(sql, params)),
+      LAYER_TIMEOUT_MS,
+      "duplicates",
+    ).catch((err) => {
+      console.error(`${tag} duplicates layer failed:`, err instanceof Error ? err.message : err);
+      return null;
+    }),
+  ]);
+
+  return { forensics, template, age, duplicates };
+}
 
 /**
  * Orquestador — lee los resultados de OCR + match + face compare y decide
@@ -31,6 +127,14 @@ const tag = "[kyc/verify]";
  * en `review` esperando humano, los pasamos por un arbiter con Claude Opus
  * que mira DNI + selfie + datos y decide verified o rejected. El usuario
  * siempre recibe un veredicto claro en tiempo real.
+ *
+ * Fase 4 del pipeline forense (P2-1): corren en paralelo 4 capas nuevas
+ * (forensics, template, age, duplicates). Sus resultados se cachean en
+ * columnas JSONB de kyc_dni_scans. Si KYC_FORENSICS_ENFORCE=true, las
+ * señales aplican reglas antes del arbiter (auto-reject en casos claros
+ * de fraude, fuerzan arbiter en borderline). En modo observación
+ * (KYC_FORENSICS_ENFORCE=false, default), calculan y persisten pero NO
+ * alteran el veredicto — solo loguean + guardan para análisis.
  */
 export async function POST(req: NextRequest) {
   await ensureKycSchema();
@@ -78,6 +182,72 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // ════════════════════════════════════════════════════════════════════════
+  // Fase 4 — pipeline forense: descargar imágenes y correr las 4 capas en
+  // paralelo con timeout individual. Resultados se cachean en las columnas
+  // JSONB de kyc_dni_scans para no recomputar en re-verifys.
+  // ════════════════════════════════════════════════════════════════════════
+  const dniUrl = scan.imagen_anverso_key;
+  const selfieUrl = face.selfie_key;
+
+  const hasAbsoluteUrls =
+    dniUrl?.startsWith("http") && selfieUrl?.startsWith("http");
+
+  // Si ya hay cache, usarla (reintentos no recomputan las capas costosas)
+  type ScanCache = DbKycDniScan & {
+    forensics_json?: ForensicsResult | null;
+    template_json?: TemplateMatchResult | null;
+    age_consistency_json?: AgeConsistencyResult | null;
+    duplicates_json?: DuplicateCheckResult | null;
+  };
+  const cached = scan as ScanCache;
+
+  let forensicsResult: ForensicsResult | null = cached.forensics_json ?? null;
+  let templateResult: TemplateMatchResult | null = cached.template_json ?? null;
+  let ageResult: AgeConsistencyResult | null = cached.age_consistency_json ?? null;
+  let duplicatesResult: DuplicateCheckResult | null = cached.duplicates_json ?? null;
+
+  const needsCompute =
+    !forensicsResult || !templateResult || !ageResult || !duplicatesResult;
+
+  if (hasAbsoluteUrls && needsCompute && dniUrl && selfieUrl) {
+    const [dniBuf, selfieBuf] = await Promise.all([
+      fetchBuffer(dniUrl),
+      fetchBuffer(selfieUrl),
+    ]);
+    const layers = await runForensicsLayers({
+      dniBuffer: dniBuf,
+      selfieBuffer: selfieBuf,
+      dniDob: scan.fecha_nacimiento ? String(scan.fecha_nacimiento).slice(0, 10) : null,
+      dupParams: {
+        correlation_id,
+        user_id: userId,
+        dni_number: scan.dni_number,
+      },
+    });
+    forensicsResult = layers.forensics ?? forensicsResult;
+    templateResult = layers.template ?? templateResult;
+    ageResult = layers.age ?? ageResult;
+    duplicatesResult = layers.duplicates ?? duplicatesResult;
+
+    // Persistir cache — update idempotente de las columnas JSONB
+    await query(
+      `UPDATE kyc_dni_scans SET
+        forensics_json = COALESCE($2::jsonb, forensics_json),
+        template_json = COALESCE($3::jsonb, template_json),
+        age_consistency_json = COALESCE($4::jsonb, age_consistency_json),
+        duplicates_json = COALESCE($5::jsonb, duplicates_json)
+       WHERE id = $1`,
+      [
+        scan.id,
+        forensicsResult ? JSON.stringify(forensicsResult) : null,
+        templateResult ? JSON.stringify(templateResult) : null,
+        ageResult ? JSON.stringify(ageResult) : null,
+        duplicatesResult ? JSON.stringify(duplicatesResult) : null,
+      ],
+    );
+  }
+
   // Paso 1 — Decisión clásica por umbrales
   let status: KycStatus = "rejected";
   let reason = "";
@@ -102,13 +272,64 @@ export async function POST(req: NextRequest) {
     reason = "all_checks_passed";
   }
 
-  // Si quedamos en review, consultamos al arbiter
+  // ════════════════════════════════════════════════════════════════════════
+  // Fase 4 — aplicar reglas forenses SOLO si KYC_FORENSICS_ENFORCE=true
+  // ════════════════════════════════════════════════════════════════════════
+  const enforce = process.env.KYC_FORENSICS_ENFORCE === "true";
+  const REJECT_THRESHOLD = Number(process.env.KYC_FORENSICS_REJECT_THRESHOLD ?? 0.75);
+  const ARBITER_THRESHOLD = Number(process.env.KYC_FORENSICS_ARBITER_THRESHOLD ?? 0.4);
+  const TEMPLATE_MIN = Number(process.env.KYC_TEMPLATE_MIN_SCORE ?? 0.6);
+  const AGE_DEVIATION_LIMIT = 5;
+
+  if (enforce && status !== "rejected") {
+    // Auto-reject por fraude obvio
+    if (duplicatesResult?.dni_reused_by_other_user) {
+      status = "rejected";
+      reason = `duplicates: dni_number usado por ${duplicatesResult.other_user_ids.length} otro(s) user(s)`;
+      console.log(`${tag} ENFORCE auto-reject by duplicates corr=${correlation_id}`);
+    } else if (
+      forensicsResult &&
+      forensicsResult.overall_tampering_risk > REJECT_THRESHOLD
+    ) {
+      status = "rejected";
+      reason = `forensics: overall_tampering_risk=${forensicsResult.overall_tampering_risk.toFixed(3)} > ${REJECT_THRESHOLD}`;
+      console.log(`${tag} ENFORCE auto-reject by forensics corr=${correlation_id}`);
+    } else {
+      // Forzar arbiter si hay señales moderadas
+      const forensicsConcerning =
+        forensicsResult && forensicsResult.overall_tampering_risk > ARBITER_THRESHOLD;
+      const templateConcerning =
+        templateResult && templateResult.layout_score < TEMPLATE_MIN;
+      const ageConcerning =
+        ageResult && ageResult.deviation_years > AGE_DEVIATION_LIMIT;
+
+      if (
+        (forensicsConcerning || templateConcerning || ageConcerning) &&
+        status === "verified"
+      ) {
+        // Degradar a review para que el arbiter inspeccione
+        status = "review";
+        reason = "forensics_signals_concerning";
+        console.log(
+          `${tag} ENFORCE force arbiter corr=${correlation_id} fx=${forensicsConcerning ? "y" : "n"} tpl=${templateConcerning ? "y" : "n"} age=${ageConcerning ? "y" : "n"}`,
+        );
+      }
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  // Si quedamos en review (por nombre borderline o forensics concerning),
+  // consultamos al arbiter — con las señales cuantitativas en el payload.
+  // ════════════════════════════════════════════════════════════════════════
   if (status === "review") {
     try {
-      const dniUrl = scan.imagen_anverso_key;
-      const selfieUrl = face.selfie_key;
-      // Solo arbitramos si ambas URLs son absolutas (esquema nuevo)
-      if (dniUrl?.startsWith("http") && selfieUrl?.startsWith("http")) {
+      if (hasAbsoluteUrls) {
+        const signals: ArbiterForensicsSignals = {
+          forensics: forensicsResult ?? undefined,
+          template: templateResult ?? undefined,
+          age_consistency: ageResult ?? undefined,
+          duplicates: duplicatesResult ?? undefined,
+        };
         const verdict = await arbitrateKyc({
           formName: form_name ?? "",
           formDniNumber: form_dni ?? "",
@@ -119,8 +340,9 @@ export async function POST(req: NextRequest) {
           nameScore: typeof name_score === "number" ? name_score : 0,
           faceScore: parseFloat(String(face.score)) || 0,
           livenessPassed: face.liveness_passed,
-          dniImageUrl: dniUrl,
-          selfieImageUrl: selfieUrl,
+          dniImageUrl: dniUrl!,
+          selfieImageUrl: selfieUrl!,
+          ...signals,
         });
         arbiterUsed = true;
         arbiterConfidence = verdict.confidence;
@@ -130,12 +352,6 @@ export async function POST(req: NextRequest) {
           `${tag} arbiter corr=${correlation_id} verdict=${verdict.verdict} confidence=${verdict.confidence.toFixed(2)} checks=${JSON.stringify(verdict.checks)}`,
         );
       } else {
-        // Las URLs guardadas no son absolutas. Hoy (20-abr-2026) todas las
-        // rows en kyc_dni_scans + kyc_face_matches tienen URL absoluta, así
-        // que este branch es defensivo — si algún upload futuro guardara el
-        // blob key sin prefijo http://, caería acá.
-        //
-        // Logueamos ruidosamente para detectarlo y ser conservadores: rechazar.
         console.error(
           `${tag} ARBITER_SKIPPED corr=${correlation_id} non-URL keys ` +
             `dniUrl=${dniUrl?.slice(0, 30)}... selfieUrl=${selfieUrl?.slice(0, 30)}...`,
@@ -144,9 +360,6 @@ export async function POST(req: NextRequest) {
         reason = "borderline_no_arbiter";
       }
     } catch (err) {
-      // Si el arbiter falla, somos conservadores: rechazamos.
-      // El user puede reintentar y probablemente esta vez las imágenes
-      // serán más claras.
       console.error(`${tag} arbiter error corr=${correlation_id}`, err);
       status = "rejected";
       reason = `arbiter_error: ${err instanceof Error ? err.message.slice(0, 100) : "unknown"}`;
@@ -206,11 +419,16 @@ export async function POST(req: NextRequest) {
       liveness: face.liveness_passed,
       arbiter_used: arbiterUsed,
       arbiter_confidence: arbiterConfidence,
+      forensics_enforce: enforce,
+      forensics_overall: forensicsResult?.overall_tampering_risk ?? null,
+      template_layout: templateResult?.layout_score ?? null,
+      age_deviation: ageResult?.deviation_years ?? null,
+      duplicate_flag: duplicatesResult?.dni_reused_by_other_user ?? false,
     },
   });
 
   console.log(
-    `${tag} corr=${correlation_id} status=${status} reason=${reason} face=${face.score} name=${name_score} arbiter=${arbiterUsed}`,
+    `${tag} corr=${correlation_id} status=${status} reason=${reason} face=${face.score} name=${name_score} arbiter=${arbiterUsed} enforce=${enforce}`,
   );
 
   // Drop Chat sync real-time — legal_name y kyc_status cambiaron
