@@ -23,7 +23,37 @@ import { generateText, tool } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { z } from "zod";
 
-export interface ArbiterInput {
+/** Señales cuantitativas del pipeline forense (todas opcionales). */
+export interface ArbiterForensicsSignals {
+  forensics?: {
+    ela_score: number;
+    copy_move_score: number;
+    photo_edge_score: number;
+    noise_consistency: number;
+    overall_tampering_risk: number;
+  };
+  template?: {
+    layout_score: number;
+    escudo_detected: boolean;
+    photo_bbox_ok: boolean;
+    mrz_region_ok: boolean;
+    issues: string[];
+  };
+  age_consistency?: {
+    estimated_age_low: number;
+    estimated_age_high: number;
+    dni_age: number;
+    within_range: boolean;
+    deviation_years: number;
+  };
+  duplicates?: {
+    dni_reused_by_other_user: boolean;
+    other_user_ids: string[];
+    risk_score: number;
+  };
+}
+
+export interface ArbiterInput extends ArbiterForensicsSignals {
   /** Datos que el usuario ingresó en el form */
   formName: string;
   formDniNumber: string;
@@ -116,7 +146,80 @@ apellido, o invierte el orden, o abrevia "María del Pilar" a "Mariap").
 **Criterio para aprobar**:
 - Match facial plausible + nombre razonablemente cercano + DNI se ve real.
 
+**Señales forenses cuantitativas (opcionales, usá si vienen en el payload)**:
+Cuando el payload incluya scores forenses, dales peso FUERTE en tu decisión:
+
+- \`forensics.overall_tampering_risk > 0.5\` → fuerte señal de manipulación
+  digital. Inclinate a rechazar salvo que el DNI visualmente se vea impecable
+  y el resto de la evidencia sea sólida (puede haber falso positivo por
+  scan con ruido alto). Documentá el score en \`reason\`.
+
+- \`duplicates.dni_reused_by_other_user = true\` → RECHAZAR casi sin
+  excepción. El mismo DNI fue usado por otro user_id en un intento previo de
+  KYC. Un DNI legítimo pertenece a una sola persona. Solo ignorar si la
+  historia apunta a un caso claro de typo en ingreso (y aun así preferí
+  rechazar y pedir reintento).
+
+- \`template.layout_score < 0.5\` + \`issues\` con regiones no detectadas →
+  señal de documento fake (no coincide con el layout del DNI peruano
+  auténtico). Inclinate a rechazar.
+
+- \`age_consistency.within_range = false\` + \`deviation_years > 5\` →
+  rostro en la selfie muy alejado de la edad calculada del DNI. Considerálo
+  como evidencia de mismatch facial, pero tomalo con pinza: Rekognition
+  AGE_RANGE tiene ±5 años de error típico, así que una desviación de 3-5
+  años no alarma.
+
+Al decidir, mencioná qué señales pesaron en \`reason\` (ej: "Rechazo por
+forensics.overall=0.82 y layout=0.4" o "Apruebo, forensics limpio 0.12 y
+face_score=87").
+
 Respondés SIEMPRE con el tool \`emit_verdict\`. Jamás texto libre.`;
+
+/**
+ * Formatea las señales forenses opcionales como un bloque legible para Claude.
+ * Si no vienen (KYC_FORENSICS_ENFORCE=false y caller no las pasó), retorna string vacío.
+ */
+function formatForensicsBlock(input: ArbiterForensicsSignals): string {
+  const lines: string[] = [];
+  if (input.forensics) {
+    const f = input.forensics;
+    lines.push(
+      `\nSeñales forenses de imagen (overall_tampering_risk es la combinación ponderada):`,
+      `- overall_tampering_risk: ${f.overall_tampering_risk.toFixed(3)}`,
+      `  · ela_score=${f.ela_score.toFixed(3)} · copy_move=${f.copy_move_score.toFixed(3)} · photo_edge=${f.photo_edge_score.toFixed(3)} · noise_consistency=${f.noise_consistency.toFixed(3)}`,
+    );
+  }
+  if (input.template) {
+    const t = input.template;
+    lines.push(
+      `\nLayout del DNI (template matching vs DNI peruano auténtico):`,
+      `- layout_score: ${t.layout_score.toFixed(3)}`,
+      `  · escudo=${t.escudo_detected ? "sí" : "no"} · foto_bbox=${t.photo_bbox_ok ? "sí" : "no"} · mrz=${t.mrz_region_ok ? "sí" : "no"}`,
+    );
+    if (t.issues.length > 0) {
+      lines.push(`  · issues: ${t.issues.slice(0, 3).join("; ")}`);
+    }
+  }
+  if (input.age_consistency) {
+    const a = input.age_consistency;
+    lines.push(
+      `\nConsistencia de edad (Rekognition vs DNI):`,
+      `- dni_age=${a.dni_age} vs estimated=[${a.estimated_age_low}, ${a.estimated_age_high}] · within_range=${a.within_range} · deviation_years=${a.deviation_years}`,
+    );
+  }
+  if (input.duplicates) {
+    const d = input.duplicates;
+    lines.push(
+      `\nCross-user duplicates (mismo DNI usado en otros intentos KYC):`,
+      `- dni_reused_by_other_user=${d.dni_reused_by_other_user} · risk_score=${d.risk_score.toFixed(3)}`,
+    );
+    if (d.other_user_ids.length > 0) {
+      lines.push(`  · other_user_ids (max 3): ${d.other_user_ids.slice(0, 3).join(", ")}`);
+    }
+  }
+  return lines.length > 0 ? lines.join("\n") + "\n" : "";
+}
 
 export async function arbitrateKyc(input: ArbiterInput): Promise<ArbiterVerdict> {
   const userPrompt = `Caso KYC a revisar:
@@ -136,6 +239,7 @@ Scores del pipeline automático:
 - Similitud facial (AWS Rekognition): ${input.faceScore.toFixed(1)}% (umbral auto-pass = 85%)
 - Liveness (3 frames con giros): ${input.livenessPassed ? "PASÓ" : "FALLÓ"}
 
+${formatForensicsBlock(input)}
 Imágenes adjuntas:
 1. Foto del DNI (anverso) — la foto oficial
 2. Selfie central del usuario (primer frame)
