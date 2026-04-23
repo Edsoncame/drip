@@ -66,7 +66,8 @@ test("forensics — imagen limpia devuelve ELA score bajo", async () => {
     r.ela_score < 0.35,
     `esperaba ELA limpio < 0.35, obtuvo ${r.ela_score.toFixed(3)}`,
   );
-  assert.equal(r.copy_move_score, 0, "stub copy_move debe ser 0");
+  // El gradient X+Y puro es patológico para copy-move (bloques naturalmente
+  // similares) — el assert de copy_move limpio vive en el test con textura rica.
   assert.equal(r.photo_edge_score, 0, "stub photo_edge debe ser 0");
   assert.equal(r.noise_consistency, 0, "stub noise debe ser 0");
 });
@@ -111,6 +112,100 @@ test("forensics — imagen enorme se downsamplea y no revienta memoria", async (
 
   const r = await analyzeDniForensics(big);
   assert.ok(r.ela_score >= 0 && r.ela_score <= 1);
+});
+
+/**
+ * Genera un PNG base con texturas variadas. PNG (lossless) es la elección
+ * correcta para testing de copy-move porque no introduce pérdida de
+ * cuantización en los blocks duplicados — el módulo opera sobre la imagen
+ * normalizada a PNG internamente, así que el dominio es el mismo.
+ */
+async function makeRichBasePng(): Promise<Buffer> {
+  const width = 960;
+  const height = 640;
+  const channels = 3;
+  const buf = Buffer.alloc(width * height * channels);
+  let seed = 42;
+  const rand = () => {
+    seed = (seed * 9301 + 49297) % 233280;
+    return seed / 233280;
+  };
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * channels;
+      const band = Math.floor(y / 16) * 8;
+      const noise = Math.floor(rand() * 60);
+      buf[i] = Math.min(255, band + noise + Math.floor((x / width) * 120));
+      buf[i + 1] = Math.min(255, 60 + noise + Math.floor(((x + y) / (width + height)) * 150));
+      buf[i + 2] = Math.min(255, 100 + (noise >> 1) + Math.floor((y / height) * 80));
+    }
+  }
+  return sharp(buf, { raw: { width, height, channels } }).png().toBuffer();
+}
+
+/** Duplica una región [srcX, srcY, size, size] en [dstX, dstY], manteniendo PNG. */
+async function duplicateRegion(
+  input: Buffer,
+  src: { x: number; y: number; size: number },
+  dst: { x: number; y: number },
+): Promise<Buffer> {
+  const region = await sharp(input)
+    .extract({ left: src.x, top: src.y, width: src.size, height: src.size })
+    .png()
+    .toBuffer();
+  return sharp(input)
+    .composite([{ input: region, left: dst.x, top: dst.y }])
+    .png()
+    .toBuffer();
+}
+
+test("forensics — imagen rica sin duplicados tiene copy_move_score bajo", async () => {
+  const base = await makeRichBasePng();
+  const r = await analyzeDniForensics(base);
+  assert.ok(
+    r.copy_move_score < 0.3,
+    `esperaba copy_move limpio < 0.3, obtuvo ${r.copy_move_score.toFixed(3)}`,
+  );
+});
+
+test("forensics — imagen con región duplicada eleva copy_move_score", async () => {
+  const base = await makeRichBasePng();
+  // Copiamos un bloque de 160×160 (10×10 blocks de 16) a otra zona alejada —
+  // con ~100 blocks duplicados el pair-matching explota en matches.
+  const tampered = await duplicateRegion(
+    base,
+    { x: 80, y: 80, size: 160 },
+    { x: 600, y: 400 },
+  );
+
+  const baseResult = await analyzeDniForensics(base);
+  const tamperedResult = await analyzeDniForensics(tampered);
+
+  assert.ok(
+    tamperedResult.copy_move_score > baseResult.copy_move_score,
+    `tampered=${tamperedResult.copy_move_score.toFixed(3)} debería > base=${baseResult.copy_move_score.toFixed(3)}`,
+  );
+  assert.ok(
+    tamperedResult.copy_move_score > 0.1,
+    `tampered copy_move debería ser claramente >0.1, got ${tamperedResult.copy_move_score.toFixed(3)}`,
+  );
+});
+
+test("forensics — copy_move refleja distancia espacial (parche adyacente NO cuenta)", async () => {
+  const base = await makeRichBasePng();
+  // Duplicado a solo 4 blocks (64 px) de distancia < COPY_MOVE_MIN_SPATIAL_DIST=6.
+  const adjacent = await duplicateRegion(
+    base,
+    { x: 100, y: 100, size: 64 },
+    { x: 100 + 64, y: 100 },
+  );
+  const r = await analyzeDniForensics(adjacent);
+  // Debería mantenerse bajo porque filtramos pares adyacentes (patrones repetidos
+  // naturales, como bandas del DNI, no son copy-move).
+  assert.ok(
+    r.copy_move_score < 0.3,
+    `parche adyacente no debería disparar copy_move, got ${r.copy_move_score.toFixed(3)}`,
+  );
 });
 
 // Fixtures reales — marcados skip hasta que existan en lib/kyc/__fixtures__/
