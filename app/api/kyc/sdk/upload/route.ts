@@ -102,13 +102,32 @@ export async function POST(req: NextRequest) {
     contentType,
   });
 
-  // Marcar sesión como "capturing" en el primer upload
-  if (session.status === "pending") {
-    await query(
-      `UPDATE kyc_sdk_sessions SET status = 'capturing' WHERE id = $1`,
-      [session.id],
-    );
+  // Merge URL en session.metadata.uploads para que finalize las lea.
+  //   dni_front / dni_back → single: { url, size }
+  //   selfie / liveness_frame → array indexado por frame_index
+  const uploads = ((session.metadata as Record<string, unknown>).uploads ?? {}) as {
+    dni_front?: { url: string; size: number };
+    dni_back?: { url: string; size: number };
+    selfie_frames?: Array<{ url: string; size: number }>;
+  };
+  const entry = { url: uploaded.url, size: uploaded.size };
+  if (body.kind === "dni_front") uploads.dni_front = entry;
+  else if (body.kind === "dni_back") uploads.dni_back = entry;
+  else {
+    // selfie + liveness_frame ambos van al array selfie_frames; frame_index
+    // determina la posición (0 = central/selfie oficial)
+    uploads.selfie_frames = uploads.selfie_frames ?? [];
+    const idx = body.frame_index ?? 0;
+    uploads.selfie_frames[idx] = entry;
   }
+
+  await query(
+    `UPDATE kyc_sdk_sessions
+       SET status = CASE WHEN status = 'pending' THEN 'capturing' ELSE status END,
+           metadata = jsonb_set(metadata, '{uploads}', $2::jsonb)
+     WHERE id = $1`,
+    [session.id, JSON.stringify(uploads)],
+  );
 
   console.log(
     `${tag} tenant=${payload.tenant_id} session=${session.id} kind=${body.kind} size=${bytes.length}`,
