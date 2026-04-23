@@ -155,29 +155,24 @@ d68987e  fix(lint): 4 errores React Compiler impure function
 (CI: .github/workflows/ci.yml agregado en commit final)
 ```
 
-## What's left (explicitly deferred — not blockers)
+## What's left (no es bloqueante)
 
-All P0/P1 lint errors resolved. Remaining items are quality-of-life.
+Todos los errores y warnings del lint resueltos. Únicos items fuera del audit:
 
-1. **35 warnings** — mostly `no-unused-vars` in scripts (`scripts/*.mjs`)
-   and some setters in `AgentsScene.tsx`. Reading each to confirm they're
-   really dead before deletion is a 30-minute task; not done to keep
-   commits atomic and limit risk.
-
-2. **3 `exhaustive-deps` warnings** in `AgentsScene.tsx` useCallbacks
-   (missing `input`, `ensureAudio`, `agentMap`). Each requires reading
-   the callback for stale-closure risk — dedicated pass.
-
-3. **DniCaptureGuided `ref-during-render`** — kept with `eslint-disable`
-   because the ref is referenced across 7+ async callbacks. Full
-   refactor to `useState` requires dedicated review + QA of the KYC
-   capture flow.
-
-4. **Test coverage gaps** — no tests for `lib/stripe`, `lib/email`,
+1. **Test coverage gaps** — no tests for `lib/stripe`, `lib/email`,
    API routes, or agent runtime. The `npm test` script only covers
-   `lib/kyc/__tests__/`. Out of audit scope.
+   `lib/kyc/__tests__/`. Out of audit scope; follow-up work stream.
 
-5. **Untracked `docs/google-ads-api-design-doc.{md,pdf,docx,html}`** —
+2. **Untracked `docs/google-ads-api-design-doc.{md,pdf,docx,html}`** —
    generated artifacts from the Google Ads API application (abr 19).
    Decide: commit `.md` for reference + ignore binary artifacts, or
    add the whole set to `.gitignore` explicitly.
+
+3. **DniCaptureGuided `ref-during-render`** — kept with `eslint-disable`
+   because the ref is referenced across 7+ async callbacks. Refactor
+   to `useState` requiere review dedicado + QA del flujo KYC real.
+
+4. **`setState-in-effect` disables documentados** — 5 lugares con
+   `eslint-disable` donde el patrón es legítimo (sync with external
+   store, data-fetch-on-mount, controlled-like sync). Cada uno con
+   comentario explicando el tradeoff.
