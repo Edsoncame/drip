@@ -51,6 +51,17 @@ export interface ArbiterForensicsSignals {
     other_user_ids: string[];
     risk_score: number;
   };
+  sanctions?: {
+    hit: boolean;
+    risk_score: number;
+    hits: Array<{
+      source: string;
+      list_type: string;
+      full_name: string;
+      match_type: "doc_exact" | "name_fuzzy";
+      match_score: number;
+    }>;
+  };
 }
 
 export interface ArbiterInput extends ArbiterForensicsSignals {
@@ -170,6 +181,16 @@ Cuando el payload incluya scores forenses, dales peso FUERTE en tu decisión:
   AGE_RANGE tiene ±5 años de error típico, así que una desviación de 3-5
   años no alarma.
 
+- \`sanctions.hit = true\`:
+  · Si hay match_type=\`doc_exact\` contra OFAC_SDN o UN_CONSOLIDATED → RECHAZAR
+    obligatoriamente (regulatorio, sin excepción).
+  · Si hay match_type=\`name_fuzzy\` con match_score ≥ 0.95 contra TERRORISM/SANCTION
+    → rechazar salvo que otra evidencia (DOB muy distinto, país distinto) haga
+    obvio que es homónimo.
+  · Si el único hit es PEP (políticamente expuesto) → NO rechazar por eso; solo
+    documentar en \`reason\` que aplica escrutinio reforzado.
+  · Mencioná la fuente + list_type del mejor hit en tu \`reason\`.
+
 Al decidir, mencioná qué señales pesaron en \`reason\` (ej: "Rechazo por
 forensics.overall=0.82 y layout=0.4" o "Apruebo, forensics limpio 0.12 y
 face_score=87").
@@ -216,6 +237,18 @@ function formatForensicsBlock(input: ArbiterForensicsSignals): string {
     );
     if (d.other_user_ids.length > 0) {
       lines.push(`  · other_user_ids (max 3): ${d.other_user_ids.slice(0, 3).join(", ")}`);
+    }
+  }
+  if (input.sanctions) {
+    const s = input.sanctions;
+    lines.push(
+      `\nListas de sanciones (UIF/PEP Perú, OFAC SDN, UN Consolidated):`,
+      `- hit=${s.hit} · risk_score=${s.risk_score.toFixed(3)} · total_hits=${s.hits.length}`,
+    );
+    for (const h of s.hits.slice(0, 3)) {
+      lines.push(
+        `  · ${h.source}/${h.list_type} · "${h.full_name}" · ${h.match_type} score=${h.match_score.toFixed(3)}`,
+      );
     }
   }
   return lines.length > 0 ? lines.join("\n") + "\n" : "";

@@ -143,6 +143,12 @@ export async function ensureKycSchema(): Promise<void> {
     `ALTER TABLE kyc_dni_scans ADD COLUMN IF NOT EXISTS duplicates_json JSONB`,
   );
 
+  // Fase sanctions (P2-2): cache del resultado de checkSanctions() en JSONB
+  // para evitar re-consultar a Postgres en re-verifys del mismo correlation_id.
+  await query(
+    `ALTER TABLE kyc_dni_scans ADD COLUMN IF NOT EXISTS sanctions_json JSONB`,
+  );
+
   // Index en dni_number para que checkDuplicates() sea O(log N) en vez de scan.
   await query(
     `CREATE INDEX IF NOT EXISTS idx_kyc_dni_number ON kyc_dni_scans(dni_number) WHERE dni_number IS NOT NULL`,
