@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { query } from "@/lib/db";
@@ -124,7 +125,7 @@ export default async function ClientesPage() {
         </div>
         <div className="flex items-center gap-4">
           <span className="text-xs text-[#999999] hidden sm:block">{session.email}</span>
-          <a href="/" className="text-sm text-[#666666] hover:text-[#1B4FFF] transition-colors">← Sitio</a>
+          <Link href="/" className="text-sm text-[#666666] hover:text-[#1B4FFF] transition-colors">← Sitio</Link>
         </div>
       </div>
 

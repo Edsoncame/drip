@@ -108,7 +108,7 @@ function LaptopsContent() {
           <p className="text-sm text-[#666666]">
             {filtered.length} resultado{filtered.length !== 1 ? "s" : ""} para <strong>&quot;{urlQuery}&quot;</strong>
           </p>
-          <a href="/laptops" className="text-xs text-[#1B4FFF] font-600 hover:underline">Limpiar</a>
+          <Link href="/laptops" className="text-xs text-[#1B4FFF] font-600 hover:underline">Limpiar</Link>
         </div>
       ) : (
         /* Filter pills */
@@ -142,9 +142,9 @@ function LaptopsContent() {
       ) : (
         <div className="text-center py-16">
           <p className="text-[#999999] text-lg mb-2">No encontramos resultados.</p>
-          <a href="/laptops" className="text-[#1B4FFF] font-600 hover:underline cursor-pointer">
+          <Link href="/laptops" className="text-[#1B4FFF] font-600 hover:underline cursor-pointer">
             Ver todos los equipos
-          </a>
+          </Link>
         </div>
       )}
 

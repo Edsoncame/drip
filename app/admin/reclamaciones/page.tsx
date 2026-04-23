@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { query } from "@/lib/db";
@@ -60,7 +61,7 @@ export default async function AdminReclamacionesPage() {
           <img src="/images/logoflux.svg" alt="FLUX" className="h-7" />
           <span className="text-xs font-600 px-2 py-0.5 bg-[#1B4FFF] text-white rounded-full">Admin</span>
         </div>
-        <a href="/" className="text-sm text-[#666] hover:text-[#1B4FFF]">← Sitio</a>
+        <Link href="/" className="text-sm text-[#666] hover:text-[#1B4FFF]">← Sitio</Link>
       </div>
 
       <AdminNav />

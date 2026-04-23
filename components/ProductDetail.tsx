@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Image from "next/image";
+import Link from "next/link";
 import type { Product } from "@/lib/products";
 import { trackViewItem, trackAddToCart } from "@/lib/analytics";
 
@@ -54,9 +55,9 @@ export default function ProductDetail({ product, images }: { product: Product; i
       {/* Breadcrumb */}
       <div className="border-b border-[#E5E5E5]">
         <div className="max-w-7xl mx-auto px-4 py-3 text-sm text-[#999999]">
-          <a href="/" className="hover:text-[#1B4FFF] transition-colors">Inicio</a>
+          <Link href="/" className="hover:text-[#1B4FFF] transition-colors">Inicio</Link>
           <span className="mx-2">/</span>
-          <a href="/laptops" className="hover:text-[#1B4FFF] transition-colors">MacBooks</a>
+          <Link href="/laptops" className="hover:text-[#1B4FFF] transition-colors">MacBooks</Link>
           <span className="mx-2">/</span>
           <span className="text-[#333333]">{product.shortName}</span>
         </div>

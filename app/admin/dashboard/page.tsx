@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/auth";
@@ -52,12 +53,12 @@ export default async function DashboardPage() {
           <span className="text-xs text-[#999999] hidden sm:block">
             {session.email}
           </span>
-          <a
+          <Link
             href="/"
             className="text-sm text-[#666666] hover:text-[#1B4FFF] transition-colors"
           >
             ← Sitio
-          </a>
+          </Link>
         </div>
       </div>
 
