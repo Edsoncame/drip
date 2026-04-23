@@ -12,6 +12,8 @@
  */
 
 import { createHmac } from "node:crypto";
+import { lookup } from "node:dns/promises";
+import { isPrivateOrLoopbackIp } from "./webhook-url";
 
 export interface WebhookDispatchInput {
   url: string;
@@ -36,9 +38,54 @@ async function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+/**
+ * Resuelve el hostname via DNS y verifica que ninguna IP devuelta sea
+ * privada / loopback / link-local. Defensa contra DNS rebinding: aunque
+ * `isValidWebhookUrl` bloqueó dominios obvios en session-create, un
+ * dominio controlado por atacante podría apuntar a 127.0.0.1 a la hora
+ * del POST. Pre-resolvemos y abortamos si la IP es interna.
+ *
+ * Nota TOCTOU: entre este lookup y el fetch real hay una ventana corta
+ * donde el DNS podría cambiar. Para cerrarla del todo habría que usar
+ * un undici Agent con connect hook (deferido a v2).
+ */
+async function resolvesToPublicIp(hostname: string): Promise<boolean> {
+  try {
+    const addresses = await lookup(hostname, { all: true });
+    if (addresses.length === 0) return false;
+    for (const a of addresses) {
+      if (isPrivateOrLoopbackIp(a.address)) return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function dispatchWebhook(
   input: WebhookDispatchInput,
 ): Promise<WebhookDispatchResult> {
+  // Defensa en profundidad: re-chequear la URL antes de mandar. Aunque
+  // session-create ya validó, el tenant podría haber editado la metadata
+  // fuera de banda (o un bug futuro podría saltarse la validación).
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(input.url);
+  } catch {
+    return { ok: false, attempts: 0, last_status: null, last_error: "invalid_url" };
+  }
+  if (parsedUrl.protocol !== "https:") {
+    return { ok: false, attempts: 0, last_status: null, last_error: "not_https" };
+  }
+  if (!(await resolvesToPublicIp(parsedUrl.hostname))) {
+    return {
+      ok: false,
+      attempts: 0,
+      last_status: null,
+      last_error: "dns_resolves_to_private_ip",
+    };
+  }
+
   const body = JSON.stringify(input.payload);
   const timestamp = Math.floor(Date.now() / 1000);
   const headers: Record<string, string> = {

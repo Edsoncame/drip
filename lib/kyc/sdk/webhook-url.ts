@@ -26,21 +26,34 @@ export function isValidWebhookUrl(raw: string): boolean {
   const host = url.hostname.toLowerCase();
   if (!host) return false;
   if (host === "localhost" || host.endsWith(".localhost")) return false;
-  if (host === "0.0.0.0") return false;
-  if (host.startsWith("127.")) return false;
-  if (host.startsWith("10.")) return false;
-  if (host.startsWith("192.168.")) return false;
-  if (host.startsWith("169.254.")) return false; // link-local / cloud metadata
-  // 172.16.0.0/12
-  if (host.startsWith("172.")) {
-    const second = parseInt(host.split(".")[1] ?? "", 10);
-    if (!isNaN(second) && second >= 16 && second <= 31) return false;
-  }
-  // IPv6 — URL.hostname devuelve IPv6 entre brackets opcionalmente
-  const ipv6 = host.startsWith("[") ? host.slice(1, -1) : host;
-  if (ipv6 === "::1") return false;
-  if (ipv6.startsWith("fe80:")) return false;
-  if (ipv6.startsWith("fc") || ipv6.startsWith("fd")) return false; // ULA fc00::/7
+  if (isPrivateOrLoopbackIp(host)) return false;
 
   return true;
+}
+
+/**
+ * True si `addr` es una IP literal de loopback / privada / link-local.
+ * Acepta IPv4 (10.x, 192.168.x, 172.16-31.x, 127.x, 0.0.0.0, 169.254.x)
+ * e IPv6 (::1, fe80::/10 link-local, fc00::/7 ULA).
+ *
+ * Exportado para que `webhook.ts` lo reuse chequeando la IP resuelta
+ * por DNS (defensa anti-rebinding).
+ */
+export function isPrivateOrLoopbackIp(addr: string): boolean {
+  const host = addr.toLowerCase();
+  if (host === "0.0.0.0") return true;
+  if (host.startsWith("127.")) return true;
+  if (host.startsWith("10.")) return true;
+  if (host.startsWith("192.168.")) return true;
+  if (host.startsWith("169.254.")) return true; // link-local / cloud metadata
+  if (host.startsWith("172.")) {
+    const second = parseInt(host.split(".")[1] ?? "", 10);
+    if (!isNaN(second) && second >= 16 && second <= 31) return true;
+  }
+  // IPv6 — DNS devuelve sin brackets; URL.hostname los incluye
+  const ipv6 = host.startsWith("[") ? host.slice(1, -1) : host;
+  if (ipv6 === "::1") return true;
+  if (ipv6.startsWith("fe80:")) return true;
+  if (ipv6.startsWith("fc") || ipv6.startsWith("fd")) return true; // ULA
+  return false;
 }
