@@ -17,6 +17,7 @@ const TABS = [
   { href: "/admin/agentes",    label: "🤖 Agentes" },
   { href: "/admin/estrategia", label: "📋 Estrategia" },
   { href: "/admin/kyc",        label: "🛡️ KYC" },
+  { href: "/admin/kyc/forensics", label: "🔬 Forense" },
   { href: "/admin/reclamaciones", label: "📒 Reclamaciones" },
   { href: "/admin/api-keys",   label: "🔑 API Keys" },
 ];
