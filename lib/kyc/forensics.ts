@@ -14,7 +14,10 @@
  *      tiene la foto del titular. Score alto si edge density en la región
  *      diverge mucho del resto del DNI (indica borde de foto pegada, o región
  *      uniform por foto borrada).
- *   5. Noise consistency — [STUB, fase 1 commit 4]
+ *   5. Noise consistency — divide en grid 4×4 y mide varianza del canal azul en
+ *      cada celda. Score alto cuando la varianza diverge mucho entre celdas
+ *      (un collage combina regiones con distinto PRNU/compresión → varianzas
+ *      heterogéneas). Usamos B porque es menos afectado por iluminación.
  *   6. Combina los 4 con pesos [0.4 ela, 0.2 copy_move, 0.3 edge, 0.1 noise].
  *
  * Limites operacionales (Vercel Fluid Compute, memoria 2048 MB):
@@ -34,7 +37,7 @@ export interface ForensicsResult {
   copy_move_score: number;
   /** 0-1, 1 = borde de foto del titular sospechoso (Sobel density divergence) */
   photo_edge_score: number;
-  /** 0-1, 1 = ruido inconsistente entre regiones — STUB por ahora */
+  /** 0-1, 1 = ruido inconsistente entre regiones (stdev/mean de varianzas del canal B) */
   noise_consistency: number;
   /** 0-1, combinación ponderada de los 4 scores */
   overall_tampering_risk: number;
@@ -96,6 +99,11 @@ const EDGE_THRESHOLD = 40;
 
 /** Ratio (region_density / global_density) que satura a score 1. */
 const PHOTO_EDGE_DIVERGENCE_SATURATION = 2.0;
+
+/** Grid de subregiones para noise consistency (4×4 = 16 celdas). */
+const NOISE_GRID = 4;
+/** Coef. de variación (stdev/mean) que satura a score 1. Empírico: 1.0 → score 1. */
+const NOISE_CV_SATURATION = 1.0;
 
 const WEIGHTS = {
   ela: 0.4,
@@ -424,6 +432,62 @@ async function computePhotoEdge(normalized: Buffer): Promise<number> {
   return score > 1 ? 1 : score;
 }
 
+/**
+ * Noise consistency — coef. de variación de la varianza del canal azul por
+ * subregión. En una imagen "legítima" de un único sensor/compresión, todas
+ * las subregiones tienen varianza de ruido similar (stdev/mean bajo). En un
+ * collage, regiones pegadas de distintas fuentes traen distinto nivel de
+ * ruido → stdev/mean alto.
+ *
+ * Trabajamos sobre el canal B (blue) porque es menos dominante en
+ * iluminación/contraste natural y más informativo sobre el ruido del sensor.
+ */
+async function computeNoiseConsistency(normalized: Buffer): Promise<number> {
+  const { data, info } = await sharp(normalized)
+    .extractChannel("blue")
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const { width, height } = info;
+
+  const cellW = Math.floor(width / NOISE_GRID);
+  const cellH = Math.floor(height / NOISE_GRID);
+  if (cellW < 8 || cellH < 8) return 0;
+
+  const variances: number[] = [];
+  for (let cy = 0; cy < NOISE_GRID; cy++) {
+    for (let cx = 0; cx < NOISE_GRID; cx++) {
+      const x0 = cx * cellW;
+      const y0 = cy * cellH;
+      let sum = 0;
+      let sumSq = 0;
+      let count = 0;
+      for (let y = y0; y < y0 + cellH; y++) {
+        const row = y * width;
+        for (let x = x0; x < x0 + cellW; x++) {
+          const v = data[row + x];
+          sum += v;
+          sumSq += v * v;
+          count++;
+        }
+      }
+      const mean = sum / count;
+      const variance = sumSq / count - mean * mean;
+      variances.push(variance);
+    }
+  }
+
+  if (variances.length === 0) return 0;
+  const varMean = variances.reduce((a, b) => a + b, 0) / variances.length;
+  if (varMean < 1) return 0; // imagen casi-plana → no podemos juzgar ruido
+
+  const varStd = Math.sqrt(
+    variances.reduce((a, b) => a + (b - varMean) ** 2, 0) / variances.length,
+  );
+  const cv = varStd / varMean;
+  const score = cv / NOISE_CV_SATURATION;
+  return score > 1 ? 1 : score;
+}
+
 export async function analyzeDniForensics(imageBuffer: Buffer): Promise<ForensicsResult> {
   let normalized: Buffer;
   try {
@@ -440,7 +504,7 @@ export async function analyzeDniForensics(imageBuffer: Buffer): Promise<Forensic
     };
   }
 
-  const [ela_score, copy_move_score, photo_edge_score] = await Promise.all([
+  const [ela_score, copy_move_score, photo_edge_score, noise_consistency] = await Promise.all([
     computeEla(normalized).catch((err) => {
       console.error("[kyc/forensics] ela failed:", err instanceof Error ? err.message : err);
       return 0.5;
@@ -453,10 +517,11 @@ export async function analyzeDniForensics(imageBuffer: Buffer): Promise<Forensic
       console.error("[kyc/forensics] photo-edge failed:", err instanceof Error ? err.message : err);
       return 0;
     }),
+    computeNoiseConsistency(normalized).catch((err) => {
+      console.error("[kyc/forensics] noise failed:", err instanceof Error ? err.message : err);
+      return 0;
+    }),
   ]);
-
-  // Stub — se implementa en el siguiente commit.
-  const noise_consistency = 0;
 
   const overall_tampering_risk =
     WEIGHTS.ela * ela_score +

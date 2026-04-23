@@ -295,6 +295,54 @@ test("forensics — imagen de documento limpia tiene photo_edge bajo", async () 
   );
 });
 
+test("forensics — noise consistency bajo en imagen uniforme", async () => {
+  // Imagen con noise uniformemente distribuido — todas las celdas de la grid
+  // 4×4 deben tener varianza similar.
+  const width = 640;
+  const height = 480;
+  const channels = 3;
+  const buf = Buffer.alloc(width * height * channels);
+  let seed = 99;
+  const rand = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+  for (let i = 0; i < buf.length; i++) {
+    buf[i] = Math.floor(rand() * 40) + 110; // noise ±20 uniforme
+  }
+  const img = await sharp(buf, { raw: { width, height, channels } }).png().toBuffer();
+  const r = await analyzeDniForensics(img);
+  assert.ok(
+    r.noise_consistency < 0.3,
+    `noise uniforme debería ser < 0.3, got ${r.noise_consistency.toFixed(3)}`,
+  );
+});
+
+test("forensics — noise consistency alto en collage heterogéneo", async () => {
+  // Construyo una imagen donde la mitad izquierda tiene noise ±5 (smooth) y la
+  // mitad derecha ±80 (ruidosa). Las celdas de la grid tendrán varianzas muy
+  // distintas → CV alto → score alto.
+  const width = 640;
+  const height = 480;
+  const channels = 3;
+  const buf = Buffer.alloc(width * height * channels);
+  let seed = 7;
+  const rand = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * channels;
+      const isLeft = x < width / 2;
+      const noise = isLeft ? Math.floor(rand() * 10) : Math.floor(rand() * 160);
+      buf[i]     = Math.min(255, 120 + noise);
+      buf[i + 1] = Math.min(255, 120 + noise);
+      buf[i + 2] = Math.min(255, 120 + noise);
+    }
+  }
+  const img = await sharp(buf, { raw: { width, height, channels } }).png().toBuffer();
+  const r = await analyzeDniForensics(img);
+  assert.ok(
+    r.noise_consistency > 0.3,
+    `collage heterogéneo debería tener noise > 0.3, got ${r.noise_consistency.toFixed(3)}`,
+  );
+});
+
 test("forensics — photo_edge no crashea con imágenes extremas", async () => {
   // Imagen casi sin edges (color completamente plano) — debería early-return a 0
   const flat = await sharp({
