@@ -30,6 +30,19 @@
 
 import sharp from "sharp";
 
+/**
+ * Pesos de combinación de las 4 señales en overall_tampering_risk.
+ * Calibrados conservadoramente: ELA y photo_edge son las señales más
+ * fiables con los adversariales actuales; copy_move y noise son más ruidosos.
+ * Suma = 1.0.
+ */
+export const FORENSICS_WEIGHTS = {
+  ela: 0.4,
+  copy_move: 0.2,
+  photo_edge: 0.3,
+  noise: 0.1,
+} as const;
+
 export interface ForensicsResult {
   /** 0-1, 1 = muy probable edición (ELA) */
   ela_score: number;
@@ -105,12 +118,7 @@ const NOISE_GRID = 4;
 /** Coef. de variación (stdev/mean) que satura a score 1. Empírico: 1.0 → score 1. */
 const NOISE_CV_SATURATION = 1.0;
 
-const WEIGHTS = {
-  ela: 0.4,
-  copy_move: 0.2,
-  photo_edge: 0.3,
-  noise: 0.1,
-} as const;
+const WEIGHTS = FORENSICS_WEIGHTS;
 
 /**
  * Normaliza la imagen: downsample a MAX_DIMENSION en el largo mayor
@@ -486,6 +494,56 @@ async function computeNoiseConsistency(normalized: Buffer): Promise<number> {
   const cv = varStd / varMean;
   const score = cv / NOISE_CV_SATURATION;
   return score > 1 ? 1 : score;
+}
+
+/**
+ * Genera un heatmap PNG del ELA diff — visualmente, las regiones con mayor
+ * diff aparecen más claras. Útil para subir a Vercel Blob y mostrar al
+ * arbiter o al admin cuando un KYC quedó en review. No se llama desde
+ * analyzeDniForensics() para no duplicar trabajo; el caller (p.ej. verify
+ * route) lo invoca bajo demanda.
+ *
+ * Retorna un buffer PNG (o null si algo falla). El tamaño coincide con
+ * la imagen normalizada (≤1200px largo mayor).
+ */
+export async function renderElaHeatmap(imageBuffer: Buffer): Promise<Buffer | null> {
+  try {
+    const normalized = await normalize(imageBuffer);
+    const [orig, recompressed] = await Promise.all([
+      sharp(normalized).raw().toBuffer({ resolveWithObject: true }),
+      sharp(normalized)
+        .jpeg({ quality: 95, mozjpeg: false })
+        .toBuffer()
+        .then((buf) => sharp(buf).raw().toBuffer({ resolveWithObject: true })),
+    ]);
+
+    if (
+      orig.info.width !== recompressed.info.width ||
+      orig.info.height !== recompressed.info.height ||
+      orig.data.length !== recompressed.data.length
+    ) {
+      return null;
+    }
+
+    const { width, height, channels } = orig.info;
+    // Diff amplificado por 20 + mapeado a RGB (grayscale) para visualización.
+    const heat = Buffer.alloc(width * height * 3);
+    for (let i = 0, j = 0; i < orig.data.length; i += channels, j += 3) {
+      let sum = 0;
+      for (let c = 0; c < channels; c++) {
+        const d = orig.data[i + c] - recompressed.data[i + c];
+        sum += d < 0 ? -d : d;
+      }
+      const v = Math.min(255, Math.floor((sum / channels) * 20));
+      heat[j] = v;
+      heat[j + 1] = v;
+      heat[j + 2] = v;
+    }
+    return sharp(heat, { raw: { width, height, channels: 3 } }).png().toBuffer();
+  } catch (err) {
+    console.error("[kyc/forensics] heatmap failed:", err instanceof Error ? err.message : err);
+    return null;
+  }
 }
 
 export async function analyzeDniForensics(imageBuffer: Buffer): Promise<ForensicsResult> {

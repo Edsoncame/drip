@@ -15,7 +15,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import sharp from "sharp";
-import { analyzeDniForensics } from "../forensics";
+import { analyzeDniForensics, renderElaHeatmap, FORENSICS_WEIGHTS } from "../forensics";
 
 /** Crea un JPEG "limpio": gradiente suave de 800x500, calidad 90. */
 async function makeCleanJpeg(): Promise<Buffer> {
@@ -341,6 +341,41 @@ test("forensics — noise consistency alto en collage heterogéneo", async () =>
     r.noise_consistency > 0.3,
     `collage heterogéneo debería tener noise > 0.3, got ${r.noise_consistency.toFixed(3)}`,
   );
+});
+
+test("forensics — FORENSICS_WEIGHTS suman 1.0", () => {
+  const sum = FORENSICS_WEIGHTS.ela + FORENSICS_WEIGHTS.copy_move + FORENSICS_WEIGHTS.photo_edge + FORENSICS_WEIGHTS.noise;
+  assert.ok(Math.abs(sum - 1.0) < 0.001, `weights sum ${sum} ≠ 1.0`);
+});
+
+test("forensics — overall_tampering_risk es combinación ponderada correcta", async () => {
+  const clean = await makeCleanJpeg();
+  const r = await analyzeDniForensics(clean);
+  const expected =
+    FORENSICS_WEIGHTS.ela * r.ela_score +
+    FORENSICS_WEIGHTS.copy_move * r.copy_move_score +
+    FORENSICS_WEIGHTS.photo_edge * r.photo_edge_score +
+    FORENSICS_WEIGHTS.noise * r.noise_consistency;
+  const diff = Math.abs(r.overall_tampering_risk - Math.min(1, expected));
+  assert.ok(diff < 0.001, `overall=${r.overall_tampering_risk} vs expected=${expected}`);
+});
+
+test("forensics — renderElaHeatmap genera PNG válido", async () => {
+  const clean = await makeCleanJpeg();
+  const heatmap = await renderElaHeatmap(clean);
+  assert.ok(heatmap !== null, "heatmap no debería ser null");
+  assert.ok(heatmap!.length > 0, "heatmap vacío");
+  // Verificar que es un PNG válido (magic bytes 89 50 4E 47)
+  assert.equal(heatmap![0], 0x89);
+  assert.equal(heatmap![1], 0x50);
+  assert.equal(heatmap![2], 0x4e);
+  assert.equal(heatmap![3], 0x47);
+});
+
+test("forensics — renderElaHeatmap con input inválido retorna null sin crashear", async () => {
+  const garbage = Buffer.from("not an image");
+  const r = await renderElaHeatmap(garbage);
+  assert.equal(r, null);
 });
 
 test("forensics — photo_edge no crashea con imágenes extremas", async () => {
