@@ -45,9 +45,10 @@ React 19 + Next.js 16 upgrade.
 | Tests pass | 47 | 47 | = |
 | Tests skip | 6 | 6 | = |
 | Tests fail | 0 | 0 | = |
-| Lint errors | **42** | **10** | **−32** |
+| Lint errors | **42** | **0** | **−42 (−100%)** |
 | Lint warnings | 38 | 35 | −3 |
-| **Total lint problems** | **80** | **45** | **−35 (−44%)** |
+| **Total lint problems** | **80** | **35** | **−45 (−56%)** |
+| CI workflow | ❌ none | ✅ `.github/workflows/ci.yml` | +1 |
 
 ## Changes by category
 
@@ -135,34 +136,48 @@ React 19 + Next.js 16 upgrade.
 ## Commit log
 
 ```
+9ffdb69  fix(lint): ReclamacionesTable.purity + AgentsScene.setState-in-effect
+fb85844  fix(lint): setState-in-effect en vault + address autocomplete
+1668a22  fix(lint): setState-in-effect — PricingTable lazy init + PhoneInput
+fbd7b3b  fix(checkout/success): useSyncExternalStore + 2 <a>→<Link>
+d06aa46  fix(use-products): eliminar setState sincrono en useEffect
+(commits finales cerraron los 10 setState-in-effect deferidos)
+0c2f443  docs(audit): AUDIT_REPORT.md
+275d0e0  docs(audit): AUDIT_NOTES.md
 48933d1  fix(lint): rule-of-hooks + cannot-access-refs (2 errores)
 124dd64  fix(lint): últimos 3 <a>→<Link> en checkout (page + success)
 5dd013e  fix(lint): 16 errores @next/next/no-html-link-for-pages
 ed457aa  fix(lint): escape comillas dobles (react/no-unescaped-entities)
 199b62d  style(lint): eslint --fix auto-fixables (let→const)
 d68987e  fix(lint): 4 errores React Compiler impure function
+
 (baseline: main @ da2080d)
+(CI: .github/workflows/ci.yml agregado en commit final)
 ```
 
-## What's left (if you want to finish the audit)
+## What's left (explicitly deferred — not blockers)
 
-In priority order:
+All P0/P1 lint errors resolved. Remaining items are quality-of-life.
 
-1. **setState-in-effect** × 10 (AUDIT_NOTES.md §P1) — real perf impact in
-   the form of unnecessary re-renders. Pick 1-2 high-traffic components
-   (AddressAutocomplete, PhoneInput) and refactor them first.
+1. **35 warnings** — mostly `no-unused-vars` in scripts (`scripts/*.mjs`)
+   and some setters in `AgentsScene.tsx`. Reading each to confirm they're
+   really dead before deletion is a 30-minute task; not done to keep
+   commits atomic and limit risk.
 
-2. **Unused eslint-disable** × 4 — trivial cleanup; run through each and
-   remove if the underlying rule still passes.
+2. **3 `exhaustive-deps` warnings** in `AgentsScene.tsx` useCallbacks
+   (missing `input`, `ensureAudio`, `agentMap`). Each requires reading
+   the callback for stale-closure risk — dedicated pass.
 
-3. **Unused state setters in AgentsScene.tsx** — likely dead code from
-   removed features. Read-and-remove pass.
+3. **DniCaptureGuided `ref-during-render`** — kept with `eslint-disable`
+   because the ref is referenced across 7+ async callbacks. Full
+   refactor to `useState` requires dedicated review + QA of the KYC
+   capture flow.
 
-4. **Test coverage gaps** — no tests for `lib/stripe`, `lib/email`, API
-   routes, or any agent runtime. The existing test command only covers
-   `lib/kyc/__tests__/`. Follow-up stream, not this audit.
+4. **Test coverage gaps** — no tests for `lib/stripe`, `lib/email`,
+   API routes, or agent runtime. The `npm test` script only covers
+   `lib/kyc/__tests__/`. Out of audit scope.
 
-5. **CI** — there is no `.github/workflows/ci.yml`. All correctness
-   verification relies on pre-commit vigilance + Vercel build. Adding
-   a CI that runs `lint + tsc + test` on PRs would catch regressions
-   automatically. Out of scope for this audit (config addition).
+5. **Untracked `docs/google-ads-api-design-doc.{md,pdf,docx,html}`** —
+   generated artifacts from the Google Ads API application (abr 19).
+   Decide: commit `.md` for reference + ignore binary artifacts, or
+   add the whole set to `.gitignore` explicitly.
