@@ -1,14 +1,21 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { Suspense, useSyncExternalStore } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { useProduct } from "@/lib/use-products";
 
+// Hydration-safe "mounted" flag sin useEffect+setState. Server snapshot = false,
+// client snapshot = true → en SSR renderiza null, en CSR renderiza el contenido.
+// Reemplaza el patrón clásico useState(false) + useEffect(setState(true)) que
+// React Compiler flaggea como set-state-in-effect.
+const subscribe = () => () => {};
+const useMounted = () => useSyncExternalStore(subscribe, () => true, () => false);
+
 function SuccessContent() {
   const searchParams = useSearchParams();
-  const [mounted, setMounted] = useState(false);
+  const mounted = useMounted();
 
   const slug = searchParams.get("slug") ?? "";
   const months = parseInt(searchParams.get("months") ?? "8", 10);
@@ -20,10 +27,6 @@ function SuccessContent() {
   const { product } = useProduct(slug);
   const plan = product?.pricing.find(p => p.months === months);
   const displayTotal = total > 0 ? total : (plan?.price ?? 0);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   if (!mounted) return null;
 
@@ -116,18 +119,18 @@ function SuccessContent() {
           </div>
 
           {/* CTAs */}
-          <a
+          <Link
             href="/laptops"
             className="block w-full py-4 rounded-full bg-[#1B4FFF] text-white font-700 text-base hover:bg-[#1340CC] transition-colors text-center mb-3"
           >
             Ver más MacBooks
-          </a>
-          <a
+          </Link>
+          <Link
             href="/"
             className="block w-full py-3 rounded-full border border-[#E5E5E5] text-[#666666] font-600 text-sm hover:border-[#1B4FFF] hover:text-[#1B4FFF] transition-colors text-center"
           >
             Volver al inicio
-          </a>
+          </Link>
         </motion.div>
 
         <p className="text-center text-xs text-[#999999] mt-6">
