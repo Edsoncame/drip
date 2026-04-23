@@ -1552,6 +1552,12 @@ function CheckoutContent() {
   // para que el webhook Stripe pueda hidratar las URLs desde las tablas kyc_*.
   const kycCorrIdRef = useRef<string>("");
   if (!kycCorrIdRef.current && typeof window !== "undefined") {
+    // SSR-safe init-once: Date.now() es fallback defensivo cuando crypto.randomUUID()
+    // no está disponible (navegadores viejos). Se ejecuta a lo sumo una vez por
+    // instancia del componente. El React Compiler marca Date.now() como impuro
+    // pero acá el ref no se leerá hasta después del primer render, entonces el
+    // valor inestable no afecta el output renderizado.
+    // eslint-disable-next-line react-hooks/purity
     kycCorrIdRef.current = window.crypto?.randomUUID?.() ?? String(Date.now());
   }
   const [customer, setCustomer] = useState<CustomerData>({

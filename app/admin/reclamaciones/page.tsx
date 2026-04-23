@@ -43,9 +43,12 @@ export default async function AdminReclamacionesPage() {
   );
 
   const pending = rows.filter((r) => r.estado === "pendiente").length;
+  // Server component — un render por request, Date.now() es seguro acá.
+  // eslint-disable-next-line react-hooks/purity
+  const now = Date.now();
   const overdue = rows.filter((r) => {
     if (r.estado !== "pendiente") return false;
-    const days = (Date.now() - new Date(r.fecha_reclamo).getTime()) / (1000 * 60 * 60 * 24);
+    const days = (now - new Date(r.fecha_reclamo).getTime()) / (1000 * 60 * 60 * 24);
     return days > 25; // se acerca el plazo Indecopi de 30 días hábiles
   }).length;
 

@@ -94,6 +94,13 @@ export async function ProductJsonLd({ slug }: { slug: string }) {
   const lowestPrice = Math.min(...product.pricing.map((p) => p.price));
   const highestPrice = Math.max(...product.pricing.map((p) => p.price));
 
+  // Server-side async render — un render por request, Date.now() no produce
+  // inestabilidad entre renders acá (el rule es para client components).
+  // eslint-disable-next-line react-hooks/purity
+  const priceValidUntil = new Date(Date.now() + 90 * 86400000)
+    .toISOString()
+    .split("T")[0];
+
   const data = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -118,9 +125,7 @@ export async function ProductJsonLd({ slug }: { slug: string }) {
         price: p.price,
         priceCurrency: "USD",
         unitCode: "MON",
-        priceValidUntil: new Date(
-          Date.now() + 90 * 86400000
-        ).toISOString().split("T")[0],
+        priceValidUntil: priceValidUntil,
         availability:
           product.stock > 0
             ? "https://schema.org/InStock"

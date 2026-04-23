@@ -27,10 +27,14 @@ export default async function InventarioPage() {
     .reduce((sum, e) => sum + Number(e.tarifa_usd ?? 0), 0);
   const costoTotal = equipment.reduce((sum, e) => sum + Number(e.precio_compra_usd ?? 0), 0);
 
-  // Maintenance alerts
+  // Maintenance alerts — `now` capturado al inicio. En un server component
+  // (sin re-renders) Date.now() no produce el problema que el rule apunta
+  // (valores inestables entre renders), así que el disable es seguro.
+  // eslint-disable-next-line react-hooks/purity
+  const now = Date.now();
   const alertas = equipment.filter(e => {
     if (!e.mantenimiento_proximo) return false;
-    const days = Math.ceil((new Date(e.mantenimiento_proximo).getTime() - Date.now()) / 86400000);
+    const days = Math.ceil((new Date(e.mantenimiento_proximo).getTime() - now) / 86400000);
     return days <= 30;
   }).length;
 

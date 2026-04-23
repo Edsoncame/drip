@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState, useTransition } from "react";
+import { Fragment, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Reclamacion } from "./page";
 
@@ -39,6 +39,10 @@ export default function ReclamacionesTable({ rows }: { rows: Reclamacion[] }) {
     );
   }
 
+  // `now` memoizado — re-captura en cada set of rows pero no en cada re-render
+  // (evita el lint rule "impure function during render" del React Compiler).
+  const now = useMemo(() => Date.now(), [rows]);
+
   return (
     <div className="bg-white rounded-2xl border border-[#E5E5E5] overflow-hidden">
       <div className="overflow-x-auto">
@@ -53,7 +57,7 @@ export default function ReclamacionesTable({ rows }: { rows: Reclamacion[] }) {
           <tbody className="divide-y divide-[#F0F0F0]">
             {rows.map((r) => {
               const st = STATUS_LABELS[r.estado] ?? { label: r.estado, color: "bg-gray-100 text-gray-500" };
-              const days = (Date.now() - new Date(r.fecha_reclamo).getTime()) / (1000 * 60 * 60 * 24);
+              const days = (now - new Date(r.fecha_reclamo).getTime()) / (1000 * 60 * 60 * 24);
               const daysLeft = Math.max(0, 30 - Math.floor(days));
               const urgent = r.estado === "pendiente" && daysLeft <= 5;
               const isExp = expanded === r.id;
