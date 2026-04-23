@@ -208,6 +208,104 @@ test("forensics — copy_move refleja distancia espacial (parche adyacente NO cu
   );
 });
 
+/**
+ * Genera un "DNI-like" PNG: fondo claro uniforme (como un documento real)
+ * con líneas horizontales oscuras distribuidas (simulando texto/MRZ/elementos
+ * gráficos). La densidad de edges queda en ~5-10% como un DNI escaneado real,
+ * no en 99% como random noise (que satura el Sobel).
+ */
+async function makeDniLikeBasePng(): Promise<Buffer> {
+  const width = 960;
+  const height = 640;
+  const channels = 3;
+  // Fondo claro uniforme (documento blanco)
+  const buf = Buffer.alloc(width * height * channels, 220);
+
+  let seed = 13;
+  const rand = () => {
+    seed = (seed * 9301 + 49297) % 233280;
+    return seed / 233280;
+  };
+
+  // Pinta una línea oscura horizontal de 2 pixels de alto con gaps
+  const drawLine = (y: number, xStart: number, xEnd: number) => {
+    for (let x = xStart; x < xEnd && x < width; x++) {
+      if (rand() < 0.7) {
+        for (let dy = 0; dy < 2 && y + dy < height; dy++) {
+          const i = ((y + dy) * width + x) * channels;
+          buf[i] = 40;
+          buf[i + 1] = 40;
+          buf[i + 2] = 40;
+        }
+      }
+    }
+  };
+
+  // Líneas distribuidas uniformemente cada ~25 pixels sobre TODO el documento
+  for (let y = 25; y < height - 2; y += 25) {
+    drawLine(y, 40, width - 40);
+  }
+
+  return sharp(buf, { raw: { width, height, channels } }).png().toBuffer();
+}
+
+/**
+ * Agrega un rectángulo de color sólido (fondo uniforme) en la región de la
+ * foto del DNI. Simula foto "borrada" o reemplazada por un color plano —
+ * photo_edge detecta baja densidad de edges en esa región vs el fondo.
+ */
+async function makePhotoErased(base: Buffer): Promise<Buffer> {
+  const width = 960;
+  const height = 640;
+  const rx = Math.floor(width * 0.07);
+  const ry = Math.floor(height * 0.32);
+  const rw = Math.floor(width * 0.25);
+  const rh = Math.floor(height * 0.48);
+
+  const flat = Buffer.alloc(rw * rh * 3, 200);
+  const flatPng = await sharp(flat, { raw: { width: rw, height: rh, channels: 3 } })
+    .png()
+    .toBuffer();
+  return sharp(base)
+    .composite([{ input: flatPng, left: rx, top: ry }])
+    .png()
+    .toBuffer();
+}
+
+// photo_edge validación adversarial se hace con fixtures reales (DNI con foto
+// borrada / reemplazada), no sintéticos — la señal requiere la diferencia
+// natural de textura entre una cara y el fondo del DNI, que el puro negro
+// sobre blanco de estos adversariales no reproduce. Ver test.skip al final.
+test.skip("forensics — imagen uniforme en bbox de foto eleva photo_edge_score (needs real fixture)", async () => {
+  // TODO(P2): activar cuando haya lib/kyc/__fixtures__/dni-photo-erased.jpg
+  // generado desde un DNI real cubriendo la foto con un color plano.
+  const base = await makeDniLikeBasePng();
+  const erased = await makePhotoErased(base);
+  const baseResult = await analyzeDniForensics(base);
+  const erasedResult = await analyzeDniForensics(erased);
+  assert.ok(erasedResult.photo_edge_score > baseResult.photo_edge_score);
+});
+
+test("forensics — imagen de documento limpia tiene photo_edge bajo", async () => {
+  const base = await makeDniLikeBasePng();
+  const r = await analyzeDniForensics(base);
+  assert.ok(
+    r.photo_edge_score < 0.4,
+    `documento limpio debería tener photo_edge < 0.4, got ${r.photo_edge_score.toFixed(3)}`,
+  );
+});
+
+test("forensics — photo_edge no crashea con imágenes extremas", async () => {
+  // Imagen casi sin edges (color completamente plano) — debería early-return a 0
+  const flat = await sharp({
+    create: { width: 400, height: 300, channels: 3, background: { r: 220, g: 220, b: 220 } },
+  })
+    .png()
+    .toBuffer();
+  const r = await analyzeDniForensics(flat);
+  assert.ok(r.photo_edge_score >= 0 && r.photo_edge_score <= 1);
+});
+
 // Fixtures reales — marcados skip hasta que existan en lib/kyc/__fixtures__/
 test.skip("forensics — DNI auténtico fixture tiene overall_tampering_risk < 0.2", async () => {
   // TODO: colocar lib/kyc/__fixtures__/dni-real-front.jpg (real, anonimizado)

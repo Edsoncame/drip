@@ -10,7 +10,10 @@
  *      busca pares con Hamming distance baja y distancia espacial alta.
  *      Detecta regiones duplicadas clásicas de fraude "pegar la foto de la
  *      persona X sobre el DNI de otra persona" si el copista duplica fondo.
- *   4. Photo edge / Canny — [STUB, fase 1 commit 3]
+ *   4. Photo edge — Sobel custom sobre región aproximada donde el DNI peruano
+ *      tiene la foto del titular. Score alto si edge density en la región
+ *      diverge mucho del resto del DNI (indica borde de foto pegada, o región
+ *      uniform por foto borrada).
  *   5. Noise consistency — [STUB, fase 1 commit 4]
  *   6. Combina los 4 con pesos [0.4 ela, 0.2 copy_move, 0.3 edge, 0.1 noise].
  *
@@ -29,7 +32,7 @@ export interface ForensicsResult {
   ela_score: number;
   /** 0-1, 1 = regiones duplicadas detectadas (aHash 64-bit + Hamming) */
   copy_move_score: number;
-  /** 0-1, 1 = borde de foto del titular sospechoso — STUB por ahora */
+  /** 0-1, 1 = borde de foto del titular sospechoso (Sobel density divergence) */
   photo_edge_score: number;
   /** 0-1, 1 = ruido inconsistente entre regiones — STUB por ahora */
   noise_consistency: number;
@@ -69,6 +72,30 @@ const COPY_MOVE_HAMMING_THRESHOLD = 5;
 const COPY_MOVE_MIN_SPATIAL_DIST = 6;
 /** Rate de matches por 100 blocks que satura a score 1. */
 const COPY_MOVE_SATURATION_RATE = 2.0;
+
+/**
+ * Bounding box aproximado (en fracciones del ancho/alto del DNI) de la foto
+ * del titular en el DNI peruano anverso. Se calibra con fixtures reales en
+ * fase 2 (template.ts); estos valores son un estimado conservador que cubre
+ * la zona general donde vive la foto. Si la foto real del DNI cae dentro
+ * de este bbox, el score refleja correctamente.
+ *
+ * TODO(P2): reemplazar con bbox exacto + detección por template matching.
+ */
+const DNI_PE_PHOTO_BBOX = { x: 0.07, y: 0.32, w: 0.25, h: 0.48 } as const;
+
+/**
+ * Sobel kernels 3×3 para derivada espacial. Se usan via sharp.convolve().
+ * Valores clásicos de la literatura de procesamiento de imágenes.
+ */
+const SOBEL_X = [-1, 0, 1, -2, 0, 2, -1, 0, 1];
+const SOBEL_Y = [-1, -2, -1, 0, 0, 0, 1, 2, 1];
+
+/** Umbral (0-255) para binarizar magnitud de gradiente como "edge". */
+const EDGE_THRESHOLD = 40;
+
+/** Ratio (region_density / global_density) que satura a score 1. */
+const PHOTO_EDGE_DIVERGENCE_SATURATION = 2.0;
 
 const WEIGHTS = {
   ela: 0.4,
@@ -289,6 +316,114 @@ async function computeCopyMove(normalized: Buffer): Promise<number> {
   return score > 1 ? 1 : score;
 }
 
+/**
+ * Sobel edge magnitude. Corre dos convoluciones 3×3 (derivada X e Y) sobre
+ * grayscale con scale=4 y offset=128 para preservar gradientes negativos
+ * (sin offset, sharp clampea negativos a 0 y perdemos media señal).
+ *
+ * Con scale=4 + offset=128:
+ *   - Zona uniforme (gradient 0) → pixel=128
+ *   - Gradient fuerte positivo → pixel cerca de 255
+ *   - Gradient fuerte negativo → pixel cerca de 0
+ *   - Magnitud = |pixel - 128| saturated a 127
+ *
+ * Combina como |Gx - 128| + |Gy - 128| — aproximación L1 de sqrt(Gx²+Gy²),
+ * ~8% error pero 3× más rápido (sin sqrt).
+ */
+async function sobelMagnitude(normalized: Buffer): Promise<{
+  data: Uint8Array;
+  width: number;
+  height: number;
+}> {
+  // toColorspace('b-w') fuerza el raw output a 1 channel (grayscale() solo
+  // convierte visualmente — el buffer raw puede tener 3 channels igualmente).
+  const gray = sharp(normalized).grayscale().toColorspace("b-w");
+
+  const [gx, gy] = await Promise.all([
+    gray
+      .clone()
+      .convolve({ width: 3, height: 3, kernel: SOBEL_X, scale: 4, offset: 128 })
+      .raw()
+      .toBuffer({ resolveWithObject: true }),
+    gray
+      .clone()
+      .convolve({ width: 3, height: 3, kernel: SOBEL_Y, scale: 4, offset: 128 })
+      .raw()
+      .toBuffer({ resolveWithObject: true }),
+  ]);
+
+  if (
+    gx.info.width !== gy.info.width ||
+    gx.info.height !== gy.info.height ||
+    gx.info.channels !== 1
+  ) {
+    throw new Error(`sobel shape mismatch: gx=${gx.info.channels}ch gy=${gy.info.channels}ch`);
+  }
+
+  const mag = new Uint8Array(gx.data.length);
+  for (let i = 0; i < gx.data.length; i++) {
+    const ax = gx.data[i] >= 128 ? gx.data[i] - 128 : 128 - gx.data[i];
+    const ay = gy.data[i] >= 128 ? gy.data[i] - 128 : 128 - gy.data[i];
+    const sum = ax + ay;
+    mag[i] = sum > 255 ? 255 : sum;
+  }
+
+  return { data: mag, width: gx.info.width, height: gx.info.height };
+}
+
+/**
+ * Photo edge detection. Compara la densidad de edges en el bbox donde está
+ * la foto del titular con la densidad global del DNI.
+ *
+ * Lógica:
+ *   - Si la región tiene MUCHO más edges que el global → foto pegada con
+ *     borde alto contraste (score alto).
+ *   - Si la región tiene MUCHO menos edges → foto borrada/reemplazada por
+ *     región uniforme (score alto).
+ *   - Si la región está en el rango esperado (1.0-1.5× del global) → score bajo.
+ *
+ * El score es |log(region/global)| saturado por PHOTO_EDGE_DIVERGENCE_SATURATION.
+ */
+async function computePhotoEdge(normalized: Buffer): Promise<number> {
+  const { data, width, height } = await sobelMagnitude(normalized);
+
+  const rx = Math.floor(width * DNI_PE_PHOTO_BBOX.x);
+  const ry = Math.floor(height * DNI_PE_PHOTO_BBOX.y);
+  const rw = Math.floor(width * DNI_PE_PHOTO_BBOX.w);
+  const rh = Math.floor(height * DNI_PE_PHOTO_BBOX.h);
+
+  if (rw <= 0 || rh <= 0 || rx + rw > width || ry + rh > height) {
+    return 0; // bbox inválido → neutro
+  }
+
+  let regionEdges = 0;
+  let globalEdges = 0;
+
+  for (let y = 0; y < height; y++) {
+    const rowStart = y * width;
+    for (let x = 0; x < width; x++) {
+      const isEdge = data[rowStart + x] >= EDGE_THRESHOLD ? 1 : 0;
+      globalEdges += isEdge;
+      if (x >= rx && x < rx + rw && y >= ry && y < ry + rh) {
+        regionEdges += isEdge;
+      }
+    }
+  }
+
+  const regionArea = rw * rh;
+  const globalArea = width * height;
+  const regionDensity = regionEdges / regionArea;
+  const globalDensity = globalEdges / globalArea;
+
+  if (globalDensity < 0.001) return 0; // imagen casi sin edges → no podemos juzgar
+
+  const ratio = regionDensity / globalDensity;
+  // |log(ratio)| — divergencia simétrica: ratio=1 → 0, ratio=2 o 0.5 → ~0.69.
+  const divergence = Math.abs(Math.log(Math.max(ratio, 0.01)));
+  const score = divergence / PHOTO_EDGE_DIVERGENCE_SATURATION;
+  return score > 1 ? 1 : score;
+}
+
 export async function analyzeDniForensics(imageBuffer: Buffer): Promise<ForensicsResult> {
   let normalized: Buffer;
   try {
@@ -305,7 +440,7 @@ export async function analyzeDniForensics(imageBuffer: Buffer): Promise<Forensic
     };
   }
 
-  const [ela_score, copy_move_score] = await Promise.all([
+  const [ela_score, copy_move_score, photo_edge_score] = await Promise.all([
     computeEla(normalized).catch((err) => {
       console.error("[kyc/forensics] ela failed:", err instanceof Error ? err.message : err);
       return 0.5;
@@ -314,10 +449,13 @@ export async function analyzeDniForensics(imageBuffer: Buffer): Promise<Forensic
       console.error("[kyc/forensics] copy-move failed:", err instanceof Error ? err.message : err);
       return 0;
     }),
+    computePhotoEdge(normalized).catch((err) => {
+      console.error("[kyc/forensics] photo-edge failed:", err instanceof Error ? err.message : err);
+      return 0;
+    }),
   ]);
 
-  // Stubs — se implementan en los siguientes commits.
-  const photo_edge_score = 0;
+  // Stub — se implementa en el siguiente commit.
   const noise_consistency = 0;
 
   const overall_tampering_risk =
