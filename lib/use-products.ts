@@ -21,15 +21,15 @@ async function fetchProducts(): Promise<Product[]> {
 }
 
 export function useProducts() {
+  // Lazy init — si hay cache, useState ya arranca con el valor correcto
+  // (evita cascade render por setProducts en el effect, que es lo que el
+  // React Compiler flaggea como 'setState in effect').
   const [products, setProducts] = useState<Product[]>(cachedProducts ?? []);
   const [loading, setLoading] = useState(!cachedProducts);
 
   useEffect(() => {
-    if (cachedProducts) {
-      setProducts(cachedProducts);
-      setLoading(false);
-      return;
-    }
+    // Si ya teníamos cache al montar, useState ya hidrató → nada que hacer.
+    if (cachedProducts) return;
     fetchProducts().then((p) => {
       setProducts(p);
       setLoading(false);
