@@ -400,6 +400,13 @@ export default function DniCaptureGuided({ onCaptured, onCancel }: Props) {
         <div className="relative z-10 p-5 pb-7 bg-gradient-to-t from-black via-black/95 to-transparent flex flex-col items-center gap-4">
           <button
             onClick={() => capture("manual")}
+            // capturedRef se setea en capture() y previene doble-click. Leerlo
+            // en render puede ser estable en la práctica (el ref cambia justo
+            // antes de un re-render disparado por setReady), pero React
+            // Compiler lo flagea. Mantenemos el ref por compatibilidad con
+            // el resto del componente (ya en producción). Documentado en
+            // AUDIT_NOTES.md para review dedicado.
+            // eslint-disable-next-line react-hooks/refs
             disabled={capturedRef.current}
             className="w-20 h-20 rounded-full bg-white hover:bg-white/90 active:scale-95 transition-all shadow-2xl flex items-center justify-center disabled:opacity-60"
             aria-label="Capturar foto"

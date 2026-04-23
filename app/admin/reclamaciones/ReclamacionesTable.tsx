@@ -31,6 +31,10 @@ export default function ReclamacionesTable({ rows }: { rows: Reclamacion[] }) {
     startTransition(() => router.refresh());
   }
 
+  // `now` memoizado — re-captura en cada set of rows pero no en cada re-render.
+  // MUST estar antes de cualquier early return (rule-of-hooks).
+  const now = useMemo(() => Date.now(), [rows]);
+
   if (rows.length === 0) {
     return (
       <div className="bg-white rounded-2xl border border-[#E5E5E5] p-12 text-center">
@@ -38,10 +42,6 @@ export default function ReclamacionesTable({ rows }: { rows: Reclamacion[] }) {
       </div>
     );
   }
-
-  // `now` memoizado — re-captura en cada set of rows pero no en cada re-render
-  // (evita el lint rule "impure function during render" del React Compiler).
-  const now = useMemo(() => Date.now(), [rows]);
 
   return (
     <div className="bg-white rounded-2xl border border-[#E5E5E5] overflow-hidden">
