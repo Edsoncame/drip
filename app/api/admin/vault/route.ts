@@ -7,7 +7,7 @@ async function assertAdmin() {
   return !!(await requireAdmin());
 }
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   if (!await assertAdmin()) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   const result = await query(`SELECT * FROM vault_entries ORDER BY category, nombre`);
   const rows = result.rows.map(r => ({

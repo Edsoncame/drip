@@ -41,7 +41,6 @@ export default function PaymentsReview({ payments }: { payments: Payment[] }) {
   const [noteValue, setNoteValue] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [invoiceAmount, setInvoiceAmount] = useState("");
-  const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
   const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
 
   const showToast = (type: "success" | "error", msg: string) => {

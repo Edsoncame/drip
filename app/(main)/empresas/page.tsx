@@ -1,5 +1,4 @@
 "use client";
-import Link from "next/link";
 import { useState, useRef } from "react";
 import { useProducts } from "@/lib/use-products";
 import BuyVsRentCalculator from "@/components/BuyVsRentCalculator";

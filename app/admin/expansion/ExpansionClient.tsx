@@ -95,8 +95,6 @@ interface Props {
 
 // ──────────────────────────── helpers ────────────────────────────
 
-const FLUX_WHATSAPP = "51900164769"; // sin + para wa.me
-
 const PLAY_LABEL: Record<PlayType, string> = {
   UPGRADE_TIER: "Upgrade a Pro",
   BUNDLE_IPAD: "Bundle iPad",
@@ -148,7 +146,6 @@ function daysUntil(iso: string | null): number | null {
 function whatsappScript(opp: OpportunityRow): string {
   const firstName = (opp.user_name || "").split(" ")[0] || "hola";
   const product = (opp.signals as ClientSignals)?.max_product_name || "tu equipo";
-  const d = daysUntil(opp.snoozed_until); // no usado, placeholder
 
   switch (opp.play_type) {
     case "UPGRADE_TIER":

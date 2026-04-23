@@ -17,7 +17,7 @@ interface Props {
 }
 
 export default function EndOfContractActions({
-  subscriptionId, productName, months, monthlyPrice,
+  subscriptionId, productName, monthlyPrice,
   daysLeft, deliveryAddress, deliveryDistrito, endAction, purchasePrice,
 }: Props) {
   const maxReached = endAction === "max_reached";

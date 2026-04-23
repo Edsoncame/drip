@@ -50,7 +50,7 @@ async function resolvePool(): Promise<Pool> {
     _resolvedPool = noSslPool;
     if (process.env.NODE_ENV !== "production") globalThis._pgPool = noSslPool;
     return noSslPool;
-  } catch (e1) {
+  } catch {
     await noSslPool.end().catch(() => {});
 
     // Fallback: try with SSL (rejectUnauthorized:false for self-signed certs)

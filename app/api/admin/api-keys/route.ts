@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
-import { createApiKey, listApiKeys, revokeApiKey, ALL_SCOPES, type Scope } from "@/lib/api-keys";
+import { createApiKey, revokeApiKey, ALL_SCOPES, type Scope } from "@/lib/api-keys";
 import { query } from "@/lib/db";
 
 export const runtime = "nodejs";

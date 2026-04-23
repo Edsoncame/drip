@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import type { AgentId, AgentMeta, AgentState, FileEntry, ActivityEvent, AgentBlocker } from "@/lib/agents";
+import type { AgentId, AgentMeta, AgentState, FileEntry, AgentBlocker } from "@/lib/agents";
 import PixelAvatar, { type AgentMood } from "./PixelAvatar";
 import { parseOrchestratorText, computeMood, timeAgo } from "./orchestrator-utils";
-import { playNotificationSound, sendBrowserNotification } from "./audio-utils";
-import { MarkdownLite, CopyableCode, CopyButton } from "./MarkdownLite";
+import { sendBrowserNotification } from "./audio-utils";
+import { MarkdownLite } from "./MarkdownLite";
 import { ChatBubble, ClusterRing } from "./chat-visuals";
 import { CurrentTaskPanel, StepsPanel } from "./agent-panels";
 import type {

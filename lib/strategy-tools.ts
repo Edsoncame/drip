@@ -18,11 +18,9 @@ import {
   getActiveStrategy,
   listObjectives,
   listKpis,
-  listTasks,
   listExperiments,
   listReports,
   listAttachments,
-  getStrategy,
   createObjective,
   createKpi,
   updateKpi,
@@ -397,7 +395,7 @@ export function updateKpiValueTool(actor: string) {
 // Tasks — disponible para todos los agentes
 // ═══════════════════════════════════════════════════════════════════════════
 
-export function scheduleTaskTool(actor: string) {
+export function scheduleTaskTool(_actor: string) {
   return tool({
     description:
       "Programa una tarea concreta en una fecha/hora específica. Cuando llegue scheduled_for, el task scheduler despertará al owner_agent_id y le pasará la tarea para ejecutar. Si es recurrente (ej: cada lunes), usá recurrence_rule con formato simple: 'WEEKLY:MON:09:00' o 'MONTHLY:1:08:00' (día 1 del mes 8am).",
@@ -453,7 +451,7 @@ export function scheduleTaskTool(actor: string) {
   });
 }
 
-export function markTaskDoneTool(actor: string) {
+export function markTaskDoneTool(_actor: string) {
   return tool({
     description:
       "Marca una tarea como completada. Pasále el rel_path del archivo que generaste como deliverable.",

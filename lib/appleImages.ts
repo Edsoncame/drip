@@ -5,7 +5,6 @@
  */
 
 const CDN = "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is";
-const APPLE_CDN = "https://www.apple.com/v";
 
 // Fallback IDs — updated to January 2026 (current MacBook generation)
 const FALLBACK_IDS = {

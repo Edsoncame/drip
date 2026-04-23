@@ -144,7 +144,6 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
   const slug = meta.product_slug ?? "";
   const productName = meta.product_name ?? "";
   const months = parseInt(meta.months ?? "0", 10);
-  const quantity = parseInt(meta.quantity ?? "1", 10);
   const appleCare = meta.apple_care === "true";
   const monthlyPrice = parseFloat(meta.monthly_price ?? "0");
 

@@ -31,7 +31,7 @@ const DAILY_COST_CAP_USD = Number(
  * Prompt proactivo genérico. El CLAUDE.md del agente ya está en el system
  * prompt del runner, así que acá solo le damos el "gatillo" y protocolo.
  */
-function proactivePrompt(agentId: AgentId): string {
+function proactivePrompt(_agentId: AgentId): string {
   const today = new Date().toISOString().slice(0, 10);
   return `MODO AUTOPILOT — nadie te dio una tarea explícita.
 
