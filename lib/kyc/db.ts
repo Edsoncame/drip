@@ -116,6 +116,38 @@ export async function ensureKycSchema(): Promise<void> {
   await query(`CREATE INDEX IF NOT EXISTS idx_kyc_attempts_user ON kyc_attempts(user_id, created_at DESC)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_kyc_attempts_corr ON kyc_attempts(correlation_id)`);
 
+  // ══════════════════════════════════════════════════════════════════════════
+  // Migration Fase 4 del pipeline forense (P2-1): columnas JSONB de cache +
+  // índice para duplicate detection.
+  //
+  // Todas idempotentes (IF NOT EXISTS), seguras de correr N veces.
+  //
+  // Las 4 columnas _json cachean el output de las capas forenses para NO
+  // recomputar cuando el user reintenta verify en la misma correlation_id.
+  // Llave para Fase 4 — cada columna corresponde a un módulo:
+  //   - forensics_json       → lib/kyc/forensics.ts output
+  //   - template_json        → lib/kyc/template.ts output (objeto por side)
+  //   - age_consistency_json → lib/kyc/age-consistency.ts output
+  //   - duplicates_json      → lib/kyc/duplicates.ts output
+  // ══════════════════════════════════════════════════════════════════════════
+  await query(
+    `ALTER TABLE kyc_dni_scans ADD COLUMN IF NOT EXISTS forensics_json JSONB`,
+  );
+  await query(
+    `ALTER TABLE kyc_dni_scans ADD COLUMN IF NOT EXISTS template_json JSONB`,
+  );
+  await query(
+    `ALTER TABLE kyc_dni_scans ADD COLUMN IF NOT EXISTS age_consistency_json JSONB`,
+  );
+  await query(
+    `ALTER TABLE kyc_dni_scans ADD COLUMN IF NOT EXISTS duplicates_json JSONB`,
+  );
+
+  // Index en dni_number para que checkDuplicates() sea O(log N) en vez de scan.
+  await query(
+    `CREATE INDEX IF NOT EXISTS idx_kyc_dni_number ON kyc_dni_scans(dni_number) WHERE dni_number IS NOT NULL`,
+  );
+
   ensured = true;
 }
 
