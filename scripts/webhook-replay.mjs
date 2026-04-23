@@ -38,20 +38,11 @@ console.log(`session: ${session.id} status=${session.status} payment=${session.p
 // Importar el handler del webhook
 process.env.DATABASE_URL = process.env.DATABASE_URL;
 
-// Cargar el módulo compilado (necesita tsx para TS directo)
-const { POST } = await import("../app/api/webhooks/stripe/route.ts").catch(async () => {
-  // Fallback: importar handleCheckoutCompleted directamente
-  console.log("loading route via tsx...");
-  return { POST: null };
-});
-
-// Alternativa: invocar handleCheckoutCompleted via importación dinámica
-// Para simplicidad, reconstruimos un event object y llamamos al POST con firma falsa
-console.log("Simulando flujo interno sin firma (direct call)...");
-
-// Importar query y email
+// Importar query y email — este script no invoca POST() directamente del
+// route handler (demasiadas deps de Next), sino que replica el flujo inline.
 const { query } = await import("../lib/db.ts");
-const { sendConfirmationEmail, sendEmail } = await import("../lib/email.ts");
+const { sendConfirmationEmail } = await import("../lib/email.ts");
+console.log("Simulando flujo interno sin firma (direct call)...");
 
 // Replicar el flujo del handler
 async function runHandler(session) {

@@ -197,7 +197,7 @@ export default function SelfieLiveness({
       }
       setStep("error");
     }
-  }, []);
+  }, [ensureAudio]);
 
   const uploadFrames = useCallback(async () => {
     setStep("uploading");

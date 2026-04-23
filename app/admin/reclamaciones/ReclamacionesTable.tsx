@@ -31,12 +31,12 @@ export default function ReclamacionesTable({ rows }: { rows: Reclamacion[] }) {
     startTransition(() => router.refresh());
   }
 
-  // `now` memoizado — re-captura en cada set of rows pero no en cada re-render.
-  // MUST estar antes de cualquier early return (rule-of-hooks).
-  // Date.now() dentro de useMemo: el Compiler lo flaggea porque la llamada
-  // es impura, pero el useMemo lo cachea por render-ciclo → estable dentro
-  // de un mismo render. Disable documentado.
-  // eslint-disable-next-line react-hooks/purity
+  // `now` memoizado — re-captura cuando cambian las rows (nuevos tiempos
+  // relativos al refresh). El dep `rows` parece innecesario según exhaustive-deps
+  // (el callback no lo usa directamente) pero es intencional: queremos que
+  // al refrescar la data, los "hace N minutos" se actualicen.
+  // Date.now() + el dep rows: dos disables documentados.
+  // eslint-disable-next-line react-hooks/purity, react-hooks/exhaustive-deps
   const now = useMemo(() => Date.now(), [rows]);
 
   if (rows.length === 0) {

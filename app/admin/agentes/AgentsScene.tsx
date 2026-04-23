@@ -93,12 +93,10 @@ export default function AgentsScene() {
   const [attachedFiles, setAttachedFiles] = useState<
     { id: number; title: string; filename: string; size: number; contentType: string | null; blobUrl: string | null }[]
   >([]);
-  // Múltiples imágenes pendientes de subir en el chat principal
-  const [pendingImages, setPendingImages] = useState<File[]>([]);
   const [globalDragging, setGlobalDragging] = useState(false);
   const globalDragCounterRef = useRef(0);
   const [musicPlaying, setMusicPlaying] = useState(false);
-  const [musicEnabled, setMusicEnabled] = useState(true);
+  const musicEnabled = true; // hardcoded true por ahora; cuando haya toggle, volver a useState
   const [clapEnabled, setClapEnabled] = useState(false);
   const youtubeRef = useRef<HTMLIFrameElement>(null);
   const clapStreamRef = useRef<MediaStream | null>(null);
@@ -595,6 +593,12 @@ export default function AgentsScene() {
         setAgentAnim(agentId, "idle");
       }
     },
+    // agentMap está declarado más abajo (useMemo) — no puede ir en deps
+    // porque crearía "used before declaration". El callback captura la ref
+    // vía closure al renderizarse, que ya tiene agentMap poblado cuando se
+    // llama por primera vez. Stale-closure risk: bajo (agentMap solo cambia
+    // si el server manda un nuevo AgentMeta[], muy infrecuente).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [setAgentAnim, loadState],
   );
 
@@ -696,6 +700,10 @@ export default function AgentsScene() {
     setRecordStart(Date.now());
     setRecordElapsed(0);
     rec.start();
+    // `input` se captura intencionalmente como snapshot en inputSnapshotRef
+    // (línea 651). Incluirlo en deps haría que startRecording se re-cree en
+    // cada keypress del chat, destruyendo performance del input.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const stopRecording = useCallback(() => {

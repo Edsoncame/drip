@@ -257,7 +257,10 @@ function Step2({
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [rucStatus, setRucStatus] = useState<{ valid?: boolean; razonSocial?: string; loading?: boolean }>({});
   const [uploadingDni, setUploadingDni] = useState(false);
-  const [uploadingSelfie, setUploadingSelfie] = useState(false);
+  // uploadingSelfie setter nunca se usa — el state nunca cambia. Mantenemos
+  // la variable como `false` literal para que los usos (disabled, spinner)
+  // sigan compilando sin warning.
+  const uploadingSelfie = false;
   const [cameraMode, setCameraMode] = useState<"dni" | "selfie" | null>(null);
   // Guest signup inline
   const [guestPassword, setGuestPassword] = useState("");

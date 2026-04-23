@@ -12,7 +12,6 @@ const GRAY     = rgb(0.4, 0.4, 0.4);
 const LIGHT    = rgb(0.6, 0.6, 0.6);
 const BG_CARD  = rgb(0.963, 0.969, 1);       // #F5F8FF
 const BG_WARN  = rgb(1, 0.973, 0.922);       // #FFFBEB
-const GREEN    = rgb(0.176, 0.490, 0.275);
 
 const PAGE_W = 595.28;  // A4
 const PAGE_H = 841.89;
@@ -176,12 +175,6 @@ async function main() {
       ctx.page.drawText(line, { x: MARGIN + pad, y: cy, size: lineSize, font: regular, color: DARK });
     }
     ctx.y -= boxH + 8;
-  }
-
-  function footer(pageNum, totalPages) {
-    ctx.page.drawText(`FLUX — Tutorial Admin  ·  Página ${pageNum} de ${totalPages}`, {
-      x: MARGIN, y: 28, size: 9, font: regular, color: LIGHT,
-    });
   }
 
   // ========================================================================

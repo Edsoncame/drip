@@ -396,47 +396,15 @@ async function safeStat(p: string) {
   }
 }
 
-async function walkLimited(dir: string, max: number): Promise<FileEntry[]> {
-  const out: FileEntry[] = [];
-  async function rec(current: string, depth: number) {
-    if (out.length >= max || depth > 4) return;
-    let entries: import("node:fs").Dirent[] = [];
-    try {
-      entries = await fs.readdir(current, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const e of entries) {
-      if (IGNORED.has(e.name)) continue;
-      if (e.name.startsWith(".")) continue;
-      const full = path.join(current, e.name);
-      if (e.isDirectory()) {
-        await rec(full, depth + 1);
-      } else {
-        const st = await safeStat(full);
-        if (!st) continue;
-        out.push({
-          path: full,
-          name: e.name,
-          size: st.size,
-          mtime: st.mtimeMs,
-          kind: "file",
-        });
-      }
-      if (out.length >= max) return;
-    }
-  }
-  await rec(dir, 0);
-  return out;
-}
-
 export async function readAgentState(id: AgentId): Promise<AgentState> {
   const dir = path.join(AGENTS_ROOT, id);
   const st = await safeStat(dir);
-
-  // Archivos estáticos del bundle (CLAUDE.md, README.md, memory.md, etc) —
-  // SOLO para display en el detail panel, NO cuentan como actividad real.
-  const staticFiles: FileEntry[] = st && st.isDirectory() ? await walkLimited(dir, 200) : [];
+  // Nota: antes aquí se leía `staticFiles` (CLAUDE.md, README.md, etc.) del
+  // bundle con walkLimited(dir, 200). Era solo para display en el detail
+  // panel, pero nunca se retornaba en `AgentState`. Removido para evitar
+  // I/O innecesario al cargar estado. Si se necesita listar esos archivos
+  // en el futuro, agregar un endpoint separado tipo /api/admin/agents/files.
+  void st;
 
   // Archivos dinámicos escritos por el agente desde la DB — estos SÍ cuentan
   // como actividad porque los escribe el runner cuando el agente ejecuta.
