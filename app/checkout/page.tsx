@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { useProduct } from "@/lib/use-products";
 import type { Product } from "@/lib/products";
@@ -1649,9 +1650,9 @@ function CheckoutContent() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <p className="text-lg font-700 text-[#333333] mb-4">Producto no encontrado</p>
-          <a href="/laptops" className="text-[#1B4FFF] font-600">
+          <Link href="/laptops" className="text-[#1B4FFF] font-600">
             Ver todos los MacBooks
-          </a>
+          </Link>
         </div>
       </div>
     );
@@ -1667,10 +1668,10 @@ function CheckoutContent() {
     <div className="min-h-screen bg-[#F7F7F7] py-10">
       <div className="max-w-lg mx-auto px-4">
         {/* Logo */}
-        <a href="/" className="block text-center mb-8">
+        <Link href="/" className="block text-center mb-8">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/images/logoflux.svg" alt="Flux" className="h-10 mx-auto" />
-        </a>
+        </Link>
 
         <Steps current={step === 1.5 ? 2 : step} />
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { useProduct } from "@/lib/use-products";
 
@@ -30,10 +31,10 @@ function SuccessContent() {
     <div className="min-h-screen bg-[#F7F7F7] flex items-center justify-center py-10 px-4">
       <div className="max-w-lg w-full">
         {/* Logo */}
-        <a href="/" className="block text-center mb-8">
+        <Link href="/" className="block text-center mb-8">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/images/logoflux.svg" alt="Flux" className="h-10 mx-auto" />
-        </a>
+        </Link>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
