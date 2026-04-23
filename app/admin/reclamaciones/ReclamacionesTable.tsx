@@ -33,6 +33,10 @@ export default function ReclamacionesTable({ rows }: { rows: Reclamacion[] }) {
 
   // `now` memoizado — re-captura en cada set of rows pero no en cada re-render.
   // MUST estar antes de cualquier early return (rule-of-hooks).
+  // Date.now() dentro de useMemo: el Compiler lo flaggea porque la llamada
+  // es impura, pero el useMemo lo cachea por render-ciclo → estable dentro
+  // de un mismo render. Disable documentado.
+  // eslint-disable-next-line react-hooks/purity
   const now = useMemo(() => Date.now(), [rows]);
 
   if (rows.length === 0) {

@@ -2132,6 +2132,10 @@ function FinanceModal({
   const [period, setPeriod] = useState<"today" | "week" | "month" | "all">("month");
   const [loading, setLoading] = useState(true);
 
+  // Re-fetch cuando cambia period. setLoading(true) sync al entrar indica
+  // refresh visual al usuario; el React Compiler lo flaggea pero es el
+  // patrón correcto para "data fetch con loading flag por filter change".
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     let alive = true;
     setLoading(true);
@@ -2145,6 +2149,7 @@ function FinanceModal({
       });
     return () => { alive = false; };
   }, [period]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const fmt = (n: number) => n.toLocaleString("en-US");
   const fmtUsd = (n: number) => `$${n.toFixed(4)}`;
