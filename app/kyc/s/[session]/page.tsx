@@ -37,10 +37,11 @@ export default async function KycSdkSessionPage({
   searchParams,
 }: {
   params: Promise<{ session: string }>;
-  searchParams: Promise<{ t?: string }>;
+  searchParams: Promise<{ t?: string; embed?: string }>;
 }) {
   const { session: sessionId } = await params;
-  const { t: token } = await searchParams;
+  const { t: token, embed } = await searchParams;
+  const embedMode = embed === "1";
 
   if (!sessionId || !token) {
     notFound();
@@ -99,6 +100,7 @@ export default async function KycSdkSessionPage({
         initialToken={token}
         tenantId={session.tenant_id}
         branding={branding}
+        embedMode={embedMode}
       />
     </main>
   );
