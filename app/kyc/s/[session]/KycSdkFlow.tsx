@@ -6,6 +6,7 @@ import { DEFAULT_BRANDING } from "@/lib/kyc/sdk/branding";
 
 type Step =
   | { kind: "loading" }
+  | { kind: "intro" }
   | { kind: "dni-front" }
   | { kind: "dni-back" }
   | { kind: "selfie"; frameIndex: 0 | 1 | 2; capturedFrames: string[] }
@@ -59,7 +60,7 @@ export function KycSdkFlow({
       setStep({ kind: "error", message: "Falta el token de la sesión." });
       return;
     }
-    setStep({ kind: "dni-front" });
+    setStep({ kind: "intro" });
   }, [initialToken]);
 
   async function upload(
@@ -158,6 +159,14 @@ export function KycSdkFlow({
   if (step.kind === "error") {
     return <ErrorScreen message={step.message} b={branding} />;
   }
+  if (step.kind === "intro") {
+    return (
+      <IntroScreen
+        b={branding}
+        onStart={() => setStep({ kind: "dni-front" })}
+      />
+    );
+  }
   if (step.kind === "processing") {
     return <ProcessingScreen b={branding} />;
   }
@@ -224,6 +233,194 @@ function BrandHeader({ b }: { b: BrandingTokens }) {
         {b.brand_name}
       </div>
     </div>
+  );
+}
+
+function IntroScreen({
+  b,
+  onStart,
+}: {
+  b: BrandingTokens;
+  onStart: () => void;
+}) {
+  return (
+    <div
+      className="min-h-screen flex flex-col items-center px-6 py-10 overflow-y-auto"
+      style={{ backgroundColor: b.background_color }}
+    >
+      <BrandHeader b={b} />
+
+      <div className="max-w-md w-full mt-2">
+        <h1
+          className="text-2xl font-semibold text-center mb-2"
+          style={{ color: b.text_color }}
+        >
+          Verificá tu identidad
+        </h1>
+        <p
+          className="text-sm text-center mb-8"
+          style={{ color: b.muted_text_color }}
+        >
+          {b.welcome_message ??
+            "Toma 2 minutos. Necesitás tu DNI físico y estar en un lugar bien iluminado."}
+        </p>
+
+        <div className="space-y-3 mb-8">
+          <StepCard
+            b={b}
+            n={1}
+            title="Foto del frente del DNI"
+            detail="Apoyalo sobre una superficie plana. Todo el documento debe verse sin reflejos."
+            icon={<DniFrontSvg color={b.text_color} />}
+          />
+          <StepCard
+            b={b}
+            n={2}
+            title="Foto del reverso del DNI"
+            detail="Asegurate que la línea de letras y números al pie (MRZ) se lea clara."
+            icon={<DniBackSvg color={b.text_color} />}
+          />
+          <StepCard
+            b={b}
+            n={3}
+            title="Selfie con movimiento (liveness)"
+            detail="Te vamos a pedir 3 fotos: mirando al frente, a la izquierda, y a la derecha."
+            icon={<SelfieSvg color={b.text_color} />}
+          />
+        </div>
+
+        <div
+          className="rounded-lg p-4 mb-8 border"
+          style={{
+            borderColor: `${b.muted_text_color}33`,
+            backgroundColor: `${b.muted_text_color}08`,
+          }}
+        >
+          <div
+            className="text-xs uppercase tracking-wider mb-2 font-semibold"
+            style={{ color: b.muted_text_color }}
+          >
+            Antes de empezar
+          </div>
+          <ul
+            className="space-y-1.5 text-sm"
+            style={{ color: b.text_color }}
+          >
+            <Requirement text="Tené tu DNI físico a mano (no foto del DNI)" />
+            <Requirement text="Buena luz — evitá contraluz o reflejos" />
+            <Requirement text="Sin lentes, gorra ni barbijo en la selfie" />
+            <Requirement text="Autorizá el acceso a la cámara cuando aparezca" />
+          </ul>
+        </div>
+
+        <button
+          onClick={onStart}
+          className="w-full py-3.5 rounded-full font-semibold text-base"
+          style={{
+            backgroundColor: b.primary_color,
+            color: b.background_color,
+          }}
+        >
+          Comenzar verificación
+        </button>
+        <p
+          className="text-xs text-center mt-4"
+          style={{ color: b.muted_text_color, opacity: 0.7 }}
+        >
+          Tus datos están encriptados y solo se usan para verificar tu identidad.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function StepCard({
+  b,
+  n,
+  title,
+  detail,
+  icon,
+}: {
+  b: BrandingTokens;
+  n: number;
+  title: string;
+  detail: string;
+  icon: React.ReactNode;
+}) {
+  return (
+    <div
+      className="flex items-start gap-3 rounded-lg p-3 border"
+      style={{
+        borderColor: `${b.muted_text_color}22`,
+        backgroundColor: `${b.muted_text_color}05`,
+      }}
+    >
+      <div
+        className="shrink-0 flex items-center justify-center w-14 h-14 rounded-lg"
+        style={{ backgroundColor: `${b.primary_color}18` }}
+      >
+        {icon}
+      </div>
+      <div className="flex-1">
+        <div
+          className="text-xs mb-0.5"
+          style={{ color: b.muted_text_color }}
+        >
+          Paso {n}
+        </div>
+        <div
+          className="font-semibold text-sm mb-1"
+          style={{ color: b.text_color }}
+        >
+          {title}
+        </div>
+        <div className="text-xs" style={{ color: b.muted_text_color }}>
+          {detail}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Requirement({ text }: { text: string }) {
+  return (
+    <li className="flex items-start gap-2">
+      <span className="shrink-0 mt-0.5">✓</span>
+      <span>{text}</span>
+    </li>
+  );
+}
+
+// --- SVG illustrations (inline, zero dependencies) ---
+
+function DniFrontSvg({ color }: { color: string }) {
+  return (
+    <svg viewBox="0 0 48 36" className="w-9 h-7" fill="none" stroke={color} strokeWidth="1.5">
+      <rect x="2" y="2" width="44" height="32" rx="3" />
+      <circle cx="13" cy="15" r="5" />
+      <path d="M22 10h20M22 14h20M22 20h14M22 24h18M8 28h32" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function DniBackSvg({ color }: { color: string }) {
+  return (
+    <svg viewBox="0 0 48 36" className="w-9 h-7" fill="none" stroke={color} strokeWidth="1.5">
+      <rect x="2" y="2" width="44" height="32" rx="3" />
+      <path d="M6 22h36M6 26h36M6 30h28" strokeLinecap="round" strokeDasharray="2 2" />
+      <path d="M6 10h10M6 14h14" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SelfieSvg({ color }: { color: string }) {
+  return (
+    <svg viewBox="0 0 40 44" className="w-8 h-9" fill="none" stroke={color} strokeWidth="1.5">
+      <ellipse cx="20" cy="22" rx="14" ry="18" />
+      <circle cx="15" cy="19" r="1.2" fill={color} />
+      <circle cx="25" cy="19" r="1.2" fill={color} />
+      <path d="M15 28c1.5 1.5 3 2 5 2s3.5-0.5 5-2" strokeLinecap="round" />
+    </svg>
   );
 }
 
