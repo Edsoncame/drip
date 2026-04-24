@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { BrandingTokens } from "@/lib/kyc/sdk/branding";
+import { DEFAULT_BRANDING } from "@/lib/kyc/sdk/branding";
 
 type Step =
   | { kind: "loading" }
@@ -23,11 +25,13 @@ interface Props {
   sessionId: string;
   initialToken: string;
   tenantId: string;
+  branding?: BrandingTokens;
 }
 
 const TOKEN_KEY = "flux_kyc_session_token";
 
-export function KycSdkFlow({ sessionId, initialToken, tenantId }: Props) {
+export function KycSdkFlow({ sessionId, initialToken, tenantId, branding: brandingProp }: Props) {
+  const branding = brandingProp ?? DEFAULT_BRANDING;
   const [step, setStep] = useState<Step>({ kind: "loading" });
   const tokenRef = useRef<string | null>(null);
 
@@ -141,21 +145,22 @@ export function KycSdkFlow({ sessionId, initialToken, tenantId }: Props) {
   }
 
   if (step.kind === "loading") {
-    return <LoadingScreen />;
+    return <LoadingScreen b={branding} />;
   }
   if (step.kind === "error") {
-    return <ErrorScreen message={step.message} />;
+    return <ErrorScreen message={step.message} b={branding} />;
   }
   if (step.kind === "processing") {
-    return <ProcessingScreen />;
+    return <ProcessingScreen b={branding} />;
   }
   if (step.kind === "done") {
-    return <VerdictScreen verdict={step.verdict} />;
+    return <VerdictScreen verdict={step.verdict} b={branding} />;
   }
   if (step.kind === "dni-front" || step.kind === "dni-back") {
     return (
       <DniCaptureStep
         side={step.kind === "dni-front" ? "front" : "back"}
+        b={branding}
         onCaptured={(file) =>
           handleDniCaptured(file, step.kind === "dni-front" ? "front" : "back")
         }
@@ -167,6 +172,7 @@ export function KycSdkFlow({ sessionId, initialToken, tenantId }: Props) {
       <SelfieCaptureStep
         frameIndex={step.frameIndex}
         capturedFrames={step.capturedFrames}
+        b={branding}
         onCaptured={handleSelfieCaptured}
       />
     );
@@ -192,49 +198,105 @@ function fileToBase64(file: File): Promise<string> {
 
 // === Sub-views === (en archivos separados serían mejor, pero caben acá)
 
-function LoadingScreen() {
+/** Header con logo + brand name del tenant, reutilizado en los steps. */
+function BrandHeader({ b }: { b: BrandingTokens }) {
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="text-white/80 text-sm">Cargando…</div>
+    <div className="flex flex-col items-center gap-2 mb-4">
+      {b.logo_url && (
+        <img
+          src={b.logo_url}
+          alt=""
+          className="h-10 w-auto object-contain max-w-[160px]"
+        />
+      )}
+      <div
+        className="text-xs tracking-[0.3em] uppercase"
+        style={{ color: b.muted_text_color }}
+      >
+        {b.brand_name}
+      </div>
     </div>
   );
 }
 
-function ProcessingScreen() {
+function LoadingScreen({ b }: { b: BrandingTokens }) {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-6 text-center">
-      <div className="h-10 w-10 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-      <h1 className="text-xl font-semibold text-white">Verificando tu identidad</h1>
-      <p className="text-white/60 text-sm">Esto toma unos segundos…</p>
+    <div
+      className="min-h-screen flex items-center justify-center"
+      style={{ backgroundColor: b.background_color }}
+    >
+      <div className="text-sm" style={{ color: b.muted_text_color }}>
+        Cargando…
+      </div>
     </div>
   );
 }
 
-function ErrorScreen({ message }: { message: string }) {
+function ProcessingScreen({ b }: { b: BrandingTokens }) {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-3 px-6 text-center">
-      <h1 className="text-xl font-semibold text-white">Algo falló</h1>
-      <p className="text-white/70 text-sm max-w-sm">{message}</p>
+    <div
+      className="min-h-screen flex flex-col items-center justify-center gap-4 px-6 text-center"
+      style={{ backgroundColor: b.background_color }}
+    >
+      <BrandHeader b={b} />
+      <div
+        className="h-10 w-10 rounded-full border-2 animate-spin"
+        style={{
+          borderColor: `${b.muted_text_color}55`,
+          borderTopColor: b.text_color,
+        }}
+      />
+      <h1 className="text-xl font-semibold" style={{ color: b.text_color }}>
+        Verificando tu identidad
+      </h1>
+      <p className="text-sm" style={{ color: b.muted_text_color }}>
+        Esto toma unos segundos…
+      </p>
     </div>
   );
 }
 
-function VerdictScreen({ verdict }: { verdict: Verdict }) {
+function ErrorScreen({ message, b }: { message: string; b: BrandingTokens }) {
+  return (
+    <div
+      className="min-h-screen flex flex-col items-center justify-center gap-3 px-6 text-center"
+      style={{ backgroundColor: b.background_color }}
+    >
+      <BrandHeader b={b} />
+      <h1 className="text-xl font-semibold" style={{ color: b.text_color }}>
+        Algo falló
+      </h1>
+      <p className="text-sm max-w-sm" style={{ color: b.muted_text_color }}>
+        {message}
+      </p>
+    </div>
+  );
+}
+
+function VerdictScreen({ verdict, b }: { verdict: Verdict; b: BrandingTokens }) {
   const isOk = verdict.status === "verified";
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-6 text-center">
+    <div
+      className="min-h-screen flex flex-col items-center justify-center gap-4 px-6 text-center"
+      style={{ backgroundColor: b.background_color }}
+    >
+      <BrandHeader b={b} />
       <div
-        className={`h-16 w-16 rounded-full flex items-center justify-center text-3xl ${
-          isOk ? "bg-emerald-500" : "bg-red-500"
-        }`}
+        className="h-16 w-16 rounded-full flex items-center justify-center text-3xl text-white"
+        style={{ backgroundColor: isOk ? "#10B981" : "#EF4444" }}
       >
         {isOk ? "✓" : "✗"}
       </div>
-      <h1 className="text-2xl font-semibold text-white">
+      <h1 className="text-2xl font-semibold" style={{ color: b.text_color }}>
         {isOk ? "Identidad verificada" : "Verificación rechazada"}
       </h1>
-      <p className="text-white/70 text-sm max-w-sm">{verdict.reason}</p>
-      <p className="text-white/40 text-xs mt-4">
+      <p className="text-sm max-w-sm" style={{ color: b.muted_text_color }}>
+        {verdict.reason}
+      </p>
+      <p
+        className="text-xs mt-4"
+        style={{ color: b.muted_text_color, opacity: 0.6 }}
+      >
         Podés cerrar esta ventana y volver a la app.
       </p>
     </div>
@@ -244,24 +306,43 @@ function VerdictScreen({ verdict }: { verdict: Verdict }) {
 function DniCaptureStep({
   side,
   onCaptured,
+  b,
 }: {
   side: "front" | "back";
   onCaptured: (file: File) => void;
+  b: BrandingTokens;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-5 px-6 text-center">
-      <h1 className="text-xl font-semibold text-white">
+    <div
+      className="min-h-screen flex flex-col items-center justify-center gap-5 px-6 text-center"
+      style={{ backgroundColor: b.background_color }}
+    >
+      <BrandHeader b={b} />
+      <h1 className="text-xl font-semibold" style={{ color: b.text_color }}>
         {side === "front" ? "Foto del frente de tu DNI" : "Foto del reverso del DNI"}
       </h1>
-      <p className="text-white/60 text-sm max-w-sm">
-        {side === "front"
-          ? "Tomá una foto clara con buena luz. Que se vean tu foto y los 8 dígitos."
-          : "Tomá una foto del reverso — la tira de letras y números (MRZ) debe estar legible."}
-      </p>
+      {side === "front" && b.welcome_message ? (
+        <p
+          className="text-sm max-w-sm"
+          style={{ color: b.muted_text_color }}
+        >
+          {b.welcome_message}
+        </p>
+      ) : (
+        <p className="text-sm max-w-sm" style={{ color: b.muted_text_color }}>
+          {side === "front"
+            ? "Tomá una foto clara con buena luz. Que se vean tu foto y los 8 dígitos."
+            : "Tomá una foto del reverso — la tira de letras y números (MRZ) debe estar legible."}
+        </p>
+      )}
       <button
         onClick={() => inputRef.current?.click()}
-        className="mt-2 px-6 py-3 rounded-full bg-white text-black font-semibold"
+        className="mt-2 px-6 py-3 rounded-full font-semibold"
+        style={{
+          backgroundColor: b.primary_color,
+          color: b.background_color,
+        }}
       >
         Abrir cámara
       </button>
@@ -284,10 +365,12 @@ function SelfieCaptureStep({
   frameIndex,
   capturedFrames,
   onCaptured,
+  b,
 }: {
   frameIndex: 0 | 1 | 2;
   capturedFrames: string[];
   onCaptured: (dataUrl: string) => void;
+  b: BrandingTokens;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -347,11 +430,15 @@ function SelfieCaptureStep({
   }
 
   if (err) {
-    return <ErrorScreen message={`No pudimos abrir la cámara: ${err}`} />;
+    return <ErrorScreen message={`No pudimos abrir la cámara: ${err}`} b={b} />;
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-between py-6 px-4 gap-4 text-center">
+    <div
+      className="min-h-screen flex flex-col items-center justify-between py-6 px-4 gap-4 text-center"
+      style={{ backgroundColor: b.background_color }}
+    >
+      <BrandHeader b={b} />
       <div className="flex gap-2 mt-2">
         {[0, 1, 2].map((i) => (
           <div
@@ -378,10 +465,16 @@ function SelfieCaptureStep({
       </div>
       <canvas ref={canvasRef} className="hidden" />
       <div className="flex flex-col items-center gap-3">
-        <p className="text-white text-lg font-medium">{prompt}</p>
+        <p className="text-lg font-medium" style={{ color: b.text_color }}>
+          {prompt}
+        </p>
         <button
           onClick={snap}
-          className="h-16 w-16 rounded-full bg-white border-4 border-white/50"
+          className="h-16 w-16 rounded-full border-4"
+          style={{
+            backgroundColor: b.primary_color,
+            borderColor: `${b.primary_color}80`,
+          }}
           aria-label="Capturar"
         />
       </div>
