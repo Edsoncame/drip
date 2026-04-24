@@ -196,6 +196,7 @@ export type SdkSessionStatus =
   | "pending"
   | "capturing"
   | "processing"
+  | "review"
   | "completed"
   | "expired"
   | "failed";
@@ -214,6 +215,11 @@ export interface DbSdkSession {
   created_at: Date;
   expires_at: Date;
   completed_at: Date | null;
+  reviewed_at: Date | null;
+  reviewed_by: string | null;
+  review_notes: string | null;
+  review_action: string | null;
+  webhook_fired_at: Date | null;
 }
 
 export interface DbSdkTenant {
