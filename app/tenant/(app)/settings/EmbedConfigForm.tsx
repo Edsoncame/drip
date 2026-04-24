@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import Script from "next/script";
 
 export function EmbedConfigForm({
   tenantId,
@@ -247,6 +248,9 @@ export function EmbedConfigForm({
         </div>
       </div>
 
+      {/* Preview button + last verdict */}
+      <PreviewSection pk={pk} origins={origins} />
+
       {/* Snippet */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
@@ -269,6 +273,146 @@ export function EmbedConfigForm({
           Tenant: <code>{tenantId}</code>
         </p>
       </div>
+    </div>
+  );
+}
+
+interface VerdictPreview {
+  status?: string;
+  reason?: string;
+  face_score?: number | null;
+}
+
+/**
+ * Card de preview: botón real que abre el modal de KYC usando la propia pk
+ * del tenant. Útil para que el admin vea la experiencia final sin tener que
+ * publicar nada en su sitio. Requiere que www.fluxperu.com esté en origins.
+ */
+function PreviewSection({ pk, origins }: { pk: string | null; origins: string[] }) {
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const [result, setResult] = useState<VerdictPreview | null>(null);
+  const [cancelled, setCancelled] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [scriptLoaded, setScriptLoaded] = useState(false);
+
+  // Solo se puede previsualizar si el dominio del dashboard está en la
+  // whitelist — si no, el endpoint /api/kyc/embed/session devuelve 403.
+  const ownOrigin =
+    typeof window !== "undefined" ? window.location.origin : "";
+  const originAllowed = origins.includes(ownOrigin);
+
+  useEffect(() => {
+    const el = btnRef.current;
+    if (!el) return;
+    const onComplete = (e: Event) => {
+      setResult((e as CustomEvent<{ verdict: VerdictPreview }>).detail.verdict);
+      setCancelled(false);
+      setError(null);
+    };
+    const onCancel = () => setCancelled(true);
+    const onError = (e: Event) => {
+      setError((e as CustomEvent<{ error: string }>).detail.error);
+    };
+    el.addEventListener("flux-kyc:complete", onComplete);
+    el.addEventListener("flux-kyc:cancel", onCancel);
+    el.addEventListener("flux-kyc:error", onError);
+    return () => {
+      el.removeEventListener("flux-kyc:complete", onComplete);
+      el.removeEventListener("flux-kyc:cancel", onCancel);
+      el.removeEventListener("flux-kyc:error", onError);
+    };
+  }, []);
+
+  // Re-attach el click handler cada vez que el script carga o cambia la pk.
+  useEffect(() => {
+    if (!scriptLoaded || !pk) return;
+    const w = window as unknown as {
+      FluxKYCEmbed?: { autoInit: () => void };
+    };
+    w.FluxKYCEmbed?.autoInit();
+  }, [scriptLoaded, pk]);
+
+  return (
+    <div
+      className="rounded-lg p-5 space-y-3 border"
+      style={{ borderColor: "rgb(16 185 129 / 0.3)", backgroundColor: "rgb(16 185 129 / 0.05)" }}
+    >
+      <Script
+        src="/kyc-embed.js"
+        strategy="afterInteractive"
+        onLoad={() => setScriptLoaded(true)}
+      />
+      <div>
+        <h3 className="text-xs text-emerald-300 uppercase tracking-wider font-semibold">
+          Preview en vivo
+        </h3>
+        <p className="text-xs text-white/50 mt-1">
+          Clickeá el botón y ejecutá el flujo completo como lo verá tu cliente
+          final — con tu logo, colores, y copy. Lo podés cerrar cuando quieras.
+        </p>
+      </div>
+
+      {!pk && (
+        <p className="text-amber-400 text-sm">
+          Primero generá tu publishable key arriba.
+        </p>
+      )}
+
+      {pk && !originAllowed && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded px-3 py-2 text-xs text-amber-300">
+          Agregá <code className="bg-black/40 px-1 rounded">{ownOrigin}</code>{" "}
+          a los dominios autorizados para que funcione el preview desde acá.
+        </div>
+      )}
+
+      <div className="flex items-center gap-4">
+        <button
+          ref={btnRef}
+          data-flux-kyc={pk ?? "pk_"}
+          data-external-user-id="preview-from-dashboard"
+          data-external-reference="preview"
+          disabled={!pk || !originAllowed}
+          className="px-5 py-2.5 rounded-full font-semibold text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+          style={{ backgroundColor: "#FFFFFF", color: "#000000" }}
+        >
+          Ver preview del flujo
+        </button>
+        <span className="text-xs text-white/40">
+          Se abre un modal — podés cerrarlo con el × en cualquier momento.
+        </span>
+      </div>
+
+      {result && (
+        <div
+          className={`rounded px-3 py-3 text-sm border ${
+            result.status === "verified"
+              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-200"
+              : "bg-red-500/10 border-red-500/30 text-red-200"
+          }`}
+        >
+          <div className="font-semibold mb-1">
+            {result.status === "verified"
+              ? "✓ Preview verificó"
+              : "✗ Preview rechazó"}
+          </div>
+          <div className="text-xs text-white/70">{result.reason}</div>
+          {typeof result.face_score === "number" && (
+            <div className="text-xs text-white/50 mt-1">
+              face_score: {result.face_score.toFixed(1)}%
+            </div>
+          )}
+        </div>
+      )}
+      {cancelled && !result && (
+        <div className="text-xs text-white/60">
+          Cerraste el preview — clickea de nuevo para reintentarlo.
+        </div>
+      )}
+      {error && (
+        <div className="rounded bg-red-500/10 border border-red-500/30 px-3 py-2 text-xs text-red-300">
+          {error}
+        </div>
+      )}
     </div>
   );
 }
