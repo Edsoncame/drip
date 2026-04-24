@@ -70,7 +70,43 @@ export async function ensureSdkSchema(): Promise<void> {
        WHERE external_user_id IS NOT NULL`,
   );
 
+  // ══════════════════════════════════════════════════════════════════════════
+  // kyc_tenant_users — usuarios humanos del dashboard del tenant.
+  // Separados de `users` de Flux (aplicación distinta, scope de tenant único).
+  // ══════════════════════════════════════════════════════════════════════════
+  await query(`
+    CREATE TABLE IF NOT EXISTS kyc_tenant_users (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      tenant_id TEXT NOT NULL REFERENCES kyc_tenants(id) ON DELETE CASCADE,
+      email TEXT NOT NULL,
+      password_hash TEXT NOT NULL,
+      name TEXT,
+      role TEXT NOT NULL DEFAULT 'admin',
+      active BOOLEAN NOT NULL DEFAULT true,
+      last_login_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      CONSTRAINT kyc_tenant_users_email_unique UNIQUE (email)
+    )
+  `);
+  await query(
+    `CREATE INDEX IF NOT EXISTS idx_tenant_users_tenant ON kyc_tenant_users(tenant_id)`,
+  );
+
   ensured = true;
+}
+
+export interface DbTenantUser {
+  id: string;
+  tenant_id: string;
+  email: string;
+  password_hash: string;
+  name: string | null;
+  role: string;
+  active: boolean;
+  last_login_at: Date | null;
+  created_at: Date;
+  updated_at: Date;
 }
 
 export type SdkSessionStatus =
