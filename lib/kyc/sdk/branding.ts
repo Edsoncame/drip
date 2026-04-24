@@ -1,17 +1,9 @@
 /**
- * Branding del tenant — se aplica al hosted web flow (`/kyc/s/[session]`).
+ * Branding del tenant — tipos + helpers PUROS. Safe para client components.
  *
- * Paralelo a lo que hace Truora con "Brand Theme": el tenant sube logo,
- * elige colores, y el flow de captura se muestra con su identidad en vez
- * de la nuestra. Reduce fricción perceptual del usuario final ("¿por qué
- * estoy en otra marca?").
- *
- * Almacenado en `kyc_tenants.branding_json` como JSONB. Si el tenant no
- * tiene nada, usamos los defaults `DEFAULT_BRANDING` (paleta Flux).
+ * El reader de DB (`getTenantBranding`) vive en `branding-server.ts` porque
+ * importa `pg` transitivamente y romperia el client bundle de Turbopack.
  */
-
-import { query } from "../../db";
-import { ensureSdkSchema } from "./schema";
 
 export interface BrandingTokens {
   logo_url: string | null;
@@ -74,17 +66,6 @@ export function normalizeBranding(raw: unknown): BrandingTokens {
         ? input.welcome_message.trim().slice(0, 200)
         : DEFAULT_BRANDING.welcome_message,
   };
-}
-
-/** Lee el branding del tenant desde DB, con defaults como fallback. */
-export async function getTenantBranding(tenantId: string): Promise<BrandingTokens> {
-  await ensureSdkSchema();
-  const res = await query<{ branding_json: unknown }>(
-    `SELECT branding_json FROM kyc_tenants WHERE id = $1 LIMIT 1`,
-    [tenantId],
-  );
-  if (res.rows.length === 0) return DEFAULT_BRANDING;
-  return normalizeBranding(res.rows[0].branding_json);
 }
 
 /**

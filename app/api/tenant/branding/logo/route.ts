@@ -2,10 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { put } from "@vercel/blob";
 import { query } from "@/lib/db";
 import { getTenantSession } from "@/lib/kyc/sdk/tenant-user-auth";
-import {
-  getTenantBranding,
-  normalizeBranding,
-} from "@/lib/kyc/sdk/branding";
+import { normalizeBranding } from "@/lib/kyc/sdk/branding";
+import { getTenantBranding } from "@/lib/kyc/sdk/branding-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

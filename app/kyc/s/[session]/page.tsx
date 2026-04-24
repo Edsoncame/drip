@@ -2,10 +2,10 @@ import { notFound } from "next/navigation";
 import { query } from "@/lib/db";
 import { ensureSdkSchema, type DbSdkSession } from "@/lib/kyc/sdk/schema";
 import {
-  getTenantBranding,
   DEFAULT_BRANDING,
   type BrandingTokens,
 } from "@/lib/kyc/sdk/branding";
+import { getTenantBranding } from "@/lib/kyc/sdk/branding-server";
 import { KycSdkFlow } from "./KycSdkFlow";
 
 export const runtime = "nodejs";

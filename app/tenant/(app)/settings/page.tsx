@@ -1,6 +1,6 @@
 import { query } from "@/lib/db";
 import { getTenantSession } from "@/lib/kyc/sdk/tenant-user-auth";
-import { getTenantBranding } from "@/lib/kyc/sdk/branding";
+import { getTenantBranding } from "@/lib/kyc/sdk/branding-server";
 import { SettingsForm } from "./SettingsForm";
 import { BrandingForm } from "./BrandingForm";
 import { ChangePasswordForm } from "./ChangePasswordForm";
