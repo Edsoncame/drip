@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { query } from "@/lib/db";
 import { getTenantSession } from "@/lib/kyc/sdk/tenant-user-auth";
 import { LogoutButton } from "./LogoutButton";
 
@@ -21,6 +22,16 @@ export default async function TenantAppLayout({
     redirect("/tenant/login");
   }
 
+  // Count de sessions en review pendientes → badge en la nav. 1 query extra
+  // por render pero es cheap (index parcial idx_sdk_sessions_review_queue).
+  const pendingRes = await query<{ n: string }>(
+    `SELECT COUNT(*)::text AS n
+     FROM kyc_sdk_sessions
+     WHERE tenant_id = $1 AND status = 'review' AND reviewed_at IS NULL`,
+    [session.user.tenant_id],
+  );
+  const pendingReviews = parseInt(pendingRes.rows[0]?.n ?? "0", 10);
+
   return (
     <div className="min-h-screen bg-slate-950 text-white">
       <header className="border-b border-white/5 bg-slate-950/80 backdrop-blur sticky top-0 z-10">
@@ -38,6 +49,17 @@ export default async function TenantAppLayout({
                 className="text-white/70 hover:text-white transition"
               >
                 Dashboard
+              </Link>
+              <Link
+                href="/tenant/review"
+                className="text-white/70 hover:text-white transition flex items-center gap-1.5"
+              >
+                Revisión
+                {pendingReviews > 0 && (
+                  <span className="bg-amber-500/30 text-amber-200 text-[10px] font-semibold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                    {pendingReviews}
+                  </span>
+                )}
               </Link>
               <Link
                 href="/tenant/members"

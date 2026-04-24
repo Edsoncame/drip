@@ -4,6 +4,7 @@ import { getTenantBranding } from "@/lib/kyc/sdk/branding-server";
 import { SettingsForm } from "./SettingsForm";
 import { BrandingForm } from "./BrandingForm";
 import { ChangePasswordForm } from "./ChangePasswordForm";
+import { ReviewPolicyForm } from "./ReviewPolicyForm";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,6 +13,7 @@ interface TenantRow {
   id: string;
   name: string;
   default_webhook_url: string | null;
+  manual_review_policy: string;
   created_at: Date;
   updated_at: Date;
 }
@@ -20,13 +22,17 @@ export default async function SettingsPage() {
   const session = (await getTenantSession())!;
   const [res, branding] = await Promise.all([
     query<TenantRow>(
-      `SELECT id, name, default_webhook_url, created_at, updated_at
+      `SELECT id, name, default_webhook_url, manual_review_policy, created_at, updated_at
        FROM kyc_tenants WHERE id = $1 LIMIT 1`,
       [session.user.tenant_id],
     ),
     getTenantBranding(session.user.tenant_id),
   ]);
   const tenant = res.rows[0];
+  const policy = (tenant.manual_review_policy ?? "never") as
+    | "never"
+    | "low_confidence"
+    | "all_borderline";
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -59,6 +65,8 @@ export default async function SettingsPage() {
         tenantId={tenant.id}
         initialWebhook={tenant.default_webhook_url ?? ""}
       />
+
+      <ReviewPolicyForm initial={policy} />
 
       <BrandingForm initial={branding} />
 
