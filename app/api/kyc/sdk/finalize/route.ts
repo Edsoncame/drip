@@ -190,6 +190,44 @@ export async function POST(req: NextRequest) {
       duplicate_flag: verdict.duplicatesResult?.dni_reused_by_other_user ?? false,
     };
 
+    // Decidir si rutear a manual review queue o finalizar directo.
+    // Policy del tenant se lee de kyc_tenants.manual_review_policy:
+    //   'never'          — siempre completar directo (legacy)
+    //   'low_confidence' — review si arbiter corrió con confidence < 0.7
+    //   'all_borderline' — review si verdict.status === 'review'
+    const policyRes = await query<{ manual_review_policy: string }>(
+      `SELECT manual_review_policy FROM kyc_tenants WHERE id = $1`,
+      [session.tenant_id],
+    );
+    const policy = policyRes.rows[0]?.manual_review_policy ?? "never";
+
+    const needsReview =
+      verdict.status === "review" ||
+      (policy === "low_confidence" &&
+        verdict.arbiterUsed &&
+        typeof verdict.arbiterConfidence === "number" &&
+        verdict.arbiterConfidence < 0.7) ||
+      (policy === "all_borderline" && verdict.status === "review");
+
+    if (needsReview) {
+      // Queue for manual review — NO fire webhook yet.
+      await query(
+        `UPDATE kyc_sdk_sessions
+           SET status = 'review',
+               verdict = $2::jsonb
+         WHERE id = $1`,
+        [session.id, JSON.stringify(verdictPayload)],
+      );
+      console.log(
+        `${tag} routed_to_review tenant=${session.tenant_id} session=${session.id} policy=${policy} reason=${verdict.reason}`,
+      );
+      return NextResponse.json({
+        verdict: { ...verdictPayload, status: "review" },
+        correlation_id: session.correlation_id,
+        pending_review: true,
+      });
+    }
+
     await finalizeSession(session, "completed", verdictPayload);
     await fireWebhook(session, verdictPayload);
 
@@ -220,7 +258,8 @@ async function finalizeSession(
     `UPDATE kyc_sdk_sessions
        SET status = $2,
            verdict = $3::jsonb,
-           completed_at = NOW()
+           completed_at = NOW(),
+           webhook_fired_at = CASE WHEN webhook_url IS NOT NULL THEN NOW() ELSE webhook_fired_at END
      WHERE id = $1`,
     [session.id, newStatus, JSON.stringify(verdictPayload)],
   );
