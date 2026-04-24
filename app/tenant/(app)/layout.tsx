@@ -40,6 +40,12 @@ export default async function TenantAppLayout({
                 Dashboard
               </Link>
               <Link
+                href="/tenant/members"
+                className="text-white/70 hover:text-white transition"
+              >
+                Miembros
+              </Link>
+              <Link
                 href="/tenant/settings"
                 className="text-white/70 hover:text-white transition"
               >

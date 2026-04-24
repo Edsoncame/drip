@@ -100,7 +100,50 @@ export async function ensureSdkSchema(): Promise<void> {
     `CREATE INDEX IF NOT EXISTS idx_tenant_users_tenant ON kyc_tenant_users(tenant_id)`,
   );
 
+  // ══════════════════════════════════════════════════════════════════════════
+  // kyc_tenant_invitations — invites que un admin del tenant genera para
+  // sumar más users a su team. El invitado visita /tenant/accept/<token>
+  // y completa password + name para activar su cuenta.
+  //
+  // Sin email automático por ahora — el admin copia el URL y lo comparte
+  // por su canal preferido (1Password, Slack privado, etc). V2 puede agregar
+  // SMTP/Resend cuando haya más volumen.
+  // ══════════════════════════════════════════════════════════════════════════
+  await query(`
+    CREATE TABLE IF NOT EXISTS kyc_tenant_invitations (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      tenant_id TEXT NOT NULL REFERENCES kyc_tenants(id) ON DELETE CASCADE,
+      email TEXT NOT NULL,
+      token TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'admin',
+      created_by UUID REFERENCES kyc_tenant_users(id) ON DELETE SET NULL,
+      expires_at TIMESTAMPTZ NOT NULL,
+      accepted_at TIMESTAMPTZ,
+      accepted_by UUID REFERENCES kyc_tenant_users(id) ON DELETE SET NULL,
+      revoked_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      CONSTRAINT kyc_tenant_invitations_token_unique UNIQUE (token)
+    )
+  `);
+  await query(
+    `CREATE INDEX IF NOT EXISTS idx_tenant_invitations_tenant ON kyc_tenant_invitations(tenant_id, created_at DESC)`,
+  );
+
   ensured = true;
+}
+
+export interface DbTenantInvitation {
+  id: string;
+  tenant_id: string;
+  email: string;
+  token: string;
+  role: string;
+  created_by: string | null;
+  expires_at: Date;
+  accepted_at: Date | null;
+  accepted_by: string | null;
+  revoked_at: Date | null;
+  created_at: Date;
 }
 
 export interface DbTenantUser {

@@ -3,6 +3,7 @@ import { getTenantSession } from "@/lib/kyc/sdk/tenant-user-auth";
 import { getTenantBranding } from "@/lib/kyc/sdk/branding";
 import { SettingsForm } from "./SettingsForm";
 import { BrandingForm } from "./BrandingForm";
+import { ChangePasswordForm } from "./ChangePasswordForm";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -60,6 +61,8 @@ export default async function SettingsPage() {
       />
 
       <BrandingForm initial={branding} />
+
+      <ChangePasswordForm />
     </div>
   );
 }
