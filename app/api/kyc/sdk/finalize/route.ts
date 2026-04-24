@@ -191,10 +191,16 @@ export async function POST(req: NextRequest) {
     };
 
     // Decidir si rutear a manual review queue o finalizar directo.
-    // Policy del tenant se lee de kyc_tenants.manual_review_policy:
+    //
+    // Hoy computeKycVerdict nunca devuelve 'review' como output final — el
+    // arbiter IA siempre resuelve binario (verified|rejected). La señal que
+    // usamos para "esto estuvo borderline" es si el arbiter tuvo que correr
+    // (arbiterUsed=true) y, opcionalmente, su propia confidence.
+    //
+    // Policy del tenant (kyc_tenants.manual_review_policy):
     //   'never'          — siempre completar directo (legacy)
-    //   'low_confidence' — review si arbiter corrió con confidence < 0.7
-    //   'all_borderline' — review si verdict.status === 'review'
+    //   'low_confidence' — review si arbiter corrió y confidence < 0.7
+    //   'all_borderline' — review cada vez que el arbiter tuvo que correr
     const policyRes = await query<{ manual_review_policy: string }>(
       `SELECT manual_review_policy FROM kyc_tenants WHERE id = $1`,
       [session.tenant_id],
@@ -202,12 +208,11 @@ export async function POST(req: NextRequest) {
     const policy = policyRes.rows[0]?.manual_review_policy ?? "never";
 
     const needsReview =
-      verdict.status === "review" ||
       (policy === "low_confidence" &&
         verdict.arbiterUsed &&
         typeof verdict.arbiterConfidence === "number" &&
         verdict.arbiterConfidence < 0.7) ||
-      (policy === "all_borderline" && verdict.status === "review");
+      (policy === "all_borderline" && verdict.arbiterUsed);
 
     if (needsReview) {
       // Queue for manual review — NO fire webhook yet.
