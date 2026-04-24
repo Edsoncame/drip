@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { query } from "@/lib/db";
 import { getTenantSession } from "@/lib/kyc/sdk/tenant-user-auth";
 import type { DbTenantInvitation } from "@/lib/kyc/sdk/schema";
+import { sendTenantInviteEmail } from "@/lib/email";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -90,10 +91,50 @@ export async function POST(req: NextRequest) {
     `${tag} created tenant=${session.user.tenant_id} email=${email} by=${session.user.id}`,
   );
 
+  // Fire email best-effort. No rompemos el flujo si falla — el accept_url
+  // también se muestra en la UI para que el admin lo copie manualmente.
+  // Persistimos emailed_at / emailed_error para que el UI muestre estado.
+  let emailSent = false;
+  let emailError: string | null = null;
+  try {
+    // Nombre del tenant + del inviter para personalizar el email.
+    const meta = await query<{ name: string; inviter_name: string | null }>(
+      `SELECT t.name, u.name AS inviter_name
+       FROM kyc_tenants t
+       JOIN kyc_tenant_users u ON u.id = $2
+       WHERE t.id = $1`,
+      [session.user.tenant_id, session.user.id],
+    );
+    const tenantName = meta.rows[0]?.name ?? session.user.tenant_id;
+    const inviterName = meta.rows[0]?.inviter_name ?? session.user.email;
+
+    await sendTenantInviteEmail({
+      to: email,
+      inviterName,
+      tenantName,
+      acceptUrl,
+      expiresAt,
+    });
+    emailSent = true;
+    await query(
+      `UPDATE kyc_tenant_invitations SET emailed_at = NOW() WHERE id = $1`,
+      [ins.rows[0].id],
+    );
+  } catch (err) {
+    emailError = err instanceof Error ? err.message.slice(0, 200) : String(err).slice(0, 200);
+    console.error(`${tag} email failed for ${email}:`, emailError);
+    await query(
+      `UPDATE kyc_tenant_invitations SET emailed_error = $2 WHERE id = $1`,
+      [ins.rows[0].id, emailError],
+    );
+  }
+
   return NextResponse.json({
     ok: true,
     invitation: { ...ins.rows[0], token: token.slice(0, 12) + "…" },
-    accept_url: acceptUrl, // mostrar UNA vez en la UI
+    accept_url: acceptUrl, // mostrar UNA vez en la UI para copy manual
     expires_at: expiresAt.toISOString(),
+    email_sent: emailSent,
+    email_error: emailError,
   });
 }
