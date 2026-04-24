@@ -120,14 +120,22 @@ export default async function KycForensicsPage() {
               Últimos 50 intentos con los 4 signals cuantitativos del pipeline forense
             </p>
           </div>
-          <div
-            className={`px-3 py-1.5 rounded-full text-[11px] uppercase tracking-widest font-bold ${
-              enforceMode
-                ? "bg-red-500/20 text-red-200 border border-red-400/40"
-                : "bg-white/10 text-white/60 border border-white/20"
-            }`}
-          >
-            {enforceMode ? "🔴 ENFORCING" : "👁 observación"}
+          <div className="flex items-center gap-2">
+            <Link
+              href="/admin/kyc/forensics/calibration"
+              className="px-3 py-1.5 rounded-full text-[11px] uppercase tracking-widest font-bold bg-amber-500/20 text-amber-200 border border-amber-400/40 hover:bg-amber-500/30 transition-colors"
+            >
+              📊 Calibración
+            </Link>
+            <div
+              className={`px-3 py-1.5 rounded-full text-[11px] uppercase tracking-widest font-bold ${
+                enforceMode
+                  ? "bg-red-500/20 text-red-200 border border-red-400/40"
+                  : "bg-white/10 text-white/60 border border-white/20"
+              }`}
+            >
+              {enforceMode ? "🔴 ENFORCING" : "👁 observación"}
+            </div>
           </div>
         </div>
 
@@ -244,11 +252,14 @@ export default async function KycForensicsPage() {
             auto-rechazan; risk &gt; 0.4, layout &lt; 0.6 o age_dev &gt; 5 fuerzan arbiter.
           </p>
           <p>
-            Configuración en <code className="font-mono">.env</code> → ver{" "}
-            <Link href="/admin" className="text-amber-300 underline">
-              lib/kyc/README.md
+            Antes de activar enforce revisar{" "}
+            <Link
+              href="/admin/kyc/forensics/calibration"
+              className="text-amber-300 underline"
+            >
+              /admin/kyc/forensics/calibration
             </Link>{" "}
-            en el repo.
+            — simula el impacto con la ventana histórica.
           </p>
         </div>
       </div>
