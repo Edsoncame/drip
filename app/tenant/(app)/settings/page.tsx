@@ -5,6 +5,7 @@ import { SettingsForm } from "./SettingsForm";
 import { BrandingForm } from "./BrandingForm";
 import { ChangePasswordForm } from "./ChangePasswordForm";
 import { ReviewPolicyForm } from "./ReviewPolicyForm";
+import { EmbedConfigForm } from "./EmbedConfigForm";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,6 +15,8 @@ interface TenantRow {
   name: string;
   default_webhook_url: string | null;
   manual_review_policy: string;
+  publishable_key: string | null;
+  allowed_origins: string[];
   created_at: Date;
   updated_at: Date;
 }
@@ -22,7 +25,9 @@ export default async function SettingsPage() {
   const session = (await getTenantSession())!;
   const [res, branding] = await Promise.all([
     query<TenantRow>(
-      `SELECT id, name, default_webhook_url, manual_review_policy, created_at, updated_at
+      `SELECT id, name, default_webhook_url, manual_review_policy,
+              publishable_key, COALESCE(allowed_origins, ARRAY[]::TEXT[]) AS allowed_origins,
+              created_at, updated_at
        FROM kyc_tenants WHERE id = $1 LIMIT 1`,
       [session.user.tenant_id],
     ),
@@ -64,6 +69,12 @@ export default async function SettingsPage() {
       <SettingsForm
         tenantId={tenant.id}
         initialWebhook={tenant.default_webhook_url ?? ""}
+      />
+
+      <EmbedConfigForm
+        tenantId={tenant.id}
+        initialPk={tenant.publishable_key}
+        initialOrigins={tenant.allowed_origins ?? []}
       />
 
       <ReviewPolicyForm initial={policy} />

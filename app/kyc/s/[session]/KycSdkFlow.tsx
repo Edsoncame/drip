@@ -26,11 +26,19 @@ interface Props {
   initialToken: string;
   tenantId: string;
   branding?: BrandingTokens;
+  /** True cuando la página vive en un iframe embebido en el sitio del tenant. */
+  embedMode?: boolean;
 }
 
 const TOKEN_KEY = "flux_kyc_session_token";
 
-export function KycSdkFlow({ sessionId, initialToken, tenantId, branding: brandingProp }: Props) {
+export function KycSdkFlow({
+  sessionId,
+  initialToken,
+  tenantId,
+  branding: brandingProp,
+  embedMode = false,
+}: Props) {
   const branding = brandingProp ?? DEFAULT_BRANDING;
   const [step, setStep] = useState<Step>({ kind: "loading" });
   const tokenRef = useRef<string | null>(null);
@@ -154,7 +162,7 @@ export function KycSdkFlow({ sessionId, initialToken, tenantId, branding: brandi
     return <ProcessingScreen b={branding} />;
   }
   if (step.kind === "done") {
-    return <VerdictScreen verdict={step.verdict} b={branding} />;
+    return <VerdictScreen verdict={step.verdict} b={branding} embedMode={embedMode} />;
   }
   if (step.kind === "dni-front" || step.kind === "dni-back") {
     return (
@@ -273,8 +281,42 @@ function ErrorScreen({ message, b }: { message: string; b: BrandingTokens }) {
   );
 }
 
-function VerdictScreen({ verdict, b }: { verdict: Verdict; b: BrandingTokens }) {
+function VerdictScreen({
+  verdict,
+  b,
+  embedMode,
+}: {
+  verdict: Verdict;
+  b: BrandingTokens;
+  embedMode: boolean;
+}) {
   const isOk = verdict.status === "verified";
+
+  // En embed mode, disparamos postMessage al parent (sitio del tenant) para
+  // que cierre el iframe + ejecute su onComplete callback. Se hace una sola
+  // vez, con target '*' — el script embebido filtra por origin en el receiver.
+  useEffect(() => {
+    if (!embedMode || typeof window === "undefined" || window.parent === window) {
+      return;
+    }
+    try {
+      window.parent.postMessage(
+        {
+          type: "flux-kyc:complete",
+          verdict: {
+            status: verdict.status,
+            reason: verdict.reason,
+            face_score: verdict.face_score,
+            forensics_overall: verdict.forensics_overall,
+          },
+        },
+        "*",
+      );
+    } catch {
+      // parent bloqueado por CSP/sandbox — silently skip, el user puede cerrar
+    }
+  }, [embedMode, verdict]);
+
   return (
     <div
       className="min-h-screen flex flex-col items-center justify-center gap-4 px-6 text-center"
@@ -297,7 +339,9 @@ function VerdictScreen({ verdict, b }: { verdict: Verdict; b: BrandingTokens }) 
         className="text-xs mt-4"
         style={{ color: b.muted_text_color, opacity: 0.6 }}
       >
-        Podés cerrar esta ventana y volver a la app.
+        {embedMode
+          ? "Esta ventana se cierra sola — volvé a la app."
+          : "Podés cerrar esta ventana y volver a la app."}
       </p>
     </div>
   );
