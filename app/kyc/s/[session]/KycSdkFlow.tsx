@@ -6,6 +6,7 @@ import { DEFAULT_BRANDING } from "@/lib/kyc/sdk/branding";
 
 type Step =
   | { kind: "loading" }
+  | { kind: "intro" }
   | { kind: "dni-front" }
   | { kind: "dni-back" }
   | { kind: "selfie"; frameIndex: 0 | 1 | 2; capturedFrames: string[] }
@@ -59,7 +60,7 @@ export function KycSdkFlow({
       setStep({ kind: "error", message: "Falta el token de la sesión." });
       return;
     }
-    setStep({ kind: "dni-front" });
+    setStep({ kind: "intro" });
   }, [initialToken]);
 
   async function upload(
@@ -158,6 +159,14 @@ export function KycSdkFlow({
   if (step.kind === "error") {
     return <ErrorScreen message={step.message} b={branding} />;
   }
+  if (step.kind === "intro") {
+    return (
+      <IntroScreen
+        b={branding}
+        onStart={() => setStep({ kind: "dni-front" })}
+      />
+    );
+  }
   if (step.kind === "processing") {
     return <ProcessingScreen b={branding} />;
   }
@@ -224,6 +233,369 @@ function BrandHeader({ b }: { b: BrandingTokens }) {
         {b.brand_name}
       </div>
     </div>
+  );
+}
+
+function IntroScreen({
+  b,
+  onStart,
+}: {
+  b: BrandingTokens;
+  onStart: () => void;
+}) {
+  return (
+    <div
+      className="min-h-screen flex flex-col items-center px-6 py-10 overflow-y-auto"
+      style={{ backgroundColor: b.background_color }}
+    >
+      <BrandHeader b={b} />
+
+      <div className="max-w-md w-full mt-2">
+        <h1
+          className="text-2xl font-semibold text-center mb-2"
+          style={{ color: b.text_color }}
+        >
+          Verificá tu identidad
+        </h1>
+        <p
+          className="text-sm text-center mb-8"
+          style={{ color: b.muted_text_color }}
+        >
+          {b.welcome_message ??
+            "Toma 2 minutos. Necesitás tu DNI físico y estar en un lugar bien iluminado."}
+        </p>
+
+        <div className="space-y-3 mb-8">
+          <StepCard
+            b={b}
+            n={1}
+            title="Foto del frente del DNI"
+            detail="Apoyalo sobre una superficie plana. Todo el documento debe verse sin reflejos."
+            icon={<DniFrontSvg color={b.text_color} />}
+          />
+          <StepCard
+            b={b}
+            n={2}
+            title="Foto del reverso del DNI"
+            detail="Asegurate que la línea de letras y números al pie (MRZ) se lea clara."
+            icon={<DniBackSvg color={b.text_color} />}
+          />
+          <StepCard
+            b={b}
+            n={3}
+            title="Selfie con movimiento (liveness)"
+            detail="Te vamos a pedir 3 fotos: mirando al frente, a la izquierda, y a la derecha."
+            icon={<SelfieSvg color={b.text_color} />}
+          />
+        </div>
+
+        <div
+          className="rounded-lg p-4 mb-8 border"
+          style={{
+            borderColor: `${b.muted_text_color}33`,
+            backgroundColor: `${b.muted_text_color}08`,
+          }}
+        >
+          <div
+            className="text-xs uppercase tracking-wider mb-2 font-semibold"
+            style={{ color: b.muted_text_color }}
+          >
+            Antes de empezar
+          </div>
+          <ul
+            className="space-y-1.5 text-sm"
+            style={{ color: b.text_color }}
+          >
+            <Requirement text="Tené tu DNI físico a mano (no foto del DNI)" />
+            <Requirement text="Buena luz — evitá contraluz o reflejos" />
+            <Requirement text="Sin lentes, gorra ni barbijo en la selfie" />
+            <Requirement text="Autorizá el acceso a la cámara cuando aparezca" />
+          </ul>
+        </div>
+
+        <button
+          onClick={onStart}
+          className="w-full py-3.5 rounded-full font-semibold text-base"
+          style={{
+            backgroundColor: b.primary_color,
+            color: b.background_color,
+          }}
+        >
+          Comenzar verificación
+        </button>
+        <p
+          className="text-xs text-center mt-4"
+          style={{ color: b.muted_text_color, opacity: 0.7 }}
+        >
+          Tus datos están encriptados y solo se usan para verificar tu identidad.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function StepCard({
+  b,
+  n,
+  title,
+  detail,
+  icon,
+}: {
+  b: BrandingTokens;
+  n: number;
+  title: string;
+  detail: string;
+  icon: React.ReactNode;
+}) {
+  return (
+    <div
+      className="flex items-start gap-3 rounded-lg p-3 border"
+      style={{
+        borderColor: `${b.muted_text_color}22`,
+        backgroundColor: `${b.muted_text_color}05`,
+      }}
+    >
+      <div
+        className="shrink-0 flex items-center justify-center w-14 h-14 rounded-lg"
+        style={{ backgroundColor: `${b.primary_color}18` }}
+      >
+        {icon}
+      </div>
+      <div className="flex-1">
+        <div
+          className="text-xs mb-0.5"
+          style={{ color: b.muted_text_color }}
+        >
+          Paso {n}
+        </div>
+        <div
+          className="font-semibold text-sm mb-1"
+          style={{ color: b.text_color }}
+        >
+          {title}
+        </div>
+        <div className="text-xs" style={{ color: b.muted_text_color }}>
+          {detail}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Requirement({ text }: { text: string }) {
+  return (
+    <li className="flex items-start gap-2">
+      <span className="shrink-0 mt-0.5">✓</span>
+      <span>{text}</span>
+    </li>
+  );
+}
+
+// --- SVG illustrations (inline, zero dependencies) ---
+
+function DniFrontSvg({ color }: { color: string }) {
+  return (
+    <svg viewBox="0 0 48 36" className="w-9 h-7" fill="none" stroke={color} strokeWidth="1.5">
+      <rect x="2" y="2" width="44" height="32" rx="3" />
+      <circle cx="13" cy="15" r="5" />
+      <path d="M22 10h20M22 14h20M22 20h14M22 24h18M8 28h32" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function DniBackSvg({ color }: { color: string }) {
+  return (
+    <svg viewBox="0 0 48 36" className="w-9 h-7" fill="none" stroke={color} strokeWidth="1.5">
+      <rect x="2" y="2" width="44" height="32" rx="3" />
+      <path d="M6 22h36M6 26h36M6 30h28" strokeLinecap="round" strokeDasharray="2 2" />
+      <path d="M6 10h10M6 14h14" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SelfieSvg({ color }: { color: string }) {
+  return (
+    <svg viewBox="0 0 40 44" className="w-8 h-9" fill="none" stroke={color} strokeWidth="1.5">
+      <ellipse cx="20" cy="22" rx="14" ry="18" />
+      <circle cx="15" cy="19" r="1.2" fill={color} />
+      <circle cx="25" cy="19" r="1.2" fill={color} />
+      <path d="M15 28c1.5 1.5 3 2 5 2s3.5-0.5 5-2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** Progress pills arriba de los steps (1/2/3). */
+function ProgressPills({
+  current,
+  total,
+  b,
+}: {
+  current: number;
+  total: number;
+  b: BrandingTokens;
+}) {
+  return (
+    <div className="flex items-center justify-center gap-2">
+      {Array.from({ length: total }).map((_, i) => (
+        <div
+          key={i}
+          className="h-1 rounded-full transition-all"
+          style={{
+            width: i + 1 === current ? 28 : 16,
+            backgroundColor:
+              i + 1 <= current
+                ? b.primary_color
+                : `${b.muted_text_color}33`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** Tip con check verde (ok) o cruz roja (bad) — sirve como "hacer vs evitar". */
+function Tip({ ok, bad, text }: { ok?: boolean; bad?: boolean; text: string }) {
+  return (
+    <li className="flex items-start gap-2.5">
+      <span
+        className="shrink-0 mt-0.5 inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-bold"
+        style={{
+          backgroundColor: ok ? "#10B981" : bad ? "#EF4444" : "#94A3B8",
+          color: "#FFFFFF",
+        }}
+      >
+        {ok ? "✓" : bad ? "✗" : "•"}
+      </span>
+      <span>{text}</span>
+    </li>
+  );
+}
+
+/** Ilustración grande para pantalla de captura DNI: rectángulo con brackets. */
+function DniFrameGuide({
+  side,
+  color,
+  accent,
+}: {
+  side: "front" | "back";
+  color: string;
+  accent: string;
+}) {
+  return (
+    <svg viewBox="0 0 180 130" className="w-48 h-36" fill="none">
+      {/* Brackets esquinas (primary color) */}
+      <path
+        d="M8 24v-14c0-2 2-4 4-4h14"
+        stroke={accent}
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
+      <path
+        d="M172 24v-14c0-2-2-4-4-4h-14"
+        stroke={accent}
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
+      <path
+        d="M8 106v14c0 2 2 4 4 4h14"
+        stroke={accent}
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
+      <path
+        d="M172 106v14c0 2-2 4-4 4h-14"
+        stroke={accent}
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
+      {/* Contenido del DNI */}
+      {side === "front" ? (
+        <g stroke={color} strokeWidth="1.5" fill="none">
+          <rect x="24" y="30" width="30" height="40" rx="2" />
+          <circle cx="39" cy="46" r="6" />
+          <path d="M34 58h10" strokeLinecap="round" />
+          <path d="M62 34h80M62 42h80M62 54h60M62 62h70" strokeLinecap="round" opacity="0.5" />
+          <path d="M24 88h132M24 96h132M24 104h100" strokeLinecap="round" opacity="0.3" />
+        </g>
+      ) : (
+        <g stroke={color} strokeWidth="1.5" fill="none">
+          <path d="M24 40h130M24 50h130" strokeLinecap="round" opacity="0.4" />
+          {/* MRZ lines */}
+          <path
+            d="M24 78h130M24 90h130M24 102h110"
+            strokeLinecap="round"
+            strokeDasharray="3 3"
+            stroke={accent}
+          />
+        </g>
+      )}
+    </svg>
+  );
+}
+
+/** Ilustración grande selfie — oval con flechas indicando el giro. */
+function SelfieLivenessGuide({
+  frameIndex,
+  color,
+  accent,
+}: {
+  frameIndex: number;
+  color: string;
+  accent: string;
+}) {
+  // frame 0 = center, 1 = mirar izq, 2 = mirar der
+  return (
+    <svg viewBox="0 0 180 180" className="w-40 h-40" fill="none">
+      {/* Face oval */}
+      <ellipse
+        cx="90"
+        cy="90"
+        rx="44"
+        ry="58"
+        stroke={color}
+        strokeWidth="1.5"
+        opacity="0.4"
+      />
+      {/* Ring outside */}
+      <ellipse
+        cx="90"
+        cy="90"
+        rx="62"
+        ry="78"
+        stroke={accent}
+        strokeWidth="2"
+        strokeDasharray="4 4"
+      />
+      {/* Eyes */}
+      <circle cx={frameIndex === 1 ? 78 : frameIndex === 2 ? 82 : 80} cy="78" r="2" fill={color} />
+      <circle cx={frameIndex === 1 ? 98 : frameIndex === 2 ? 102 : 100} cy="78" r="2" fill={color} />
+      {/* Mouth */}
+      <path
+        d="M76 112c4 4 8 6 14 6s10-2 14-6"
+        stroke={color}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+      {/* Direction arrow */}
+      {frameIndex === 1 && (
+        <path
+          d="M30 90h16M30 90l6-6M30 90l6 6"
+          stroke={accent}
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      )}
+      {frameIndex === 2 && (
+        <path
+          d="M150 90h-16M150 90l-6-6M150 90l-6 6"
+          stroke={accent}
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      )}
+    </svg>
   );
 }
 
@@ -357,50 +729,87 @@ function DniCaptureStep({
   b: BrandingTokens;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const stepNum = side === "front" ? 1 : 2;
+  const title =
+    side === "front"
+      ? "Foto del frente de tu DNI"
+      : "Foto del reverso del DNI";
+  const subtitle =
+    side === "front"
+      ? "Todo el DNI debe verse, incluyendo tu foto y los 8 dígitos."
+      : "La tira de letras y números al pie (MRZ) debe leerse clara.";
+
   return (
     <div
-      className="min-h-screen flex flex-col items-center justify-center gap-5 px-6 text-center"
+      className="min-h-screen flex flex-col items-center px-6 py-10 overflow-y-auto"
       style={{ backgroundColor: b.background_color }}
     >
       <BrandHeader b={b} />
-      <h1 className="text-xl font-semibold" style={{ color: b.text_color }}>
-        {side === "front" ? "Foto del frente de tu DNI" : "Foto del reverso del DNI"}
-      </h1>
-      {side === "front" && b.welcome_message ? (
+
+      <div className="max-w-md w-full mt-2">
+        <ProgressPills current={stepNum} total={3} b={b} />
+
+        <h1
+          className="text-xl font-semibold text-center mt-6 mb-2"
+          style={{ color: b.text_color }}
+        >
+          {title}
+        </h1>
         <p
-          className="text-sm max-w-sm"
+          className="text-sm text-center mb-6"
           style={{ color: b.muted_text_color }}
         >
-          {b.welcome_message}
+          {subtitle}
         </p>
-      ) : (
-        <p className="text-sm max-w-sm" style={{ color: b.muted_text_color }}>
-          {side === "front"
-            ? "Tomá una foto clara con buena luz. Que se vean tu foto y los 8 dígitos."
-            : "Tomá una foto del reverso — la tira de letras y números (MRZ) debe estar legible."}
+
+        {/* Illustration: rectangle with brackets showing proper framing */}
+        <div
+          className="rounded-xl p-6 mb-6 flex items-center justify-center"
+          style={{ backgroundColor: `${b.muted_text_color}08` }}
+        >
+          <DniFrameGuide side={side} color={b.text_color} accent={b.primary_color} />
+        </div>
+
+        {/* Tips list */}
+        <ul
+          className="space-y-2 text-sm mb-6"
+          style={{ color: b.text_color }}
+        >
+          <Tip ok text="Superficie plana, buena luz natural" />
+          <Tip ok text="El DNI entero dentro del marco" />
+          <Tip bad text="Sin reflejos ni sombras sobre el DNI" />
+          <Tip bad text="No fotos del DNI — el DNI físico real" />
+        </ul>
+
+        <button
+          onClick={() => inputRef.current?.click()}
+          className="w-full py-3.5 rounded-full font-semibold text-base"
+          style={{
+            backgroundColor: b.primary_color,
+            color: b.background_color,
+          }}
+        >
+          Abrir cámara
+        </button>
+        <p
+          className="text-xs text-center mt-3"
+          style={{ color: b.muted_text_color, opacity: 0.6 }}
+        >
+          En mobile abre la cámara directo. En desktop podés subir una foto
+          del DNI ya tomada.
         </p>
-      )}
-      <button
-        onClick={() => inputRef.current?.click()}
-        className="mt-2 px-6 py-3 rounded-full font-semibold"
-        style={{
-          backgroundColor: b.primary_color,
-          color: b.background_color,
-        }}
-      >
-        Abrir cámara
-      </button>
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) onCaptured(file);
-        }}
-      />
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) onCaptured(file);
+          }}
+        />
+      </div>
     </div>
   );
 }
@@ -420,8 +829,14 @@ function SelfieCaptureStep({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  // Pantalla de preparación solo en el primer frame. Frames siguientes ya
+  // tienen la cámara abierta del frame anterior — no preguntamos de nuevo.
+  const [showIntro, setShowIntro] = useState<boolean>(
+    frameIndex === 0 && capturedFrames.length === 0,
+  );
 
   useEffect(() => {
+    if (showIntro) return; // no abrir cámara hasta que user clickee
     let cancelled = false;
     (async () => {
       try {
@@ -446,7 +861,7 @@ function SelfieCaptureStep({
       cancelled = true;
       streamRef.current?.getTracks().forEach((t) => t.stop());
     };
-  }, []);
+  }, [showIntro]);
 
   const prompt =
     frameIndex === 0
@@ -475,6 +890,69 @@ function SelfieCaptureStep({
 
   if (err) {
     return <ErrorScreen message={`No pudimos abrir la cámara: ${err}`} b={b} />;
+  }
+
+  // Pantalla de preparación antes de abrir cámara (solo primera vez)
+  if (showIntro) {
+    return (
+      <div
+        className="min-h-screen flex flex-col items-center px-6 py-10 overflow-y-auto"
+        style={{ backgroundColor: b.background_color }}
+      >
+        <BrandHeader b={b} />
+        <div className="max-w-md w-full mt-2">
+          <ProgressPills current={3} total={3} b={b} />
+          <h1
+            className="text-xl font-semibold text-center mt-6 mb-2"
+            style={{ color: b.text_color }}
+          >
+            Selfie con movimiento
+          </h1>
+          <p
+            className="text-sm text-center mb-6"
+            style={{ color: b.muted_text_color }}
+          >
+            Vamos a tomar 3 fotos: al frente, girando a la izquierda, y a la
+            derecha. Esto prueba que sos vos (liveness check).
+          </p>
+
+          <div
+            className="rounded-xl p-6 mb-6 flex items-center justify-center"
+            style={{ backgroundColor: `${b.muted_text_color}08` }}
+          >
+            <SelfieLivenessGuide frameIndex={0} color={b.text_color} accent={b.primary_color} />
+          </div>
+
+          <ul
+            className="space-y-2 text-sm mb-6"
+            style={{ color: b.text_color }}
+          >
+            <Tip ok text="Bien iluminado, de frente a la cámara" />
+            <Tip ok text="Cara entera dentro del óvalo" />
+            <Tip bad text="Sin lentes, gorra o barbijo" />
+            <Tip bad text="No uses foto de foto ni selfie vieja" />
+          </ul>
+
+          <button
+            onClick={() => setShowIntro(false)}
+            className="w-full py-3.5 rounded-full font-semibold text-base"
+            style={{
+              backgroundColor: b.primary_color,
+              color: b.background_color,
+            }}
+          >
+            Activar cámara
+          </button>
+          <p
+            className="text-xs text-center mt-3"
+            style={{ color: b.muted_text_color, opacity: 0.6 }}
+          >
+            Te vamos a pedir permiso de cámara. Se usa solo para esta
+            verificación y no queda grabación.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -506,6 +984,17 @@ function SelfieCaptureStep({
           style={{ transform: "scaleX(-1)" }}
         />
         <div className="absolute inset-0 pointer-events-none border-[3px] border-white/70 rounded-2xl m-6" />
+        {/* Flecha direccional arriba-centro indicando hacia dónde girar */}
+        {frameIndex > 0 && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/70 rounded-full px-4 py-2 flex items-center gap-2">
+            <span className="text-white text-2xl leading-none">
+              {frameIndex === 1 ? "←" : "→"}
+            </span>
+            <span className="text-white text-sm font-medium">
+              Girá la cabeza {frameIndex === 1 ? "a la izquierda" : "a la derecha"}
+            </span>
+          </div>
+        )}
       </div>
       <canvas ref={canvasRef} className="hidden" />
       <div className="flex flex-col items-center gap-3">
