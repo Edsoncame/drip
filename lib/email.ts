@@ -123,6 +123,42 @@ export async function sendB2BLeadEmail({
   });
 }
 
+/**
+ * Invite email para un nuevo user del dashboard del tenant (Flux KYC).
+ * Distinto a los otros emails: no es para users finales de Flux sino para
+ * ops/admin del tenant (Securex). Mantiene la paleta corporativa pero
+ * menciona el tenant al que se los invita.
+ */
+export async function sendTenantInviteEmail({
+  to, inviterName, tenantName, acceptUrl, expiresAt,
+}: {
+  to: string;
+  inviterName: string | null;
+  tenantName: string;
+  acceptUrl: string;
+  expiresAt: Date;
+}) {
+  const expiresStr = expiresAt.toLocaleDateString("es-PE", {
+    year: "numeric", month: "long", day: "numeric",
+  });
+  const who = inviterName ? `${inviterName} del equipo ${tenantName}` : `El equipo ${tenantName}`;
+
+  await getResend().emails.send({
+    from: FROM,
+    to,
+    subject: `Te invitaron al dashboard KYC de ${tenantName}`,
+    html: `
+<div style="font-family:Inter,sans-serif;max-width:560px;margin:0 auto;background:#fff;padding:32px 24px;border-radius:16px">
+  <div style="color:#999;font-size:11px;letter-spacing:3px;text-transform:uppercase;margin-bottom:16px">Flux KYC</div>
+  <h1 style="font-size:24px;font-weight:900;color:#18191F;margin:0 0 8px">Te invitaron a ${tenantName}</h1>
+  <p style="color:#666;margin:0 0 20px">${who} te invitó a acceder al dashboard de verificaciones KYC. Con esta cuenta vas a ver sesiones de verificación, revisar casos borderline y configurar webhooks.</p>
+  <a href="${acceptUrl}" style="display:inline-block;background:#18191F;color:#fff;font-weight:700;padding:14px 32px;border-radius:999px;text-decoration:none;font-size:15px">Activar mi cuenta</a>
+  <p style="color:#999;font-size:13px;margin-top:24px">El link expira el ${expiresStr}. Si no esperabas esta invitación, ignorá este email — no se crea ninguna cuenta hasta que aceptes.</p>
+  <p style="color:#999;font-size:12px;margin-top:16px">© 2026 FLUX — Tika Services S.A.C. · <a href="https://www.fluxperu.com/kyc" style="color:#1B4FFF">Flux KYC</a></p>
+</div>`,
+  });
+}
+
 // Helper: dispara un envío de email sin que una falla rompa el flujo del caller,
 // pero loguea el error en vez de comérselo silenciosamente (el patrón anterior
 // `.catch(() => {})` ocultaba key expiradas, rate limits, DKIM rotos, etc.).

@@ -49,10 +49,12 @@ export default async function MembersPage() {
       id: i.id,
       email: i.email,
       role: i.role,
-      token: i.token, // completo: solo usado para construir accept_url de re-copia
+      token: i.token, // completo: usado para construir accept_url + endpoint resend
       state,
       expires_at: i.expires_at,
       created_at: i.created_at,
+      emailed_at: i.emailed_at,
+      emailed_error: i.emailed_error,
     };
   });
 

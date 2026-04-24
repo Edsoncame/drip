@@ -22,6 +22,8 @@ interface InviteRow {
   state: "pending" | "accepted" | "revoked" | "expired";
   expires_at: Date;
   created_at: Date;
+  emailed_at: Date | null;
+  emailed_error: string | null;
 }
 
 export function MembersClient({
@@ -43,8 +45,11 @@ export function MembersClient({
   const [inviteResult, setInviteResult] = useState<{
     accept_url: string;
     email: string;
+    email_sent: boolean;
+    email_error?: string | null;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [resending, setResending] = useState<string | null>(null);
 
   async function createInvite(e: React.FormEvent) {
     e.preventDefault();
@@ -61,7 +66,12 @@ export function MembersClient({
       if (!res.ok) {
         setError(body.detail ?? body.error ?? `HTTP ${res.status}`);
       } else {
-        setInviteResult({ accept_url: body.accept_url, email: newEmail });
+        setInviteResult({
+          accept_url: body.accept_url,
+          email: newEmail,
+          email_sent: !!body.email_sent,
+          email_error: body.email_error ?? null,
+        });
         setNewEmail("");
         // Refresh para ver el invite en la lista
         router.refresh();
@@ -79,6 +89,18 @@ export function MembersClient({
       method: "DELETE",
     });
     if (res.ok) router.refresh();
+  }
+
+  async function resendInvite(token: string) {
+    setResending(token);
+    try {
+      await fetch(`/api/tenant/invitations/${token}/resend`, {
+        method: "POST",
+      });
+      router.refresh();
+    } finally {
+      setResending(null);
+    }
   }
 
   async function deactivate(userId: string) {
@@ -156,10 +178,19 @@ export function MembersClient({
             <div className="text-emerald-300 text-sm font-semibold">
               ✓ Invitación creada para {inviteResult.email}
             </div>
-            <div className="text-white/60 text-xs">
-              Copiá y pasale este link por tu canal preferido (Slack,
-              1Password, email). Expira en 7 días.
-            </div>
+            {inviteResult.email_sent ? (
+              <div className="text-emerald-300/80 text-xs">
+                📧 Email enviado — el usuario recibió el link automáticamente.
+                Si nunca llegó, usá el botón "Reenviar" en la tabla o copiá el
+                link de abajo.
+              </div>
+            ) : (
+              <div className="text-amber-300 text-xs">
+                ⚠ El email NO se pudo enviar
+                {inviteResult.email_error ? ` (${inviteResult.email_error})` : ""}.
+                Copiá el link y pasáselo al usuario por otro canal.
+              </div>
+            )}
             <code className="block bg-slate-950 border border-white/10 rounded px-3 py-2 text-emerald-300 font-mono text-xs break-all">
               {inviteResult.accept_url}
             </code>
@@ -171,10 +202,6 @@ export function MembersClient({
             </button>
           </div>
         )}
-        <p className="text-xs text-white/30">
-          No mandamos email automático aún — el admin copia el link y lo
-          comparte.
-        </p>
       </div>
 
       {/* Users list */}
@@ -246,6 +273,7 @@ export function MembersClient({
                 <tr>
                   <th className="px-4 py-2.5">Email</th>
                   <th className="px-4 py-2.5">Estado</th>
+                  <th className="px-4 py-2.5">Email enviado</th>
                   <th className="px-4 py-2.5">Creada</th>
                   <th className="px-4 py-2.5">Expira</th>
                   <th className="px-4 py-2.5"></th>
@@ -258,6 +286,25 @@ export function MembersClient({
                     <td className="px-4 py-3">
                       <InviteBadge state={i.state} />
                     </td>
+                    <td className="px-4 py-3 text-xs">
+                      {i.emailed_at ? (
+                        <span
+                          className="text-emerald-400"
+                          title={new Date(i.emailed_at).toLocaleString("es-PE")}
+                        >
+                          ✓ enviado
+                        </span>
+                      ) : i.emailed_error ? (
+                        <span
+                          className="text-amber-400"
+                          title={i.emailed_error}
+                        >
+                          ⚠ falló
+                        </span>
+                      ) : (
+                        <span className="text-white/30">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-white/50 text-xs">
                       {new Date(i.created_at).toLocaleDateString("es-PE")}
                     </td>
@@ -266,12 +313,21 @@ export function MembersClient({
                     </td>
                     <td className="px-4 py-3 text-right">
                       {i.state === "pending" && (
-                        <button
-                          onClick={() => revokeInvite(i.token)}
-                          className="text-xs text-red-400 hover:text-red-300"
-                        >
-                          Revocar
-                        </button>
+                        <div className="flex gap-3 justify-end">
+                          <button
+                            onClick={() => resendInvite(i.token)}
+                            disabled={resending === i.token}
+                            className="text-xs text-white/60 hover:text-white disabled:opacity-40"
+                          >
+                            {resending === i.token ? "Reenviando…" : "Reenviar email"}
+                          </button>
+                          <button
+                            onClick={() => revokeInvite(i.token)}
+                            className="text-xs text-red-400 hover:text-red-300"
+                          >
+                            Revocar
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>

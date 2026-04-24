@@ -161,6 +161,15 @@ export async function ensureSdkSchema(): Promise<void> {
   await query(
     `CREATE INDEX IF NOT EXISTS idx_tenant_invitations_tenant ON kyc_tenant_invitations(tenant_id, created_at DESC)`,
   );
+  // Tracking de envío de email — permite distinguir "invite creada pero
+  // email falló/nunca se envió" vs "invite + email ok". UI lo usa para
+  // mostrar flag al admin si el usuario invitado nunca recibió nada.
+  await query(
+    `ALTER TABLE kyc_tenant_invitations ADD COLUMN IF NOT EXISTS emailed_at TIMESTAMPTZ`,
+  );
+  await query(
+    `ALTER TABLE kyc_tenant_invitations ADD COLUMN IF NOT EXISTS emailed_error TEXT`,
+  );
 
   ensured = true;
 }
@@ -176,6 +185,8 @@ export interface DbTenantInvitation {
   accepted_at: Date | null;
   accepted_by: string | null;
   revoked_at: Date | null;
+  emailed_at: Date | null;
+  emailed_error: string | null;
   created_at: Date;
 }
 
