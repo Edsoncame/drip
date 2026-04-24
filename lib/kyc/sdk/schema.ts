@@ -35,6 +35,39 @@ export async function ensureSdkSchema(): Promise<void> {
     `ALTER TABLE kyc_tenants ADD COLUMN IF NOT EXISTS branding_json JSONB`,
   );
 
+  // Policy de manual review del tenant. Tres modos:
+  //   'never'           — nunca mandar a review (default, comportamiento actual)
+  //   'low_confidence'  — review cuando arbiter_confidence < 0.7
+  //   'all_borderline'  — review cada vez que el pipeline clásico devuelve 'review'
+  //                        (antes que corra el arbiter, o cuando arbiter da review)
+  await query(
+    `ALTER TABLE kyc_tenants ADD COLUMN IF NOT EXISTS manual_review_policy TEXT NOT NULL DEFAULT 'never'`,
+  );
+
+  // Columnas de manual review en kyc_sdk_sessions. Idempotentes.
+  // session.status='review' + webhook_fired_at NULL indica que está en cola.
+  // Al aprobar/rechazar, reviewed_by/at se populan y el webhook se dispara.
+  await query(
+    `ALTER TABLE kyc_sdk_sessions ADD COLUMN IF NOT EXISTS reviewed_by UUID REFERENCES kyc_tenant_users(id) ON DELETE SET NULL`,
+  );
+  await query(
+    `ALTER TABLE kyc_sdk_sessions ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ`,
+  );
+  await query(
+    `ALTER TABLE kyc_sdk_sessions ADD COLUMN IF NOT EXISTS review_notes TEXT`,
+  );
+  await query(
+    `ALTER TABLE kyc_sdk_sessions ADD COLUMN IF NOT EXISTS review_action TEXT`,
+  );
+  await query(
+    `ALTER TABLE kyc_sdk_sessions ADD COLUMN IF NOT EXISTS webhook_fired_at TIMESTAMPTZ`,
+  );
+  await query(
+    `CREATE INDEX IF NOT EXISTS idx_sdk_sessions_review_queue
+       ON kyc_sdk_sessions(tenant_id, created_at DESC)
+       WHERE status = 'review' AND reviewed_at IS NULL`,
+  );
+
   await query(`
     CREATE TABLE IF NOT EXISTS kyc_sdk_sessions (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
