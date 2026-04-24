@@ -1,6 +1,11 @@
 import { notFound } from "next/navigation";
 import { query } from "@/lib/db";
 import { ensureSdkSchema, type DbSdkSession } from "@/lib/kyc/sdk/schema";
+import {
+  getTenantBranding,
+  DEFAULT_BRANDING,
+  type BrandingTokens,
+} from "@/lib/kyc/sdk/branding";
 import { KycSdkFlow } from "./KycSdkFlow";
 
 export const runtime = "nodejs";
@@ -48,11 +53,17 @@ export default async function KycSdkSessionPage({
   );
   const session = res.rows[0];
 
+  // Pre-fetch branding SOLO si la sesión existe. Si no, usamos defaults.
+  const branding = session
+    ? await getTenantBranding(session.tenant_id)
+    : DEFAULT_BRANDING;
+
   if (!session) {
     return (
       <ErrorScreen
         title="Sesión no encontrada"
         detail="La sesión de verificación no existe o fue purgada."
+        branding={branding}
       />
     );
   }
@@ -63,6 +74,7 @@ export default async function KycSdkSessionPage({
       <ErrorScreen
         title="Sesión expirada"
         detail="El tiempo para completar la verificación pasó. Pedí una nueva sesión en la app."
+        branding={branding}
       />
     );
   }
@@ -72,27 +84,55 @@ export default async function KycSdkSessionPage({
       <ErrorScreen
         title="Verificación ya completa"
         detail="Esta sesión ya fue finalizada. No se puede reutilizar."
+        branding={branding}
       />
     );
   }
 
   return (
-    <main className="min-h-screen bg-black">
+    <main
+      className="min-h-screen"
+      style={{ backgroundColor: branding.background_color }}
+    >
       <KycSdkFlow
         sessionId={sessionId}
         initialToken={token}
         tenantId={session.tenant_id}
+        branding={branding}
       />
     </main>
   );
 }
 
-function ErrorScreen({ title, detail }: { title: string; detail: string }) {
+function ErrorScreen({
+  title,
+  detail,
+  branding,
+}: {
+  title: string;
+  detail: string;
+  branding: BrandingTokens;
+}) {
   return (
-    <main className="min-h-screen bg-black flex items-center justify-center px-6">
+    <main
+      className="min-h-screen flex items-center justify-center px-6"
+      style={{ backgroundColor: branding.background_color }}
+    >
       <div className="max-w-md text-center">
-        <h1 className="text-2xl font-semibold text-white mb-3">{title}</h1>
-        <p className="text-white/70">{detail}</p>
+        {branding.logo_url && (
+          <img
+            src={branding.logo_url}
+            alt=""
+            className="h-10 mx-auto mb-5 object-contain max-w-[160px]"
+          />
+        )}
+        <h1
+          className="text-2xl font-semibold mb-3"
+          style={{ color: branding.text_color }}
+        >
+          {title}
+        </h1>
+        <p style={{ color: branding.muted_text_color }}>{detail}</p>
       </div>
     </main>
   );

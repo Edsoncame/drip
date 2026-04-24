@@ -28,6 +28,13 @@ export async function ensureSdkSchema(): Promise<void> {
     )
   `);
 
+  // Branding del tenant — logo + colores + brand name para personalizar el
+  // hosted flow (/kyc/s/[session]). Se agrega separado para que los tenants
+  // existentes no tengan que rotar nada; sin este field usan DEFAULT_BRANDING.
+  await query(
+    `ALTER TABLE kyc_tenants ADD COLUMN IF NOT EXISTS branding_json JSONB`,
+  );
+
   await query(`
     CREATE TABLE IF NOT EXISTS kyc_sdk_sessions (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
