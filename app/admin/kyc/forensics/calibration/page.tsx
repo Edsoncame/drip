@@ -11,7 +11,7 @@ import {
   type SimulatedScan,
   type SimulatedVerdict,
 } from "@/lib/kyc/calibration";
-import AdminNav from "../../AdminNav";
+import AdminNav from "../../../AdminNav";
 
 export const metadata: Metadata = {
   title: "KYC Forense · Calibración · Admin FLUX",
