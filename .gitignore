@@ -40,3 +40,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .env*.local
+
+# Google Ads API design doc — artifacts generados, no commitar
+docs/google-ads-api-design-doc.*
