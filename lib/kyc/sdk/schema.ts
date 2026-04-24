@@ -44,6 +44,22 @@ export async function ensureSdkSchema(): Promise<void> {
     `ALTER TABLE kyc_tenants ADD COLUMN IF NOT EXISTS manual_review_policy TEXT NOT NULL DEFAULT 'never'`,
   );
 
+  // Publishable key del tenant — pattern Stripe pk_live. Se pega en HTML
+  // del cliente como atributo. NO es secreto; la seguridad viene del
+  // allowed_origins whitelist que sigue. Format: pk_<tenant_id>_<48hex>.
+  await query(
+    `ALTER TABLE kyc_tenants ADD COLUMN IF NOT EXISTS publishable_key TEXT`,
+  );
+  await query(
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_tenants_pk ON kyc_tenants(publishable_key)
+       WHERE publishable_key IS NOT NULL`,
+  );
+  // allowed_origins — whitelist de dominios donde el tenant puede usar su pk.
+  // Ej: ['https://securex.pe', 'https://www.securex.pe']. Empty = deny all.
+  await query(
+    `ALTER TABLE kyc_tenants ADD COLUMN IF NOT EXISTS allowed_origins TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[]`,
+  );
+
   // Columnas de manual review en kyc_sdk_sessions. Idempotentes.
   // session.status='review' + webhook_fired_at NULL indica que está en cola.
   // Al aprobar/rechazar, reviewed_by/at se populan y el webhook se dispara.
@@ -86,16 +102,19 @@ export async function ensureSdkSchema(): Promise<void> {
     )
   `);
 
+  // CHECK constraint del status. 'review' se agregó después pero la constraint
+  // vieja no lo incluía — el DROP + ADD asegura que siempre esté actualizado.
   await query(`
     DO $$ BEGIN
-      IF NOT EXISTS (
+      IF EXISTS (
         SELECT 1 FROM information_schema.check_constraints
         WHERE constraint_name = 'kyc_sdk_sessions_status_check'
       ) THEN
-        ALTER TABLE kyc_sdk_sessions
-          ADD CONSTRAINT kyc_sdk_sessions_status_check
-          CHECK (status IN ('pending','capturing','processing','completed','expired','failed'));
+        ALTER TABLE kyc_sdk_sessions DROP CONSTRAINT kyc_sdk_sessions_status_check;
       END IF;
+      ALTER TABLE kyc_sdk_sessions
+        ADD CONSTRAINT kyc_sdk_sessions_status_check
+        CHECK (status IN ('pending','capturing','processing','review','completed','expired','failed'));
     END $$;
   `);
 
