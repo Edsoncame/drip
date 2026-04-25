@@ -27,7 +27,9 @@ pero escribe el verdict en `kyc_sdk_sessions` en vez de en `users`.
        │                         computeKycVerdict ────► arbiter (si borderline)
        │                                │
        │   ← {verdict}                  │
-       │                                │ webhook (si configurado)
+       │                                │ webhook (si manual_review_policy='never')
+       │                                │ ó queda en status='review' esperando
+       │                                │ resolución humana en /tenant/review
        │                                ▼
  Webhook endpoint tenant ◄── POST {session_id, verdict, ...}
                             X-Flux-KYC-Signature: t=TS,v1=HMAC
@@ -108,6 +110,43 @@ curl -X POST https://flux.pe/api/kyc/sdk/finalize \
 `form_name` + `form_dni` son opcionales; si no vienen, se saltea el name-match
 y el verdict se basa en face match + forensics.
 
+> ⚠️ **El verdict que devuelve `/finalize` puede ser provisional.**
+> Si configuraste `manual_review_policy != 'never'` en tu tenant, el
+> response del finalize trae el verdict del pipeline pero el **webhook
+> no se dispara hasta que un reviewer humano resuelve la cola** (paso
+> 3.5 abajo). No uses la respuesta de `/finalize` para decidir si el
+> usuario está verificado en esos casos — confiá solo en el webhook.
+
+### 3.5. Webhook timing — qué esperar
+
+Configurás `manual_review_policy` en el dashboard `/tenant/settings`. Tres modos:
+
+| Policy | Cuándo entra a review | Latencia típica del webhook |
+|---|---|---|
+| `never` (default) | nunca | < 1 min después de `/finalize` (síncrono con pipeline) |
+| `low_confidence` | si arbiter confidence < 0.7 | < 1 min en ~80% de casos · horas/días en el ~20% que va a cola |
+| `all_borderline` | cualquier verdict que el pipeline marque como `review` | horas/días en cualquier flow no trivialmente claro |
+
+**Implicancias para tu UX:**
+
+- Si tu flow es **bloqueante** (ej: onboarding fintech donde el usuario
+  no puede operar hasta verificarse), elegí `policy='never'`. El verdict
+  del arbiter Claude Opus es vinculante y llega al toque.
+- Si elegís `low_confidence` o `all_borderline`, **NO** muestres "✅
+  verificado" en la pantalla post-finalize. Mostrá en su lugar:
+  > "Estamos revisando tu información. Te avisaremos por email cuando
+  > esté lista (puede tardar hasta 24h hábiles)."
+- El SLA operativo de la review queue es 1 revisión/día en el plan base.
+  Para SLA <2h hábiles, contratar plan con reviewer dedicado.
+
+**Detección desde el response de `/finalize`:** mientras la cola está
+poblada el `status` de la sesión queda en `'review'` (ver tabla más
+abajo). Podés también leer `kyc_sdk_sessions.webhook_fired_at` vía el
+endpoint de polling — es `NULL` mientras la review está pendiente.
+
+Detalles operativos (rotación de policies, contrato exacto, SLA por
+plan) en [SECURITY.md](./SECURITY.md#webhook-sla-con-manual_review_policy).
+
 ### 4. Webhook (recibido por el backend del tenant)
 
 ```
@@ -121,9 +160,17 @@ Content-Type: application/json
   "correlation_id": "sdk_…",
   "external_user_id": "securex-user-123",
   "verdict": { "status": "verified", "reason": "all_checks_passed", "face_score": 92.3, … },
-  "completed_at": "2026-04-25T14:35:23.123Z"
+  "completed_at": "2026-04-25T14:35:23.123Z",
+  "manual_review": true   // presente solo si pasó por la review queue
 }
 ```
+
+`verdict.status` es el campo que decide:
+- `"verified"` → user pasó (sea por arbiter automático o aprobación manual)
+- `"rejected"` → user falló (sea por arbiter automático o rechazo manual)
+- `"review"` → ⚠️ **nunca llega vía webhook**. Si la session quedó en review,
+  el webhook se retiene hasta resolución; nunca recibís un webhook con
+  `verdict.status === "review"`.
 
 Verificación del HMAC (pseudocódigo):
 
@@ -141,15 +188,46 @@ if (!timingSafeEqual(Buffer.from(expected, "hex"), Buffer.from(v1, "hex"))) thro
 // Rechazar si Date.now()/1000 - Number(t) > 300 para evitar replay
 ```
 
-### 5. Polling (fallback si el webhook falla)
+### 5. Polling (fallback si el webhook falla, o reconciliación con review queue)
 
 ```sh
 curl https://flux.pe/api/kyc/sdk/sessions/<SESSION_ID> \
   -H "Authorization: Bearer securex:<API_KEY>"
-# → { status, verdict, uploads, created_at, expires_at, completed_at }
+# → { status, verdict, uploads, created_at, expires_at, completed_at, webhook_fired_at }
 ```
 
 Acepta también el `session_token` JWT (self-service desde el device).
+
+**Cuándo pollear:**
+
+- **Reconciliación nocturna**: barrer sesiones de las últimas 24h donde
+  `webhook_fired_at IS NULL` para detectar webhooks que tu endpoint
+  rechazó (firewall, downtime, HMAC roto). Flux reintenta hasta 5×
+  pero después abandona.
+- **Review queue activa**: si configuraste `manual_review_policy !=
+  'never'`, polleá las sesiones en `status='review'` cada 30-60min
+  como fallback en caso de que el webhook de aprobación se pierda.
+- **Debug**: cuando un user reporta "no me llegó el email de
+  verificación", pollear da el `verdict` final aunque no hayas
+  recibido el webhook.
+
+Lógica recomendada:
+
+```ts
+const r = await fetch(`${FLUX}/api/kyc/sdk/sessions/${sessionId}`, { headers: { Authorization: `Bearer ${tenantId}:${apiKey}` } });
+const { status, verdict, webhook_fired_at } = await r.json();
+
+if (status === "completed" && webhook_fired_at) {
+  // Webhook YA llegó — esto es solo verificación
+} else if (status === "completed" && !webhook_fired_at) {
+  // Verdict listo pero el webhook nunca disparó (5 retries fallaron).
+  // Tratar como si el webhook hubiera llegado: actualizar tu DB con verdict.
+} else if (status === "review") {
+  // Esperando revisión humana. No hagas nada todavía.
+} else if (status === "expired" || status === "failed") {
+  // Pedir al user que rehaga la verificación.
+}
+```
 
 ## Env vars requeridas en Vercel
 
@@ -163,14 +241,31 @@ BLOB_READ_WRITE_TOKEN, KYC_FORENSICS_ENFORCE, …).
 
 ## Status de la sesión
 
-| status      | significado |
-|-------------|---|
-| pending     | creada, aún sin uploads |
-| capturing   | primer upload recibido |
-| processing  | finalize en curso (pipeline corriendo) |
-| completed   | verdict emitido (verdict JSONB poblado) |
-| failed      | pipeline falló (dni OCR bloqueado, selfie no pasó liveness, etc) |
-| expired     | calculado al vuelo si `expires_at < NOW()` y aún no completed |
+| status      | significado | webhook_fired_at | verdict poblado |
+|-------------|---|---|---|
+| pending     | creada, aún sin uploads | NULL | NULL |
+| capturing   | primer upload recibido | NULL | NULL |
+| processing  | finalize en curso (pipeline corriendo) | NULL | NULL |
+| review      | pipeline terminó, esperando revisión humana en `/tenant/review` (solo si tu `manual_review_policy != 'never'`) | NULL | sí (verdict provisional) |
+| completed   | flow terminado: webhook disparado o se decidió no disparar | timestamp · NULL si no había webhook_url | sí (verdict final con `verdict.status` ∈ {verified, rejected}) |
+| failed      | pipeline falló (dni OCR bloqueado, selfie no pasó liveness, etc) | NULL | parcial (con motivo del fail) |
+| expired     | calculado al vuelo si `expires_at < NOW()` y aún no completed | NULL | NULL |
+
+Nota: tras la resolución manual de una sesión en `review`, `status` pasa
+a `completed` (NO existe `status='verified'` ni `status='rejected'` —
+esos son valores de `verdict.status` dentro del JSONB).
+
+## Configurar `manual_review_policy` y branding
+
+Desde el dashboard del tenant `/tenant/settings`:
+
+- **`manual_review_policy`**: `never` | `low_confidence` | `all_borderline`
+  (default `never`). Cambiarlo afecta a sesiones futuras; las que ya
+  están en `review` siguen ahí hasta que las apruebes/rechaces.
+- **Branding**: logo, color primario, welcome_message para el hosted flow
+  (`/kyc/s/<session_id>`).
+- **`allowed_origins[]`**: whitelist de dominios autorizados a usar tu
+  `publishable_key` desde JS embed. Sin entradas → embed JS deshabilitado.
 
 ## Multi-tenant — por qué está separado de `users`
 
