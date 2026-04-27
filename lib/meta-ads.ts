@@ -182,6 +182,159 @@ export function metaSemTools() {
         return { ad_accounts: data.data };
       },
     }),
+
+    // ─── Creación de campañas ────────────────────────────────────────────
+    // SIEMPRE crean en status=PAUSED. El operador humano debe activarlas
+    // manualmente desde Ads Manager para evitar gasto accidental.
+
+    meta_create_campaign: tool({
+      description:
+        "Crea una campaña Meta Ads en status=PAUSED. Devuelve el campaign_id. Después usá meta_create_ad_set + meta_create_ad_creative + meta_create_ad. Las campañas SIEMPRE arrancan pausadas — el operador humano las activa manualmente cuando revisó.",
+      inputSchema: z.object({
+        name: z.string().min(3).max(120),
+        objective: z
+          .enum([
+            "OUTCOME_TRAFFIC",
+            "OUTCOME_LEADS",
+            "OUTCOME_SALES",
+            "OUTCOME_AWARENESS",
+            "OUTCOME_ENGAGEMENT",
+            "OUTCOME_APP_PROMOTION",
+          ])
+          .describe("Objetivo de optimización. Para FLUX usá OUTCOME_LEADS o OUTCOME_TRAFFIC."),
+        daily_budget_usd: z
+          .number()
+          .min(1)
+          .max(500)
+          .describe("Presupuesto diario en USD. Cap a $500/día por seguridad."),
+      }),
+      execute: async ({ name, objective, daily_budget_usd }) => {
+        const res = (await metaFetch(`/${requireAdAccount()}/campaigns`, {
+          method: "POST",
+          body: {
+            name,
+            objective,
+            status: "PAUSED",
+            special_ad_categories: [],
+            daily_budget: Math.round(daily_budget_usd * 100), // cents
+          },
+        })) as { id: string };
+        return { ok: true, campaign_id: res.id, status: "PAUSED" };
+      },
+    }),
+
+    meta_create_ad_set: tool({
+      description:
+        "Crea un Ad Set bajo una campaña existente. Default: target Perú, edad 18-65, optimización por LINK_CLICKS. Status=PAUSED.",
+      inputSchema: z.object({
+        campaign_id: z.string(),
+        name: z.string().min(3).max(120),
+        daily_budget_usd: z.number().min(1).max(500),
+        optimization_goal: z
+          .enum(["LINK_CLICKS", "LEAD_GENERATION", "OFFSITE_CONVERSIONS", "REACH", "IMPRESSIONS"])
+          .optional()
+          .default("LINK_CLICKS"),
+        countries: z
+          .array(z.string().length(2))
+          .optional()
+          .default(["PE"])
+          .describe("ISO country codes. Default ['PE']."),
+        age_min: z.number().min(13).max(65).optional().default(18),
+        age_max: z.number().min(13).max(65).optional().default(65),
+      }),
+      execute: async ({
+        campaign_id,
+        name,
+        daily_budget_usd,
+        optimization_goal,
+        countries,
+        age_min,
+        age_max,
+      }) => {
+        const startTime = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // +1h
+        const res = (await metaFetch(`/${requireAdAccount()}/adsets`, {
+          method: "POST",
+          body: {
+            name,
+            campaign_id,
+            daily_budget: Math.round(daily_budget_usd * 100),
+            billing_event: "IMPRESSIONS",
+            optimization_goal,
+            bid_strategy: "LOWEST_COST_WITHOUT_CAP",
+            status: "PAUSED",
+            start_time: startTime,
+            targeting: {
+              geo_locations: { countries },
+              age_min,
+              age_max,
+              publisher_platforms: ["facebook", "instagram"],
+              facebook_positions: ["feed"],
+              instagram_positions: ["stream"],
+            },
+          },
+        })) as { id: string };
+        return { ok: true, ad_set_id: res.id, status: "PAUSED" };
+      },
+    }),
+
+    meta_create_ad_creative: tool({
+      description:
+        "Crea un Ad Creative (texto + imagen + link). La imagen debe ser una URL pública. Devuelve creative_id para usar en meta_create_ad.",
+      inputSchema: z.object({
+        name: z.string().min(3).max(120),
+        message: z.string().min(1).max(2200).describe("Texto del ad"),
+        link: z.string().url().describe("URL destino"),
+        image_url: z.string().url().describe("URL pública de la imagen"),
+        headline: z.string().max(40).optional(),
+        description: z.string().max(125).optional(),
+        call_to_action: z
+          .enum(["LEARN_MORE", "SIGN_UP", "GET_QUOTE", "CONTACT_US", "BOOK_TRAVEL", "APPLY_NOW"])
+          .optional()
+          .default("LEARN_MORE"),
+      }),
+      execute: async ({ name, message, link, image_url, headline, description, call_to_action }) => {
+        const res = (await metaFetch(`/${requireAdAccount()}/adcreatives`, {
+          method: "POST",
+          body: {
+            name,
+            object_story_spec: {
+              page_id: requirePageId(),
+              link_data: {
+                message,
+                link,
+                picture: image_url,
+                name: headline,
+                description,
+                call_to_action: { type: call_to_action, value: { link } },
+              },
+            },
+          },
+        })) as { id: string };
+        return { ok: true, creative_id: res.id };
+      },
+    }),
+
+    meta_create_ad: tool({
+      description:
+        "Crea el Ad final que conecta un Ad Set con un Creative. Status=PAUSED. Después de esto, el operador entra a Ads Manager y revisa todo antes de activar la campaña padre.",
+      inputSchema: z.object({
+        name: z.string().min(3).max(120),
+        ad_set_id: z.string(),
+        creative_id: z.string(),
+      }),
+      execute: async ({ name, ad_set_id, creative_id }) => {
+        const res = (await metaFetch(`/${requireAdAccount()}/ads`, {
+          method: "POST",
+          body: {
+            name,
+            adset_id: ad_set_id,
+            creative: { creative_id },
+            status: "PAUSED",
+          },
+        })) as { id: string };
+        return { ok: true, ad_id: res.id, status: "PAUSED" };
+      },
+    }),
   };
 }
 
