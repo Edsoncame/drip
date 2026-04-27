@@ -119,9 +119,54 @@ export const webSearchTool = tool({
   },
 });
 
+/**
+ * Image generation con upgrade automático:
+ *  - Si FAL_KEY env está seteado → usa FLUX 1.1 Pro Ultra via fal.ai (~$0.04/img, calidad pro)
+ *  - Sino → fallback a Pollinations.ai (free, FLUX schnell, calidad mid)
+ *
+ * Para activar el upgrade: `vercel env add FAL_KEY production` con tu key de
+ * https://fal.ai/dashboard/keys (cargá $5 mínimo en billing).
+ *
+ * El agente no se entera del cambio — sigue siendo `generate_image`. La
+ * respuesta incluye `provider` para debug y trazabilidad de costos.
+ */
+
+async function genFalFluxPro(prompt: string): Promise<{ url: string; provider: "fal-flux-pro-ultra" } | null> {
+  const key = process.env.FAL_KEY;
+  if (!key) return null;
+  try {
+    const res = await fetch("https://fal.run/fal-ai/flux-pro/v1.1-ultra", {
+      method: "POST",
+      headers: {
+        authorization: `Key ${key}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        prompt,
+        aspect_ratio: "16:9",
+        output_format: "jpeg",
+        num_images: 1,
+        enable_safety_checker: true,
+      }),
+      signal: AbortSignal.timeout(60000),
+    });
+    if (!res.ok) {
+      console.warn(`[generate_image] fal.ai HTTP ${res.status}, fallback a Pollinations`);
+      return null;
+    }
+    const data = (await res.json()) as { images?: { url: string }[] };
+    const url = data.images?.[0]?.url;
+    if (!url) return null;
+    return { url, provider: "fal-flux-pro-ultra" };
+  } catch (err) {
+    console.warn(`[generate_image] fal.ai error, fallback a Pollinations:`, err);
+    return null;
+  }
+}
+
 export const generateImageTool = tool({
   description:
-    "Genera una imagen con Pollinations.ai (gratis, sin key). Devuelve una URL estable que podés referenciar en markdown como ![alt](url). IMPORTANTE: NO generes MacBooks como protagonista fotorrealista — siempre ambiente, luz, escena; el MacBook se compone después con Apple CDN.",
+    "Genera una imagen con FLUX Pro (fal.ai) si está configurado, sino Pollinations.ai (free) como fallback. Devuelve URL estable. IMPORTANTE: NO generes MacBooks como protagonista fotorrealista — siempre ambiente, luz, escena; el MacBook se compone después con Apple CDN. Si vas a usar la imagen en blog/ad, después llamá upload_to_blob para persistirla.",
   inputSchema: z.object({
     prompt: z
       .string()
@@ -136,17 +181,32 @@ export const generateImageTool = tool({
     const w = width ?? 1280;
     const h = height ?? 720;
     const s = seed ?? Math.floor(Math.random() * 1_000_000);
-    // Pollinations URL pattern — la imagen se genera al primer GET
+
+    // Tier 1: FLUX Pro Ultra (si hay key)
+    const pro = await genFalFluxPro(prompt);
+    if (pro) {
+      return {
+        url: pro.url,
+        prompt,
+        width: w,
+        height: h,
+        seed: s,
+        provider: pro.provider,
+        markdown: `![${prompt.slice(0, 60)}](${pro.url})`,
+      };
+    }
+
+    // Tier 2: Pollinations fallback
     const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(
       prompt,
     )}?width=${w}&height=${h}&seed=${s}&nologo=true&model=flux`;
-    // Devolvemos la URL — es estable para Pollinations
     return {
       url,
       prompt,
       width: w,
       height: h,
       seed: s,
+      provider: "pollinations-flux-schnell",
       markdown: `![${prompt.slice(0, 60)}](${url})`,
     };
   },
