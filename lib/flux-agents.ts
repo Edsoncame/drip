@@ -118,6 +118,16 @@ function extraToolsForAgent(agentId: AgentId): Record<string, any> {
     } catch {}
   }
 
+  // Blog publishing — content-creator + seo-specialist publican artículos
+  // directo al repo (lib/blog.ts + app/(main)/blog/<slug>/page.tsx).
+  if (agentId === "content-creator" || agentId === "seo-specialist") {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const blog = require("./blog-tools") as typeof import("./blog-tools");
+      Object.assign(extras, blog.blogTools(agentId));
+    } catch {}
+  }
+
   return extras;
 }
 
