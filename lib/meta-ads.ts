@@ -335,6 +335,113 @@ export function metaSemTools() {
         return { ok: true, ad_id: res.id, status: "PAUSED" };
       },
     }),
+
+    meta_create_campaign_full: tool({
+      description:
+        "Wrapper end-to-end: crea campaign + ad set + creative + ad en una sola llamada. Todo arranca PAUSED. Usalo para lanzar campañas estándar rápido. Si necesitás múltiples ad sets/creatives bajo una misma campaña, usá los tools individuales.",
+      inputSchema: z.object({
+        campaign_name: z.string().min(3).max(120),
+        objective: z
+          .enum(["OUTCOME_TRAFFIC", "OUTCOME_LEADS", "OUTCOME_SALES", "OUTCOME_AWARENESS"])
+          .describe("Objetivo. Para FLUX: OUTCOME_LEADS o OUTCOME_TRAFFIC."),
+        daily_budget_usd: z.number().min(1).max(500),
+        ad_message: z.string().min(1).max(2200).describe("Texto del anuncio"),
+        ad_link: z.string().url().describe("URL destino (landing en fluxperu.com)"),
+        ad_image_url: z
+          .string()
+          .url()
+          .describe("URL pública de la imagen (preferible Vercel Blob, no Pollinations)"),
+        ad_headline: z.string().max(40).optional(),
+        ad_description: z.string().max(125).optional(),
+        countries: z.array(z.string().length(2)).optional().default(["PE"]),
+        age_min: z.number().min(13).max(65).optional().default(18),
+        age_max: z.number().min(13).max(65).optional().default(65),
+        call_to_action: z
+          .enum(["LEARN_MORE", "SIGN_UP", "GET_QUOTE", "CONTACT_US", "APPLY_NOW"])
+          .optional()
+          .default("LEARN_MORE"),
+      }),
+      execute: async (args) => {
+        const acct = requireAdAccount();
+        // 1) Campaign
+        const campaign = (await metaFetch(`/${acct}/campaigns`, {
+          method: "POST",
+          body: {
+            name: args.campaign_name,
+            objective: args.objective,
+            status: "PAUSED",
+            special_ad_categories: [],
+            daily_budget: Math.round(args.daily_budget_usd * 100),
+          },
+        })) as { id: string };
+
+        // 2) Ad Set (sin daily_budget — usa el de la campaign)
+        const startTime = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+        const adSet = (await metaFetch(`/${acct}/adsets`, {
+          method: "POST",
+          body: {
+            name: `${args.campaign_name} — set`,
+            campaign_id: campaign.id,
+            billing_event: "IMPRESSIONS",
+            optimization_goal:
+              args.objective === "OUTCOME_LEADS" ? "LEAD_GENERATION" : "LINK_CLICKS",
+            bid_strategy: "LOWEST_COST_WITHOUT_CAP",
+            status: "PAUSED",
+            start_time: startTime,
+            targeting: {
+              geo_locations: { countries: args.countries },
+              age_min: args.age_min,
+              age_max: args.age_max,
+              publisher_platforms: ["facebook", "instagram"],
+              facebook_positions: ["feed"],
+              instagram_positions: ["stream"],
+            },
+          },
+        })) as { id: string };
+
+        // 3) Creative
+        const creative = (await metaFetch(`/${acct}/adcreatives`, {
+          method: "POST",
+          body: {
+            name: `${args.campaign_name} — creative`,
+            object_story_spec: {
+              page_id: requirePageId(),
+              link_data: {
+                message: args.ad_message,
+                link: args.ad_link,
+                picture: args.ad_image_url,
+                name: args.ad_headline,
+                description: args.ad_description,
+                call_to_action: { type: args.call_to_action, value: { link: args.ad_link } },
+              },
+            },
+          },
+        })) as { id: string };
+
+        // 4) Ad
+        const ad = (await metaFetch(`/${acct}/ads`, {
+          method: "POST",
+          body: {
+            name: `${args.campaign_name} — ad`,
+            adset_id: adSet.id,
+            creative: { creative_id: creative.id },
+            status: "PAUSED",
+          },
+        })) as { id: string };
+
+        return {
+          ok: true,
+          status: "PAUSED",
+          campaign_id: campaign.id,
+          ad_set_id: adSet.id,
+          creative_id: creative.id,
+          ad_id: ad.id,
+          ads_manager_url: `https://business.facebook.com/adsmanager/manage/campaigns?act=${acct.replace("act_", "")}&selected_campaign_ids=${campaign.id}`,
+          message:
+            "Campaña completa creada en PAUSED. Revisá en Ads Manager y activá manualmente.",
+        };
+      },
+    }),
   };
 }
 
