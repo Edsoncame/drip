@@ -218,6 +218,19 @@ function B2BForm() {
         form_location: "landing_empresas",
         cantidad_equipos: form.quantity,
       });
+      // Meta Pixel: Lead event
+      if (typeof window !== "undefined") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const fbq = (window as any).fbq;
+        if (typeof fbq === "function") {
+          fbq("track", "Lead", {
+            content_name: "b2b_cotizacion_empresas",
+            content_category: "lead_generation",
+            value: form.quantity,
+            currency: "PEN",
+          });
+        }
+      }
       setSent(true);
     } catch {
       setError("Error de conexión. Intenta de nuevo.");
