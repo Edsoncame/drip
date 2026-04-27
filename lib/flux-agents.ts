@@ -128,6 +128,21 @@ function extraToolsForAgent(agentId: AgentId): Record<string, any> {
     } catch {}
   }
 
+  // Vercel Blob — agentes que generan/usan imágenes necesitan persistir URLs
+  // (Pollinations.ai es volátil; Blob es estable y CDN-fronted).
+  if (
+    agentId === "disenador-creativo" ||
+    agentId === "content-creator" ||
+    agentId === "community-manager" ||
+    agentId === "sem-manager"
+  ) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const blob = require("./blob-tools") as typeof import("./blob-tools");
+      Object.assign(extras, blob.blobTools());
+    } catch {}
+  }
+
   return extras;
 }
 
