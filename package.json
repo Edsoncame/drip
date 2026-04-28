@@ -7,8 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test lib/kyc/__tests__/*.test.ts",
-    "test:kyc": "tsx --test lib/kyc/__tests__/*.test.ts"
+    "test": "tsx --test lib/__tests__/*.test.ts lib/kyc/__tests__/*.test.ts",
+    "test:kyc": "tsx --test lib/kyc/__tests__/*.test.ts",
+    "test:lib": "tsx --test lib/__tests__/*.test.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.69",

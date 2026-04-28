@@ -68,35 +68,60 @@ interface ProductRow {
   image_url: string;
   badge: string | null;
   is_new: boolean;
-  stock: number;
+  stock: number; // valor manual de products.stock — referencia, NO autoritativo
   cost_usd: string | null;
   specs: unknown;
   includes: unknown;
   pricing: PricingRow[];
   active: boolean;
-  live_available: string; // count(equipment estado='Disponible') por modelo
+  /** Conteo real de equipment.estado_actual='Disponible' que matchea por chip. */
+  live_available: number;
 }
 
 /**
- * Lee productos + stock en vivo del inventario real (equipment).
- * Hace best-effort match de products.slug contra equipment.modelo_completo
- * usando la chip como key (Air M4 → M4, Pro M5 → M5).
+ * Lee productos activos + stock real en vivo del inventario (`equipment`).
+ *
+ * Estrategia de matching (post-refactor 2026-04-28):
+ *  - Normalizamos `chip` en ambas tablas removiendo el prefijo "Apple "
+ *    y casándolo en lowercase. Mantiene paridad con `lib/inventory.ts`.
+ *  - JOIN explícito por chip normalizado en CTE (más rápido que el
+ *    correlated subquery anterior + inmune al naming format de products.name).
+ *  - `live_available` es la única fuente autoritativa de stock que mandamos
+ *    a Drop Chat. Si no hay equipment físico, reporta 0 — NO usamos
+ *    products.stock como fallback porque eso ofrecía equipos inexistentes.
  */
 async function loadProducts(): Promise<ProductRow[]> {
   const res = await query<ProductRow>(
-    `SELECT p.id, p.slug, p.name, p.short_name, p.chip, p.ram, p.ssd, p.color,
+    `WITH chip_inventory AS (
+       SELECT
+         LOWER(REGEXP_REPLACE(chip, '^Apple\\s+', '', 'i')) AS normalized_chip,
+         COUNT(*) FILTER (WHERE estado_actual = 'Disponible') AS available_count
+       FROM equipment
+       WHERE chip IS NOT NULL AND chip <> ''
+       GROUP BY 1
+     )
+     SELECT p.id, p.slug, p.name, p.short_name, p.chip, p.ram, p.ssd, p.color,
             p.image_url, p.badge, p.is_new, p.stock, p.cost_usd::text,
             p.specs, p.includes, p.pricing, p.active,
-            COALESCE((
-              SELECT COUNT(*)::text
-              FROM equipment e
-              WHERE e.estado_actual = 'Disponible'
-                AND lower(e.modelo_completo) LIKE '%' || lower(split_part(p.name, '—', 2)) || '%'
-            ), '0') AS live_available
+            COALESCE(ci.available_count, 0)::int AS live_available
      FROM products p
+     LEFT JOIN chip_inventory ci
+       ON LOWER(REGEXP_REPLACE(p.chip, '^Apple\\s+', '', 'i')) = ci.normalized_chip
      WHERE p.active = true
      ORDER BY p.display_order`,
   );
+
+  // Observabilidad: alertar cuando un producto activo no tiene equipment.
+  // Esto suele indicar que el equipo se creó solo en `products` sin
+  // registrar la unidad física, o que todas se arrendaron y no se repuso.
+  for (const p of res.rows) {
+    if (p.active && p.live_available === 0) {
+      console.warn(
+        `${tag} producto activo sin stock físico — slug=${p.slug} chip="${p.chip}" products.stock=${p.stock}`,
+      );
+    }
+  }
+
   return res.rows;
 }
 
@@ -118,9 +143,11 @@ export function toDropchatProduct(p: ProductRow): DropchatProduct {
   // "price" top-level = plan más barato ("desde $X/mes" es el gancho principal)
   const mainPrice = minPrice;
 
-  // Stock: count de equipment.estado='Disponible' si hay; fallback al p.stock
-  const liveStock = parseInt(p.live_available, 10);
-  const stock = liveStock > 0 ? liveStock : p.stock;
+  // Stock = ÚNICAMENTE equipment.estado_actual='Disponible' matcheado por chip
+  // (ver loadProducts SQL). NO usamos products.stock como fallback — ese
+  // campo es referencial para el admin pero no es autoritativo. Si no hay
+  // unidades físicas, Drop Chat reporta 0 y IAn no ofrece lo que no existe.
+  const stock = typeof p.live_available === "number" ? p.live_available : 0;
 
   const productUrl = `https://www.fluxperu.com/laptops/${p.slug}`;
   // Descripción corta basada en las specs principales — la consume IAn
@@ -238,12 +265,24 @@ export async function syncProduct(slug: string): Promise<{ ok: boolean; error?: 
   const apiKey = cleanApiKey(process.env.DROPCHAT_API_KEY);
   if (!apiKey) return { ok: false, error: "DROPCHAT_API_KEY no seteado" };
 
+  // Mismo JOIN que loadProducts() para que el sync individual también lea
+  // stock real del inventario, no '0' hardcoded.
   const res = await query<ProductRow>(
-    `SELECT p.id, p.slug, p.name, p.short_name, p.chip, p.ram, p.ssd, p.color,
+    `WITH chip_inventory AS (
+       SELECT
+         LOWER(REGEXP_REPLACE(chip, '^Apple\\s+', '', 'i')) AS normalized_chip,
+         COUNT(*) FILTER (WHERE estado_actual = 'Disponible') AS available_count
+       FROM equipment
+       WHERE chip IS NOT NULL AND chip <> ''
+       GROUP BY 1
+     )
+     SELECT p.id, p.slug, p.name, p.short_name, p.chip, p.ram, p.ssd, p.color,
             p.image_url, p.badge, p.is_new, p.stock, p.cost_usd::text,
             p.specs, p.includes, p.pricing, p.active,
-            '0' AS live_available
+            COALESCE(ci.available_count, 0)::int AS live_available
      FROM products p
+     LEFT JOIN chip_inventory ci
+       ON LOWER(REGEXP_REPLACE(p.chip, '^Apple\\s+', '', 'i')) = ci.normalized_chip
      WHERE p.slug = $1`,
     [slug],
   );
