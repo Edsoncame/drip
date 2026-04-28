@@ -13,7 +13,7 @@ export default function CancelacionesPage() {
       <h1 className="text-3xl md:text-4xl font-800 text-[#18191F] mb-3">
         Política de cancelaciones y devoluciones
       </h1>
-      <p className="text-sm text-[#666] mb-10">Última actualización: 13 de abril de 2026</p>
+      <p className="text-sm text-[#666] mb-10">Última actualización: 28 de abril de 2026</p>
 
       <div className="prose prose-neutral max-w-none text-[#333] leading-relaxed space-y-8">
         <section>
@@ -49,22 +49,37 @@ export default function CancelacionesPage() {
         <section>
           <h2 className="text-xl font-700 text-[#18191F] mb-3">3. Cancelación después de los 7 días</h2>
           <p>
-            Si el cliente desea cancelar su suscripción después del periodo de desistimiento, aplican las
-            siguientes condiciones:
+            Pasado el periodo de desistimiento, el cliente está sujeto al plazo mínimo del Contrato (8, 16 o 24
+            meses según el plan elegido). Aplican estas reglas (alineadas con la cláusula 14 de los{" "}
+            <Link href="/terminos" className="text-[#1B4FFF] hover:underline">Términos y Condiciones</Link>):
           </p>
-          <ul className="list-disc pl-6 space-y-1">
+          <ul className="list-disc pl-6 space-y-2">
             <li>
-              <strong>Penalidad por terminación anticipada:</strong> el cliente debe pagar el equivalente al 50%
-              de las cuotas restantes hasta la finalización del plazo del contrato.
+              <strong>Cancelación ordinaria — al cumplir el plazo mínimo:</strong> el cliente puede cancelar
+              con 30 días calendario de aviso previo por escrito a hola@fluxperu.com, sin penalidad alguna.
             </li>
             <li>
-              El equipo debe ser devuelto en buenas condiciones. Daños físicos, pérdida de accesorios o falta de
-              mantenimiento se descontarán del reembolso correspondiente (si aplica).
+              <strong>Cancelación anticipada extraordinaria — antes del plazo mínimo:</strong> solo se autoriza
+              en casos justificados (cierre de empresa documentado, mudanza fuera de Lima, fuerza mayor probada).
+              La penalidad es de <strong>2 (dos) Rentas Mensuales</strong>, más la devolución del equipo en
+              perfecto estado y el pago proporcional de cualquier promoción aprovechada.
             </li>
             <li>
-              La cancelación se puede solicitar desde el panel del cliente en{" "}
-              <Link href="/cuenta/rentas" className="text-[#1B4FFF] hover:underline">Mis rentas</Link>, o
-              enviando un correo a hola@fluxperu.com.
+              <strong>Resolución por incumplimiento del cliente:</strong> ante mora superior a 30 días, uso
+              prohibido del equipo, información falsa o subarrendamiento no autorizado, FLUX puede resolver el
+              Contrato de pleno derecho conforme al Art. 1430 del Código Civil. En este caso son exigibles
+              inmediatamente todas las Rentas devengadas + intereses moratorios + cláusula penal del valor
+              comercial del equipo si no se devuelve.
+            </li>
+            <li>
+              El equipo debe devolverse en buen estado, con todos sus accesorios originales, restablecido a
+              configuración de fábrica y con la sesión de iCloud cerrada. Daños no reportados, accesorios
+              faltantes o bloqueos personales se facturan según las tarifas de Apple Service.
+            </li>
+            <li>
+              La solicitud de cancelación se hace desde el panel del cliente en{" "}
+              <Link href="/cuenta/rentas" className="text-[#1B4FFF] hover:underline">Mis rentas</Link> o por
+              correo a hola@fluxperu.com.
             </li>
           </ul>
         </section>
