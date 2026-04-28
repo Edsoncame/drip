@@ -9,6 +9,7 @@ import { trackBeginCheckout } from "@/lib/analytics";
 import DniCaptureGuided from "@/components/kyc/DniCaptureGuided";
 import SelfieLiveness from "@/components/kyc/SelfieLiveness";
 import AddressAutocomplete from "@/components/checkout/AddressAutocomplete";
+import TyCAcceptanceBlock from "@/components/checkout/TyCAcceptanceBlock";
 import { quoteShipping } from "@/lib/shipping/lima-rates";
 import PhoneInput from "@/components/PhoneInput";
 
@@ -382,11 +383,22 @@ function Step2({
   onIdentityChange: (d: IdentityData) => void;
   kycCorrelationId: string;
   isLoggedIn: boolean | null;
-  /** Crea cuenta inline con email+password. Devuelve true si OK, o un mensaje de error. */
-  onGuestSignup: (password: string) => Promise<true | string>;
+  /** Crea cuenta inline con email+password + firma legal del TyC. Devuelve true si OK, o un mensaje de error. */
+  onGuestSignup: (
+    password: string,
+    legal: {
+      accepted: boolean;
+      scroll_completed: boolean;
+      signature_name: string;
+      signature_document: string;
+    },
+  ) => Promise<true | string>;
 }) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [tycSignatureName, setTycSignatureName] = useState("");
+  const [tycSignatureDocument, setTycSignatureDocument] = useState("");
+  const [tycScrollCompleted, setTycScrollCompleted] = useState(false);
   const [rucStatus, setRucStatus] = useState<{ valid?: boolean; razonSocial?: string; loading?: boolean }>({});
   const [uploadingDni, setUploadingDni] = useState(false);
   const [uploadingSelfie, setUploadingSelfie] = useState(false);
@@ -514,7 +526,18 @@ function Step2({
         e.apartment = "Requerido";
       }
     }
-    if (!acceptedTerms) e.terms = "Debes aceptar los términos para continuar";
+    if (!acceptedTerms) {
+      e.terms = "Debes aceptar los términos para continuar";
+    } else if (!tycScrollCompleted) {
+      e.terms = "Tenés que leer los términos completos antes de continuar";
+    } else if (tycSignatureName.trim().length < 5) {
+      e.terms = "Escribí tu nombre legal completo como firma digital";
+    } else if (
+      tycSignatureDocument.length !== 8 &&
+      tycSignatureDocument.length !== 11
+    ) {
+      e.terms = "Documento inválido (DNI 8 dígitos o RUC 11 dígitos)";
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -526,7 +549,12 @@ function Step2({
     // Guest → crear cuenta inline antes del KYC (los endpoints /api/kyc/* requieren sesión).
     if (isLoggedIn === false) {
       setSigningUp(true);
-      const result = await onGuestSignup(guestPassword);
+      const result = await onGuestSignup(guestPassword, {
+        accepted: acceptedTerms,
+        scroll_completed: tycScrollCompleted,
+        signature_name: tycSignatureName,
+        signature_document: tycSignatureDocument,
+      });
       setSigningUp(false);
       if (result !== true) {
         // Email ya existe → el usuario tiene cuenta; pista al campo email y CTA a login.
@@ -1315,42 +1343,26 @@ function Step2({
         Tus datos solo se usan para coordinar la entrega y facturación. No los compartimos con terceros.
       </p>
 
-      {/* Terms acceptance */}
-      <div className="mt-5">
-        <label className={`flex items-start gap-3 cursor-pointer select-none ${errors.terms ? "text-red-500" : "text-[#333333]"}`}>
-          <div className="relative flex-shrink-0 mt-0.5">
-            <input
-              type="checkbox"
-              checked={acceptedTerms}
-              onChange={(e) => {
-                setAcceptedTerms(e.target.checked);
-                if (e.target.checked) setErrors(prev => { const next = { ...prev }; delete next.terms; return next; });
-              }}
-              className="sr-only"
-            />
-            <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
-              acceptedTerms ? "bg-[#1B4FFF] border-[#1B4FFF]" : errors.terms ? "border-red-400" : "border-[#CCCCCC]"
-            }`}>
-              {acceptedTerms && (
-                <svg width="11" height="9" viewBox="0 0 11 9" fill="none">
-                  <path d="M1 4l3 3 6-6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              )}
-            </div>
-          </div>
-          <span className="text-sm leading-relaxed">
-            He leído y acepto los{" "}
-            <a href="/terminos" target="_blank" rel="noreferrer" className="text-[#1B4FFF] hover:underline font-600">
-              Términos y Condiciones
-            </a>
-            {" "}y la{" "}
-            <a href="/privacidad" target="_blank" rel="noreferrer" className="text-[#1B4FFF] hover:underline font-600">
-              Política de Privacidad
-            </a>
-            {" "}de FLUX — Tika Services S.A.C.
-          </span>
-        </label>
-        {errors.terms && <p className="text-red-500 text-xs mt-2">{errors.terms}</p>}
+      {/* Aceptación de Términos + firma digital + autorización pagaré */}
+      <div className="mt-6">
+        <TyCAcceptanceBlock
+          initialName={data.name}
+          initialDocument={data.customerType === "empresa" ? data.ruc : ""}
+          onChange={(s) => {
+            setAcceptedTerms(s.accepted);
+            setTycSignatureName(s.signatureName);
+            setTycSignatureDocument(s.signatureDocument);
+            setTycScrollCompleted(s.scrollCompleted);
+            if (s.accepted && s.scrollCompleted) {
+              setErrors((prev) => {
+                const next = { ...prev };
+                delete next.terms;
+                return next;
+              });
+            }
+          }}
+          errorMessage={errors.terms}
+        />
       </div>
 
       <button
@@ -1612,7 +1624,15 @@ function CheckoutContent() {
 
   // Guest signup inline — se llama antes del KYC submit si el user no está logged-in.
   // Devuelve true si OK, o un mensaje de error legible para mostrar en el form.
-  const handleGuestSignup = async (password: string): Promise<true | string> => {
+  const handleGuestSignup = async (
+    password: string,
+    legal: {
+      accepted: boolean;
+      scroll_completed: boolean;
+      signature_name: string;
+      signature_document: string;
+    },
+  ): Promise<true | string> => {
     try {
       const res = await fetch("/api/auth/register", {
         method: "POST",
@@ -1625,6 +1645,18 @@ function CheckoutContent() {
           company: customer.customerType === "empresa" ? customer.company : "",
           ruc: customer.customerType === "empresa" ? customer.ruc : "",
           customerType: customer.customerType,
+          // Aceptación legal de Términos v2 + firma digital + pagaré
+          legal: {
+            terms_version: "2026-04-28",
+            accepted: legal.accepted,
+            scroll_completed: legal.scroll_completed,
+            signature_name: legal.signature_name,
+            signature_document: legal.signature_document,
+            signed_at: new Date().toISOString(),
+            user_agent:
+              typeof navigator !== "undefined" ? navigator.userAgent : "",
+            pagare_authorized: true,
+          },
         }),
       });
       if (res.ok) {
