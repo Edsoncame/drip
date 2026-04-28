@@ -7,7 +7,7 @@ const BASE = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.fluxperu.com";
 export const metadata: Metadata = {
   title: "Centro de ayuda — FAQs y guías FLUX",
   description:
-    "Todas las preguntas frecuentes sobre alquiler de MacBook con FLUX: planes, precios, entrega, soporte, facturación, devoluciones y más.",
+    "Todas las preguntas frecuentes sobre alquiler de MacBook con FLUX: planes, precios, entrega, soporte, contrato y firma digital, facturación, mora, devoluciones, opción de compra y privacidad.",
   alternates: { canonical: `${BASE}/ayuda` },
 };
 
@@ -24,11 +24,11 @@ const categories: Category[] = [
     items: [
       {
         q: "¿Qué es FLUX exactamente?",
-        a: "FLUX es una plataforma peruana operada por Tika Services S.A.C. que alquila MacBooks a empresas y profesionales por una cuota mensual fija. Somos el único proveedor en Perú especializado 100% en equipos Apple.",
+        a: "FLUX es una plataforma peruana operada por Tika Services S.A.C. que alquila MacBooks a empresas y profesionales por una cuota mensual fija. Especializados 100% en equipos Apple, con entrega rápida en Lima y soporte técnico incluido.",
       },
       {
         q: "¿En qué ciudades operan?",
-        a: "Actualmente operamos en Lima Metropolitana con entrega en 24-48 horas. Para provincias podemos coordinar envíos, pero con costo logístico adicional. Plan de expansión 2026: Arequipa y Trujillo.",
+        a: "Actualmente operamos en Lima Metropolitana con entrega gratuita en 24-48 horas. Para provincias coordinamos envíos vía courier, con costo logístico adicional a cargo del cliente. Plan de expansión 2026-2027: Arequipa y Trujillo.",
       },
       {
         q: "¿Cuántos años llevan en el mercado?",
@@ -36,7 +36,7 @@ const categories: Category[] = [
       },
       {
         q: "¿Son una empresa formal?",
-        a: "Sí. Tika Services S.A.C. RUC 20605702512, inscrita en SUNAT y SUNARP (Partida 14423677). Emitimos factura electrónica SUNAT y cumplimos con todos los requisitos legales del Perú.",
+        a: "Sí. Tika Services S.A.C. RUC 20605702512, inscrita en SUNAT. Emitimos factura electrónica SUNAT y cumplimos con todos los requisitos legales del Perú.",
       },
     ],
   },
@@ -46,45 +46,53 @@ const categories: Category[] = [
     items: [
       {
         q: "¿Cuánto cuesta alquilar una MacBook?",
-        a: "Desde $85/mes para MacBook Air 13\" M4 en plan de 24 meses. El precio varía según modelo (Air o Pro), plazo (8/16/24 meses) y canal (online con Stripe o transferencia bancaria).",
+        a: "Desde $60/mes (MacBook Neo 13\" — Apple A16 Pro, plan 24 meses) y desde $85/mes (MacBook Air 13\" — Apple M4, plan 24 meses). También MacBook Pro 14\" M4 y M5. El precio varía según modelo y plazo (8/16/24 meses). Ver catálogo completo en /laptops.",
       },
       {
         q: "¿Por qué mientras más largo el plazo, menor la cuota?",
-        a: "Porque el equipo tiene un costo fijo que se distribuye en más meses. Un plan de 24 meses tiene menor cuota mensual pero mayor compromiso total.",
+        a: "Porque el costo del equipo se distribuye en más meses. Un plan de 24 meses tiene menor cuota mensual pero mayor compromiso total. Lo elegís según tu flujo de caja y horizonte de uso.",
       },
       {
         q: "¿Los precios incluyen IGV?",
-        a: "Sí. Todos los precios mostrados incluyen el IGV del 18%. La factura los desglosa por si necesitas el crédito fiscal.",
+        a: "Los precios mostrados están en USD y NO incluyen IGV. El IGV del 18% se adiciona en la factura cuando aplica. La factura desglosa el IGV por si necesitás crédito fiscal.",
       },
       {
         q: "¿Ofrecen descuento por volumen?",
-        a: "Sí. Desde 2 equipos aplica 5% de descuento, desde 5 equipos 8%, y desde 10 equipos 12%. Para más de 20 equipos hacemos cotización personalizada.",
+        a: "Sí. Desde 2 equipos aplica 5% de descuento, desde 5 equipos 8%, y desde 10 equipos 12%. Para más de 20 equipos hacemos cotización personalizada con account manager dedicado.",
       },
       {
         q: "¿Puedo pagar todo por adelantado?",
-        a: "Sí. Si pagas todo el plazo por adelantado te damos 5% de descuento adicional. Útil para cerrar el ejercicio fiscal con gasto asentado.",
+        a: "Sí. Si pagás todo el plazo por adelantado te damos 5% de descuento adicional. Útil para cerrar el ejercicio fiscal con el gasto asentado.",
       },
     ],
   },
   {
-    title: "Proceso de alquiler",
+    title: "Proceso de alquiler y firma del contrato",
     icon: "📝",
     items: [
       {
         q: "¿Cómo empiezo el proceso?",
-        a: "Elige el modelo y plan en /laptops, entra al checkout, llena tus datos, firma el contrato digital, y paga el primer mes. Entregamos en 24-48h una vez validada tu identidad.",
+        a: "Elegís modelo y plan en /laptops → entrás al checkout → llenás tus datos → leés y firmás el contrato digital (Términos + pagaré incompleto + DNI/RUC) → pagás el primer mes. Entregamos en 24-48h una vez validada tu identidad.",
       },
       {
         q: "¿Necesito garantía o aval?",
-        a: "No. Solo verificamos tu identidad (DNI + selfie si eres persona natural, RUC si eres empresa). No pedimos aval, fiador ni depósito en efectivo.",
+        a: "No pedimos depósito en efectivo ni fianza. La protección de FLUX descansa en: (1) firma del pagaré incompleto al recibir el equipo (Ley 27287), (2) en contratos B2B, garantía solidaria personal del representante legal, (3) verificación KYC con DNI + selfie + RUC.",
       },
       {
-        q: "¿Cuánto tarda la firma del contrato?",
-        a: "5-10 minutos. Es un contrato digital con firma electrónica. Lo firmas desde tu computadora o celular, no hay papeleo físico.",
+        q: "¿Cómo es la firma del contrato? ¿Es legal?",
+        a: "Es completamente digital y tiene plena validez legal en Perú. Conforme a la Ley 27291, el D.Leg. 1310 y la Ley 27269 de Firmas Digitales, equivale a una firma manuscrita. El proceso te toma 10-15 minutos: leés los Términos completos (con scroll obligatorio para confirmar lectura), aceptás, escribís tu nombre legal completo como firma, y confirmás con DNI o RUC.",
       },
       {
-        q: "¿Puedo cancelar antes del plazo?",
-        a: "Tienes 7 días calendario de desistimiento sin penalidad (Ley 29571 Indecopi). Después del día 7, aplica penalidad del 50% sobre las cuotas restantes.",
+        q: "¿Qué es el pagaré incompleto que firmo?",
+        a: "Es un título valor (Art. 10 y 158 de la Ley 27287) que autorizás al recibir el equipo. Lo firmás en blanco y FLUX lo completa solo si caés en mora prolongada o no devolvés el equipo. Permite ejecutar la cobranza por proceso ejecutivo (3-6 meses) en vez de proceso ordinario (1-2 años). Esto es estándar en arrendamiento operativo.",
+      },
+      {
+        q: "¿Puedo cancelar el contrato antes del plazo mínimo?",
+        a: "Cumplido el plazo mínimo elegido (8/16/24 meses), cancelás con 30 días de aviso por correo, sin penalidad. Antes del plazo mínimo solo se autoriza cancelación anticipada por causa justificada (cierre de empresa, mudanza fuera de Lima, fuerza mayor) con penalidad de 2 Rentas Mensuales más devolución del equipo.",
+      },
+      {
+        q: "¿Tengo derecho de desistimiento al firmar online?",
+        a: "Conforme al Código de Protección y Defensa del Consumidor (Ley 29571), las contrataciones a distancia tienen derecho de desistimiento. Para servicios continuados como el alquiler, el cliente puede notificar la terminación; aplica el art. 14.3 del contrato sobre cancelación anticipada.",
       },
     ],
   },
@@ -116,24 +124,28 @@ const categories: Category[] = [
     items: [
       {
         q: "¿Qué pasa si se daña el equipo?",
-        a: "Si es falla de fábrica, lo reemplazamos sin costo en 48 horas hábiles. Si es daño accidental o uso indebido, el cliente asume la reparación (a menos que haya contratado AppleCare+ al inicio).",
+        a: "Si es falla de fábrica cubierta por garantía Apple, lo reemplazamos o reparamos sin costo. Si es daño accidental: con AppleCare+ pagás solo el deducible de USD $99 por incidente; sin AppleCare+ asumís el costo de reparación según tarifa Apple Service.",
       },
       {
         q: "¿Cubren robo o pérdida?",
-        a: "No por defecto. Puedes contratar AppleCare+ con Theft and Loss (cobertura contra robo) al inicio del contrato. Es un add-on con costo adicional.",
+        a: "NO. Ni FLUX ni AppleCare+ cubren robo ni pérdida. En caso de robo, el cliente debe presentar denuncia policial dentro de 48h y abonar el valor comercial de reemplazo del equipo en un plazo máximo de 15 días calendario.",
       },
       {
         q: "¿Ofrecen AppleCare+?",
-        a: "Sí, como add-on. Cubre garantía extendida, daños accidentales con deducible reducido, y opcionalmente robo/pérdida. Se paga al inicio del contrato.",
+        a: "Sí, como add-on por +$12/mes durante todo el plazo del contrato. Cubre garantía extendida 3 años + 2 reparaciones por daño accidental con deducible USD $99. Se contrata al inicio del contrato y no se puede cancelar de forma independiente.",
       },
       {
         q: "¿Quién atiende el soporte?",
-        a: "Nuestro equipo técnico directo. Respondemos por WhatsApp (+51 900 164 769) y email (hola@fluxperu.com) en horario de lunes a viernes de 9 a 6.",
+        a: "Nuestro equipo técnico directo. Respondemos por WhatsApp (+51 900 164 769) y email (hola@fluxperu.com) en horario de lunes a viernes 9am – 6pm.",
+      },
+      {
+        q: "¿FLUX puede acceder o controlar mi MacBook remotamente?",
+        a: "FLUX inscribe los equipos en Apple Business Manager y aplica una solución MDM para gestión y seguridad. NO accede a tus archivos ni monitorea tu actividad. La capacidad de bloqueo o borrado remoto solo se activa en escenarios específicos: mora prolongada, robo reportado, no devolución vencido el contrato, o uso para actividades ilícitas. Es la misma tecnología que usan empresas Apple-managed (Google, Cisco, etc.) para proteger sus equipos corporativos.",
       },
     ],
   },
   {
-    title: "Facturación y pagos",
+    title: "Facturación, pagos y mora",
     icon: "📄",
     items: [
       {
@@ -142,19 +154,27 @@ const categories: Category[] = [
       },
       {
         q: "¿Qué métodos de pago aceptan?",
-        a: "Tarjeta de crédito/débito (vía Stripe - Visa, Mastercard, Amex) y transferencia bancaria (BCP, Interbank, BBVA, Scotiabank).",
+        a: "Tarjeta de crédito/débito vía Stripe (Visa, Mastercard, Amex), Mercado Pago, y transferencia bancaria (BCP, Interbank, BBVA, Scotiabank). El cobro recurrente con tarjeta se autoriza al iniciar el contrato.",
       },
       {
         q: "¿El cobro con tarjeta es automático?",
-        a: "Sí. Stripe procesa el cobro recurrente el mismo día de cada mes. También puedes optar por transferencia manual y subir el voucher a tu panel en /cuenta/pagos.",
+        a: "Sí. Stripe procesa el cobro recurrente el mismo día calendario de cada mes. Si querés cambiar a transferencia manual, podés hacerlo desde tu panel /cuenta/pagos y subir el voucher.",
       },
       {
         q: "¿Qué pasa si no pago una cuota?",
-        a: "Tienes 5 días calendario de gracia. Pasados los 10 días, se suspende el servicio. Pasados 30 días, pasa a cobranza con interés moratorio del 5% mensual. Siempre es mejor avisarnos con tiempo para coordinar.",
+        a: "Tenés 5 días calendario de gracia sin penalidad. Vencido el período de gracia, devengan intereses moratorios a la tasa máxima legal del BCRP (TIPMN/TIPMEX) más una penalidad compensatoria del 10% sobre la cuota impaga. A partir del día 31 de mora reportamos a las centrales de riesgo y el contrato puede resolverse de pleno derecho conforme al Art. 1430 del Código Civil.",
+      },
+      {
+        q: "¿Qué centrales de riesgo reportan?",
+        a: "Las cuatro principales en Perú autorizadas por la SBS: Equifax Perú (INFOCORP), Sentinel Perú, Experian Perú y Xchange Perú (CCL). El reporte se mantiene hasta 5 años desde la cancelación íntegra de la deuda, conforme al Reglamento del Sistema de Información de Riesgos.",
+      },
+      {
+        q: "¿Qué pasa si no devuelvo el equipo al final del contrato?",
+        a: "Después de la intimación notarial, tenés 10 días para devolver. Vencido ese plazo: (1) la cláusula penal del contrato te hace pagar el 100% del valor comercial del equipo más 0.5% diario hasta devolverlo o pagarlo; (2) FLUX puede bloquear y borrar el equipo remotamente; (3) la conducta configura el delito de Apropiación Ilícita (Art. 190 del Código Penal Peruano), sancionado con 2 a 4 años de cárcel. La opción legal está siempre disponible mientras vos coordines la devolución.",
       },
       {
         q: "¿La factura tiene detracción?",
-        a: "Sí, del 10% cuando el monto supera S/ 700 (Resolución 183-2004/SUNAT). Tu empresa deposita el 10% en nuestra cuenta del Banco de la Nación antes de pagar el resto.",
+        a: "Si el monto de la factura supera S/ 700 y aplica la categoría correspondiente del SPOT (Sistema de Pago de Obligaciones Tributarias), sí — el cliente deposita el 10% (o el porcentaje vigente) en nuestra cuenta del Banco de la Nación antes de pagar el resto. Te confirmamos detracción aplicable en cada factura.",
       },
     ],
   },
@@ -164,19 +184,23 @@ const categories: Category[] = [
     items: [
       {
         q: "¿Qué pasa al terminar el contrato?",
-        a: "Tienes 3 opciones: (1) devolver el equipo sin costo adicional, (2) renovar el contrato con un modelo nuevo, (3) quedártelo a un precio especial que coordinamos contigo al final del plazo.",
+        a: "Tenés 3 opciones: (1) devolver el equipo sin costo adicional, (2) renovar el contrato con un modelo nuevo, o (3) ejercer la opción de compra al valor residual coordinado con FLUX. Tenés 30 días desde el vencimiento para decidir y comunicarlo por escrito a hola@fluxperu.com.",
+      },
+      {
+        q: "¿Cuál es el valor residual si quiero comprar al final?",
+        a: "Se calcula como porcentaje del precio de lista original de Apple, según el plazo que elegiste: 60-75% en plan 8 meses, 35-50% en plan 16 meses, o 15-30% en plan 24 meses. El porcentaje exacto dentro del rango lo determinamos según estado del equipo, ciclos de batería y daños cosméticos no reportados. Te comunicamos el valor final con 30 días de anticipación al vencimiento.",
       },
       {
         q: "¿Cómo devuelvo el equipo?",
-        a: "Coordinamos recojo en tu oficina o domicilio en Lima sin costo adicional. Solo empaca el equipo con sus accesorios originales y estamos contigo a las 24h.",
+        a: "Coordinás con FLUX recojo en tu oficina o domicilio en Lima sin costo adicional. Devolvés el equipo con todos los accesorios originales (cable, adaptador, caja si aplica), sin daños más allá del desgaste normal, con el software restablecido a fábrica (factory reset) y la sesión de iCloud cerrada (Activation Lock desactivado).",
       },
       {
         q: "¿Qué pasa si daño el equipo antes de devolverlo?",
-        a: "Evaluamos el daño con taller autorizado Apple. El costo de reparación se cobra según el daño. Por eso recomendamos agregar AppleCare+ al inicio.",
+        a: "FLUX inspecciona el equipo dentro de 5 días hábiles de recibido. Si hay daños no reportados, accesorios faltantes o el equipo viene con bloqueos personales (Activation Lock con tu Apple ID), te facturamos el costo de reparación, reemplazo o desbloqueo según las tarifas de Apple Service. Por eso conviene contratar AppleCare+ al inicio.",
       },
       {
-        q: "¿Puedo devolver antes del plazo?",
-        a: "Sí con penalidad del 50% sobre las cuotas restantes (para cancelaciones después del día 7 de desistimiento). Coordinamos el recojo en paralelo al pago de la penalidad.",
+        q: "¿Puedo devolver antes del plazo mínimo?",
+        a: "Solo en casos justificados (cierre de empresa documentado, mudanza fuera de Lima, fuerza mayor probada) y con autorización de FLUX. La penalidad es de 2 Rentas Mensuales más devolución del equipo en perfecto estado. No se admiten cancelaciones anticipadas por simple cambio de opinión durante el plazo mínimo.",
       },
     ],
   },
@@ -186,19 +210,45 @@ const categories: Category[] = [
     items: [
       {
         q: "¿Pueden darme ficha de proveedor para mi área de compras?",
-        a: "Sí. Enviamos ficha de proveedor con RUC, constitución SUNAT, cuenta bancaria detracciones, y toda la documentación corporativa que requieras. Escríbenos con tu checklist.",
+        a: "Sí. Enviamos ficha de proveedor con RUC, constitución SUNAT, cuenta bancaria, datos de detracciones y toda la documentación corporativa que requieras. Escribinos con tu checklist a hola@fluxperu.com.",
       },
       {
         q: "¿Tengo que firmar un MSA (Master Service Agreement)?",
-        a: "Para empresas grandes con compras recurrentes, sí podemos firmar un MSA que rija múltiples contratos de alquiler bajo términos negociados. Escríbenos para coordinar.",
+        a: "Para empresas con flotas recurrentes, podemos firmar un MSA que rija múltiples contratos de alquiler bajo términos negociados. Escribinos para coordinar.",
+      },
+      {
+        q: "¿En B2B el contrato lo firma la empresa o el dueño?",
+        a: "Lo firma la empresa (con representante legal indicado en la SUNARP) Y adicionalmente el representante legal queda como garante solidario personal del contrato (cl. 7.3 del TyC). Esto significa que si la empresa quiebra o desaparece, FLUX puede reclamar el pago contra el patrimonio personal del firmante. Es estándar en arrendamiento operativo de equipos en el Perú.",
       },
       {
         q: "¿Puedo manejar el alquiler desde mi ERP?",
-        a: "Por ahora todo se maneja desde el panel admin de FLUX. Integración con ERPs (SAP, Odoo, etc.) está en roadmap 2026.",
+        a: "Por ahora todo se maneja desde el panel admin de FLUX. Integración con ERPs (SAP, Odoo, etc.) está en roadmap 2026-2027 — escribinos si te urge para priorizar.",
       },
       {
         q: "¿Tienen plan para empresas con más de 50 equipos?",
-        a: "Sí. Para empresas grandes asignamos account manager dedicado, tarifas negociadas, reportes mensuales de activos en uso, SLA de soporte definido y condiciones de pago a 30-60 días si aplica.",
+        a: "Sí. Asignamos account manager dedicado, tarifas negociadas, reportes mensuales de activos en uso, SLA de soporte definido y condiciones de pago a 30-60 días si aplica. También podemos ofrecer arbitraje en el Centro de la CCL en lugar de jurisdicción ordinaria para resolución de controversias.",
+      },
+    ],
+  },
+  {
+    title: "Privacidad y firma digital",
+    icon: "🔒",
+    items: [
+      {
+        q: "¿Mi firma digital tiene la misma validez que una manuscrita?",
+        a: "Sí, plenamente. Conforme a la Ley 27291 (que modifica el Código Civil), el D.Leg. 1310 (Gobierno Digital) y la Ley 27269 (Firmas y Certificados Digitales), la aceptación digital con tu nombre legal completo + DNI/RUC tiene el mismo valor jurídico que una firma manuscrita ante un notario.",
+      },
+      {
+        q: "¿Qué datos guardan al firmar?",
+        a: "Para fines de auditoría legal guardamos: tu nombre completo legal, DNI o RUC, fecha y hora UTC, dirección IP de origen, user-agent del navegador, versión exacta del Términos aceptado y confirmación de scroll de lectura. Esto se conserva durante toda la vigencia del contrato y 5 años posteriores como prueba ante INDECOPI, juzgados y autoridades.",
+      },
+      {
+        q: "¿Pueden compartir mis datos con terceros?",
+        a: "Solo en casos específicos y autorizados por la Ley 29733 de Protección de Datos: (1) centrales de riesgo en caso de mora, (2) empresas de cobranza extrajudicial/judicial, (3) procesadores de pago (Stripe, Mercado Pago) para procesar tus pagos, (4) SUNAT para facturación, (5) bancos para gestiones de pago. NO vendemos ni compartimos tus datos para marketing de terceros.",
+      },
+      {
+        q: "¿Cómo ejerzo mis derechos ARCO sobre mis datos?",
+        a: "Podés ejercer tus derechos de Acceso, Rectificación, Cancelación y Oposición (ARCO) sobre tus datos personales escribiéndonos a hola@fluxperu.com. Respondemos en un plazo máximo de 15 días hábiles. Importante: la cancelación de datos no extingue por sí misma una obligación de pago vigente.",
       },
     ],
   },

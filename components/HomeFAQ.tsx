@@ -21,35 +21,39 @@ import { useState } from "react";
 const FAQS = [
   {
     q: "¿Cuánto cuesta alquilar una MacBook con FLUX?",
-    a: "Desde $85 USD al mes para una MacBook Air M4 con plan de 24 meses. Los planes más cortos (8 o 16 meses) tienen una cuota mensual mayor pero menor compromiso. Puedes ver todos los precios en nuestro catálogo.",
+    a: "Desde $60/mes (MacBook Neo 13\" — Apple A16 Pro, plan 24 meses) y desde $85/mes (MacBook Air 13\" — Apple M4, plan 24 meses). Los planes más cortos (8 o 16 meses) tienen una cuota mensual mayor pero menor compromiso. También hay MacBook Pro 14\" M4 y M5. Ver todos los precios en /laptops.",
   },
   {
     q: "¿Tengo que firmar un contrato? ¿Hay penalidad si cancelo?",
-    a: "Sí, firmamos un contrato de alquiler digital al iniciar. Tienes 7 días calendario de desistimiento sin costo (Ley 29571 de Indecopi). Después aplica una penalidad del 50% sobre las cuotas restantes si decides cancelar antes del plazo.",
+    a: "Sí. Firmas un contrato digital al checkout (con scroll obligatorio del TyC + firma con tu nombre legal + DNI/RUC, conforme al D.Leg. 1310 y la Ley 27269 de firma electrónica). Te toma 10-15 minutos. Cumplido el plazo mínimo (8/16/24 meses), cancelás con 30 días de aviso sin penalidad. Si necesitás cancelar antes y FLUX lo autoriza por causa justificada (cierre de empresa, mudanza fuera de Lima, fuerza mayor), la penalidad es de 2 meses de Renta Mensual.",
   },
   {
     q: "¿Qué incluye el alquiler?",
-    a: "El equipo MacBook (con cargador y cables originales), entrega en Lima en 24-48 horas, soporte técnico durante todo el plazo, y reemplazo por falla de fábrica. No incluye seguro contra robo o daños accidentales (puedes contratarlo aparte como AppleCare+).",
+    a: "El equipo MacBook con cargador y accesorios originales, entrega gratuita en Lima en 24-48h, soporte técnico durante todo el plazo, y reemplazo por falla de fábrica. AppleCare+ es opcional (+$12/mes) y cubre daños accidentales con deducible $99. NO cubre robo ni pérdida — son responsabilidad del cliente.",
   },
   {
     q: "¿Y si se daña o me la roban?",
-    a: "Si el daño es por falla de fábrica, FLUX lo cubre sin costo. Si es por uso indebido o accidente, el cliente debe asumir el costo de la reparación (o contratar AppleCare+ al inicio). En caso de robo, el cliente debe denunciarlo y cubrir el valor residual del equipo.",
+    a: "Falla de fábrica: FLUX la cubre sin costo. Daño accidental: con AppleCare+ deducible $99, sin AppleCare+ el cliente paga la reparación según tarifa Apple Service. Robo o pérdida: el cliente presenta denuncia policial en 48h y abona el valor comercial de reemplazo del equipo en 15 días — ni FLUX ni AppleCare+ cubren robo.",
   },
   {
     q: "¿Puedo comprar la MacBook al final del contrato?",
-    a: "¡Sí! Es una de nuestras opciones más usadas. Al finalizar el plazo, puedes comprar el equipo por su valor residual (entre 32% y 78% del precio original, dependiendo del tiempo que la usaste). También puedes renovar el alquiler o devolverla.",
+    a: "Sí. Al finalizar tu plazo te ofrecemos opción de compra al valor residual: entre 60-75% del precio original si fue plan de 8 meses, 35-50% si fue 16 meses, o 15-30% si fue 24 meses. El porcentaje exacto depende del estado del equipo, ciclos de batería y modelo. También podés devolverlo sin costo o renovar con un modelo nuevo.",
   },
   {
     q: "¿Cuánto tarda la entrega?",
-    a: "Entregamos en Lima Metropolitana en 24-48 horas hábiles después de validar tu identidad y procesar el primer pago. Si necesitas envío a provincia, lo coordinamos con un costo adicional.",
+    a: "Entregamos en Lima Metropolitana en 24-48 horas hábiles después de validar tu identidad y procesar el primer pago. Si necesitás envío a provincia, lo coordinamos con un costo logístico adicional.",
   },
   {
     q: "¿Es solo para empresas o también para personas?",
-    a: "Para ambos. Tenemos planes B2C (personas naturales con DNI) y planes B2B con factura electrónica SUNAT, descuento por volumen y opciones de leasing operativo para empresas grandes.",
+    a: "Ambos. Personas naturales (con DNI + selfie KYC) y empresas (con RUC + factura electrónica SUNAT, descuento por volumen desde 2 equipos, y planes corporate para más de 50 equipos con account manager dedicado). En contratos B2B el representante legal queda como garante solidario personal.",
+  },
+  {
+    q: "¿Qué pasa si no pago una cuota?",
+    a: "Tenés 5 días calendario de gracia. Pasados los 5 días, devengan intereses moratorios a la tasa máxima legal (TIPMN/TIPMEX BCRP) más una penalidad compensatoria del 10% sobre la cuota impaga. A partir del día 31 de mora reportamos a las centrales de riesgo (INFOCORP, Equifax, Sentinel, Xchange CCL). El contrato puede resolverse de pleno derecho conforme al Art. 1430 del Código Civil.",
   },
   {
     q: "¿Cómo facturan? ¿Emiten boleta o factura?",
-    a: "Emitimos factura electrónica SUNAT a empresas (con tu RUC) y boleta electrónica a personas naturales. Las facturas llegan por correo automáticamente cada mes y también puedes descargarlas desde tu panel.",
+    a: "Emitimos factura electrónica SUNAT a empresas (con tu RUC) y boleta electrónica a personas naturales. Las facturas llegan por correo automáticamente cada mes y también podés descargarlas desde tu panel /cuenta.",
   },
 ];
 
