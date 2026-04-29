@@ -84,8 +84,10 @@ interface ProductRow {
  * Estrategia de matching (post-refactor 2026-04-28):
  *  - Normalizamos `chip` en ambas tablas removiendo el prefijo "Apple "
  *    y casándolo en lowercase. Mantiene paridad con `lib/inventory.ts`.
- *  - JOIN explícito por chip normalizado en CTE (más rápido que el
- *    correlated subquery anterior + inmune al naming format de products.name).
+ *  - Además matcheamos por familia (Air / Pro / Neo) extraída de
+ *    products.name y equipment.modelo_completo. Sin esto, dos productos
+ *    con mismo chip (Air M4 y Pro M4) reportarían el mismo live_available.
+ *  - JOIN explícito por (chip, familia) en CTE.
  *  - `live_available` es la única fuente autoritativa de stock que mandamos
  *    a Drop Chat. Si no hay equipment físico, reporta 0 — NO usamos
  *    products.stock como fallback porque eso ofrecía equipos inexistentes.
@@ -95,10 +97,16 @@ async function loadProducts(): Promise<ProductRow[]> {
     `WITH chip_inventory AS (
        SELECT
          LOWER(REGEXP_REPLACE(chip, '^Apple\\s+', '', 'i')) AS normalized_chip,
+         CASE
+           WHEN modelo_completo ILIKE '%Air%' THEN 'air'
+           WHEN modelo_completo ILIKE '%Pro%' THEN 'pro'
+           WHEN modelo_completo ILIKE '%Neo%' THEN 'neo'
+           ELSE 'other'
+         END AS family,
          COUNT(*) FILTER (WHERE estado_actual = 'Disponible') AS available_count
        FROM equipment
        WHERE chip IS NOT NULL AND chip <> ''
-       GROUP BY 1
+       GROUP BY 1, 2
      )
      SELECT p.id, p.slug, p.name, p.short_name, p.chip, p.ram, p.ssd, p.color,
             p.image_url, p.badge, p.is_new, p.stock, p.cost_usd::text,
@@ -107,6 +115,12 @@ async function loadProducts(): Promise<ProductRow[]> {
      FROM products p
      LEFT JOIN chip_inventory ci
        ON LOWER(REGEXP_REPLACE(p.chip, '^Apple\\s+', '', 'i')) = ci.normalized_chip
+      AND CASE
+            WHEN p.name ILIKE '%Air%' THEN 'air'
+            WHEN p.name ILIKE '%Pro%' THEN 'pro'
+            WHEN p.name ILIKE '%Neo%' THEN 'neo'
+            ELSE 'other'
+          END = ci.family
      WHERE p.active = true
      ORDER BY p.display_order`,
   );
@@ -271,10 +285,16 @@ export async function syncProduct(slug: string): Promise<{ ok: boolean; error?: 
     `WITH chip_inventory AS (
        SELECT
          LOWER(REGEXP_REPLACE(chip, '^Apple\\s+', '', 'i')) AS normalized_chip,
+         CASE
+           WHEN modelo_completo ILIKE '%Air%' THEN 'air'
+           WHEN modelo_completo ILIKE '%Pro%' THEN 'pro'
+           WHEN modelo_completo ILIKE '%Neo%' THEN 'neo'
+           ELSE 'other'
+         END AS family,
          COUNT(*) FILTER (WHERE estado_actual = 'Disponible') AS available_count
        FROM equipment
        WHERE chip IS NOT NULL AND chip <> ''
-       GROUP BY 1
+       GROUP BY 1, 2
      )
      SELECT p.id, p.slug, p.name, p.short_name, p.chip, p.ram, p.ssd, p.color,
             p.image_url, p.badge, p.is_new, p.stock, p.cost_usd::text,
@@ -283,6 +303,12 @@ export async function syncProduct(slug: string): Promise<{ ok: boolean; error?: 
      FROM products p
      LEFT JOIN chip_inventory ci
        ON LOWER(REGEXP_REPLACE(p.chip, '^Apple\\s+', '', 'i')) = ci.normalized_chip
+      AND CASE
+            WHEN p.name ILIKE '%Air%' THEN 'air'
+            WHEN p.name ILIKE '%Pro%' THEN 'pro'
+            WHEN p.name ILIKE '%Neo%' THEN 'neo'
+            ELSE 'other'
+          END = ci.family
      WHERE p.slug = $1`,
     [slug],
   );
