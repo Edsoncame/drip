@@ -37,18 +37,173 @@ pero escribe el verdict en `kyc_sdk_sessions` en vez de en `users`.
 
 ## Formas de integración
 
-Tres opciones según qué controle el tenant:
+Tres opciones según qué controle el tenant. **Si dudás, empezá con la A.**
 
-1. **Hosted web** (más rápido, sin SDK nativo):
-   - Tenant crea sesión en su backend con tenant API key
-   - Redirige al usuario a `https://fluxperu.com/kyc/s/<session_id>?t=<session_token>`
-   - Flux muestra la captura, corre el pipeline, postea webhook, devuelve al usuario
-2. **iOS / Android SDK nativo**: tenant embebe la captura en su app usando
-   `flux-kyc-ios` / `flux-kyc-android`. El SDK llama a los endpoints directo.
-3. **Web custom**: tenant hace su propio cliente JS/TS contra estos endpoints
-   — útil si quiere la captura embebida en su dominio y controla la UX.
+| # | Modo | Effort tenant | Auth | Cuándo usar |
+|---|---|---|---|---|
+| **A** | **Embed JS drop-in** | 3 líneas HTML | `publishable_key` (no secreta) + `allowed_origins[]` | Web del tenant (la opción más rápida — pattern Stripe Elements) |
+| B | Hosted web flow | 1 endpoint + redirect | `api_key` (server-side) | Backend del tenant, sin tocar UI: redirige al usuario a `flux.pe/kyc/s/...` |
+| C | API custom (server-to-server) | SDK propio o curl | `api_key` (server-side) | iOS/Android nativo, web custom embebido en dominio del tenant, o flow programático |
 
-## Flujo completo (curl)
+> ✅ **El modo A es el camino feliz para 80% de tenants web.** No expone
+> secretos al browser; la seguridad está en el whitelist de
+> `allowed_origins[]` que verifica el endpoint `/api/kyc/embed/session`.
+
+---
+
+## Modo A — Embed JS drop-in (recomendado)
+
+### Setup (una sola vez, en `/tenant/settings`)
+
+1. Generá tu `publishable_key` (formato `pk_<tenant_id>_<48hex>`).
+2. Agregá los dominios desde donde vas a invocar el embed a
+   `allowed_origins[]`. Cada variante cuenta: `https://securex.pe`,
+   `https://www.securex.pe`, `https://app.securex.pe`. **Sin entradas en
+   esta lista, el embed JS está deshabilitado.**
+3. Copiá tu `pk_...` — es seguro pegarla en HTML público.
+
+### Integración (HTML del tenant)
+
+```html
+<!-- 1. Cargá el bundle (cache-busted en CDN, async, ~3KB gzip) -->
+<script src="https://www.fluxperu.com/kyc-embed.js" async></script>
+
+<!-- 2. Botón con tu publishable key -->
+<button
+  data-flux-kyc="pk_securex_abc123def456..."
+  data-external-user-id="user_42"
+  data-external-reference="onboarding-2026-04"
+  data-on-complete="onKycComplete">
+  Verificar mi identidad
+</button>
+
+<!-- 3. Callback global (opcional — también podés escuchar el CustomEvent) -->
+<script>
+  function onKycComplete(verdict) {
+    console.log("KYC terminó", verdict);
+    // verdict = { status: "verified" | "rejected", reason, face_score, ... }
+    // ⚠️ Si tu manual_review_policy != 'never', este verdict puede ser
+    // PROVISIONAL — confiá en el webhook, no acá. Ver sección "Webhook timing".
+    if (verdict.status === "verified") window.location.href = "/welcome";
+  }
+</script>
+```
+
+`FluxKYCEmbed.autoInit()` corre solo al `DOMContentLoaded` y escanea
+`[data-flux-kyc]`. Si insertás botones dinámicamente (React/Vue/SPA),
+llamá manualmente:
+
+```js
+window.FluxKYCEmbed.autoInit(document.getElementById("react-mount"));
+```
+
+### Uso programático (alternativa al markup)
+
+Útil si querés disparar el flow desde un click handler propio (ej: tras
+validar un form):
+
+```js
+window.FluxKYCEmbed.open({
+  pk: "pk_securex_abc123...",
+  externalUserId: "user_42",
+  externalReference: "onboarding-2026-04",
+  metadata: { plan: "premium", source: "signup" },
+  onComplete: (verdict) => {
+    // El user terminó el flow. Mostrar UI de éxito o pendiente.
+  },
+  onCancel: () => {
+    // El user cerró el modal sin terminar.
+  },
+});
+```
+
+### Eventos DOM disponibles (alternativa a callbacks)
+
+El elemento con `data-flux-kyc` dispara CustomEvents que burbujean:
+
+```js
+document.addEventListener("flux-kyc:complete", (ev) => {
+  console.log("verdict", ev.detail.verdict);
+});
+
+document.addEventListener("flux-kyc:cancel", () => {
+  // user cerró el modal
+});
+
+document.addEventListener("flux-kyc:error", (ev) => {
+  console.error("falló", ev.detail.error);
+  // Errores típicos:
+  //   "origin_not_allowed" → tu dominio no está en allowed_origins
+  //   "invalid pk"         → publishable_key revocada o inválida
+  //   "HTTP 429"           → rate limit (raro)
+});
+```
+
+### Cómo funciona internamente (para curiosos / debug)
+
+1. Click → `POST https://www.fluxperu.com/api/kyc/embed/session` con
+   `Authorization: Bearer pk_...` y `Origin: https://tu-dominio.com`.
+2. Flux verifica que `pk` exista, tenant esté activo, y que el `Origin`
+   esté en `kyc_tenants.allowed_origins`. Si no → 403.
+3. Crea una `kyc_sdk_sessions` y devuelve `{ session_id, session_token,
+   capture_config }`.
+4. El bundle abre un iframe con `https://www.fluxperu.com/kyc/s/<id>?t=<token>&embed=1`.
+5. Dentro del iframe corre el flow hosted (captura DNI + selfie + liveness).
+6. Al completar: `window.parent.postMessage({ type: 'flux-kyc:complete',
+   verdict }, 'https://tu-dominio.com')`.
+7. El bundle valida `event.origin === 'https://www.fluxperu.com'`,
+   cierra el modal, llama tu `onComplete`.
+8. **En paralelo**, Flux dispara el webhook a tu backend (idéntico a los
+   modos B/C). El webhook es la fuente de verdad — el `onComplete` JS
+   es UX, no auth.
+
+### Errores típicos
+
+| Síntoma | Causa | Fix |
+|---|---|---|
+| `origin_not_allowed` 403 | Tu dominio no está en `allowed_origins[]`. Case-sensitive. | Agregá la variante exacta (con scheme + port si aplica) en `/tenant/settings`. |
+| `invalid pk` 401 | pk típeada mal, revocada, o tenant inactivo. | Regenerá la pk en settings. |
+| Modal abre y queda en negro | El iframe no pudo cargar `/kyc/s/...`. Suele ser CSP del tenant. | Permití `frame-src https://www.fluxperu.com` en tu CSP. |
+| `onComplete` nunca dispara | Listener de `postMessage` no se registró (el bundle se cargó después del click). | Cargá el `<script>` al final del `<head>` o usá `defer`. |
+| Funciona en local, falla en prod | `http://localhost:3000` está en allowed_origins pero `https://prod.com` no. | Recordá: cada variante (scheme/host/port) cuenta como entrada distinta. |
+
+---
+
+## Modo B — Hosted web flow (sin SDK)
+
+Útil si tu app es server-rendered y no querés JS en el front. El backend
+del tenant crea la sesión con su `api_key` (secreto) y redirige al user.
+
+### Backend del tenant
+
+```sh
+curl -X POST https://www.fluxperu.com/api/kyc/sdk/sessions \
+  -H "Authorization: Bearer securex:<API_KEY>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "external_user_id": "securex-user-123",
+    "webhook_url": "https://securex.pe/api/kyc-webhook",
+    "webhook_secret": "<random>"
+  }'
+# → { session_id, session_token, correlation_id, expires_at, capture_config }
+```
+
+Después redirige al user a:
+
+```
+https://www.fluxperu.com/kyc/s/<session_id>?t=<session_token>
+```
+
+Flux corre el flow en su dominio, postea el webhook al `webhook_url`, y al
+terminar redirige a tu `return_url` (configurable en `/tenant/settings`).
+
+---
+
+## Modo C — API custom (server-to-server)
+
+Para apps móviles nativas (iOS/Android) o web que quiera la captura
+embebida en su propio dominio. El tenant implementa los 3 endpoints él
+mismo: crear sesión, subir imágenes, finalizar.
 
 ### 0. Seed tenant (una sola vez)
 
@@ -61,7 +216,7 @@ DATABASE_URL=postgres://… node scripts/seed-kyc-tenant.mjs \
 ### 1. Crear sesión (backend del tenant)
 
 ```sh
-curl -X POST https://flux.pe/api/kyc/sdk/sessions \
+curl -X POST https://www.fluxperu.com/api/kyc/sdk/sessions \
   -H "Authorization: Bearer securex:<API_KEY>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -78,7 +233,7 @@ El backend del tenant le pasa `session_token` al SDK nativo en el device.
 
 ```sh
 # Anverso DNI
-curl -X POST https://flux.pe/api/kyc/sdk/upload \
+curl -X POST https://www.fluxperu.com/api/kyc/sdk/upload \
   -H "Authorization: Bearer <SESSION_TOKEN>" \
   -H "Content-Type: application/json" \
   -d '{ "kind": "dni_front", "image": "<base64>" }'
@@ -97,7 +252,7 @@ Límite 10 MB por frame. La sesión pasa a `status=capturing` en el primer uploa
 ### 3. Finalizar (SDK nativo)
 
 ```sh
-curl -X POST https://flux.pe/api/kyc/sdk/finalize \
+curl -X POST https://www.fluxperu.com/api/kyc/sdk/finalize \
   -H "Authorization: Bearer <SESSION_TOKEN>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -117,7 +272,9 @@ y el verdict se basa en face match + forensics.
 > 3.5 abajo). No uses la respuesta de `/finalize` para decidir si el
 > usuario está verificado en esos casos — confiá solo en el webhook.
 
-### 3.5. Webhook timing — qué esperar
+---
+
+## Webhook timing — qué esperar (aplica a los 3 modos)
 
 Configurás `manual_review_policy` en el dashboard `/tenant/settings`. Tres modos:
 
@@ -133,21 +290,24 @@ Configurás `manual_review_policy` en el dashboard `/tenant/settings`. Tres modo
   no puede operar hasta verificarse), elegí `policy='never'`. El verdict
   del arbiter Claude Opus es vinculante y llega al toque.
 - Si elegís `low_confidence` o `all_borderline`, **NO** muestres "✅
-  verificado" en la pantalla post-finalize. Mostrá en su lugar:
+  verificado" en la pantalla post-finalize ni en el `onComplete` del
+  embed JS. Mostrá en su lugar:
   > "Estamos revisando tu información. Te avisaremos por email cuando
   > esté lista (puede tardar hasta 24h hábiles)."
 - El SLA operativo de la review queue es 1 revisión/día en el plan base.
   Para SLA <2h hábiles, contratar plan con reviewer dedicado.
 
-**Detección desde el response de `/finalize`:** mientras la cola está
-poblada el `status` de la sesión queda en `'review'` (ver tabla más
-abajo). Podés también leer `kyc_sdk_sessions.webhook_fired_at` vía el
-endpoint de polling — es `NULL` mientras la review está pendiente.
+**Detección desde el response de `/finalize` o el `onComplete` del embed:**
+mientras la cola está poblada, el `status` de la sesión queda en `'review'`
+(ver tabla más abajo). También podés leer `kyc_sdk_sessions.webhook_fired_at`
+vía el endpoint de polling — es `NULL` mientras la review está pendiente.
 
 Detalles operativos (rotación de policies, contrato exacto, SLA por
 plan) en [SECURITY.md](./SECURITY.md#webhook-sla-con-manual_review_policy).
 
-### 4. Webhook (recibido por el backend del tenant)
+---
+
+## Webhook (recibido por el backend del tenant)
 
 ```
 POST https://securex.pe/api/kyc-webhook
@@ -188,10 +348,10 @@ if (!timingSafeEqual(Buffer.from(expected, "hex"), Buffer.from(v1, "hex"))) thro
 // Rechazar si Date.now()/1000 - Number(t) > 300 para evitar replay
 ```
 
-### 5. Polling (fallback si el webhook falla, o reconciliación con review queue)
+## Polling (fallback si el webhook falla, o reconciliación con review queue)
 
 ```sh
-curl https://flux.pe/api/kyc/sdk/sessions/<SESSION_ID> \
+curl https://www.fluxperu.com/api/kyc/sdk/sessions/<SESSION_ID> \
   -H "Authorization: Bearer securex:<API_KEY>"
 # → { status, verdict, uploads, created_at, expires_at, completed_at, webhook_fired_at }
 ```
@@ -264,8 +424,11 @@ Desde el dashboard del tenant `/tenant/settings`:
   están en `review` siguen ahí hasta que las apruebes/rechaces.
 - **Branding**: logo, color primario, welcome_message para el hosted flow
   (`/kyc/s/<session_id>`).
-- **`allowed_origins[]`**: whitelist de dominios autorizados a usar tu
-  `publishable_key` desde JS embed. Sin entradas → embed JS deshabilitado.
+- **`publishable_key`** + **`allowed_origins[]`**: necesarios para el
+  modo Embed JS. La pk es regenerable; cada vez que la rotás, los
+  embeds con la pk vieja empiezan a fallar con `invalid pk`. Ver
+  [SECURITY.md](./SECURITY.md#rotación-de-publishable_key) para el
+  procedimiento de rotación segura.
 
 ## Multi-tenant — por qué está separado de `users`
 
