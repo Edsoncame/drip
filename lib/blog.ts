@@ -22,6 +22,14 @@ export interface BlogPost {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "macbook-freelancer-cuarta-categoria-deduccion-ir-peru",
+    title: "MacBook como gasto deducible: guía para freelancers con rentas de cuarta categoría en Perú (2026)",
+    description: "¿Podés deducir el alquiler de una MacBook si sos freelancer en Perú? Guía tributaria completa: cuarta categoría, Art. 46 LIR, flujo de caja y cuándo sí conviene alquilar.",
+    date: "2026-04-30",
+    readingTime: "6 min",
+    category: "Tributario",
+  },
+  {
     slug: "alquilar-vs-comprar-macbook-peru",
     title: "¿Alquilar o comprar MacBook en Perú? Análisis completo con calculadora",
     description:
