@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { ingestSelfie } from "@/lib/kyc/pipeline/ingest-selfie";
+import { isCheckoutProxyEnabled, proxySelfieUpload } from "@/lib/drop-validation/proxy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,6 +25,7 @@ export async function POST(req: NextRequest) {
   }
 
   const frames: Buffer[] = [];
+  const frameContentTypes: string[] = [];
   for (let i = 0; i < 3; i++) {
     const f = form.get(`frame_${i}`) as File | null;
     if (!f) {
@@ -33,6 +35,32 @@ export async function POST(req: NextRequest) {
       );
     }
     frames.push(Buffer.from(await f.arrayBuffer()));
+    frameContentTypes.push(f.type || "image/jpeg");
+  }
+
+  // Feature flag: proxy a Drop Validation. Subimos los 3 frames como
+  // liveness_frame (frame_index 0..2) + el frame 1 también como selfie
+  // principal (igual que ingestSelfie elige el centro).
+  if (isCheckoutProxyEnabled()) {
+    const livenessUploads = await Promise.all(
+      frames.map((buf, idx) =>
+        proxySelfieUpload({
+          correlationId,
+          userId,
+          imageBuffer: buf,
+          contentType: frameContentTypes[idx],
+          frameIndex: idx,
+        }),
+      ),
+    );
+    const failed = livenessUploads.find((r) => r.status >= 400);
+    if (failed) return failed;
+    return proxySelfieUpload({
+      correlationId,
+      userId,
+      imageBuffer: frames[1],
+      contentType: frameContentTypes[1],
+    });
   }
 
   const result = await ingestSelfie({ correlationId, userId, frames });

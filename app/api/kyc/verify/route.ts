@@ -4,6 +4,7 @@ import { query } from "@/lib/db";
 import { logAttempt } from "@/lib/kyc/db";
 import { computeKycVerdict } from "@/lib/kyc/pipeline/verdict";
 import { fireSyncToDropchat } from "@/lib/dropchat-sync";
+import { isCheckoutProxyEnabled, proxyVerify } from "@/lib/drop-validation/proxy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,6 +42,13 @@ export async function POST(req: NextRequest) {
 
   if (!correlation_id) {
     return NextResponse.json({ error: "correlation_id requerido" }, { status: 400 });
+  }
+
+  // Feature flag: en modo Drop Validation, finalize externo. UPDATE users
+  // se hace por el webhook (idempotente). Acá solo respondemos el verdict
+  // para que el frontend avance/no avance.
+  if (isCheckoutProxyEnabled()) {
+    return proxyVerify({ correlationId: correlation_id, formName: form_name, formDni: form_dni, userId });
   }
 
   const result = await computeKycVerdict({

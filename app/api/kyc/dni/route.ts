@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { getSession } from "@/lib/auth";
 import { ingestDni } from "@/lib/kyc/pipeline/ingest-dni";
+import { isCheckoutProxyEnabled, proxyDniUpload } from "@/lib/drop-validation/proxy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,6 +39,18 @@ export async function POST(req: NextRequest) {
   const anversoBuffer = Buffer.from(await anverso.arrayBuffer());
   const reversoBuffer =
     reverso && reverso.size > 0 ? Buffer.from(await reverso.arrayBuffer()) : null;
+
+  // Feature flag: si Drop Validation externo está prendido, proxeamos el
+  // upload allá. El reverso no se usa en el modo externo (solo anverso +
+  // selfie). Rollback: USE_DROP_VALIDATION_CHECKOUT=false en env.
+  if (isCheckoutProxyEnabled()) {
+    return proxyDniUpload({
+      correlationId,
+      userId,
+      imageBuffer: anversoBuffer,
+      contentType: anverso.type || "image/jpeg",
+    });
+  }
 
   const result = await ingestDni({
     correlationId,

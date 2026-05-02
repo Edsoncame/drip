@@ -8,6 +8,7 @@ import {
   type DbKycDniScan,
 } from "@/lib/kyc/db";
 import { matchIdentity } from "@/lib/kyc/match";
+import { isCheckoutProxyEnabled, proxyMatch } from "@/lib/drop-validation/proxy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -36,6 +37,12 @@ export async function POST(req: NextRequest) {
       { error: "scan_id, correlation_id, dni_number, full_name requeridos" },
       { status: 400 },
     );
+  }
+
+  // Feature flag: en modo Drop Validation, el match real lo hace finalize.
+  // Devolvemos optimista pass acá para que submit avance.
+  if (isCheckoutProxyEnabled()) {
+    return proxyMatch({ correlationId: correlation_id, full_name, dni_number });
   }
 
   const failed = await countAttemptsForStep(correlation_id, "match");
