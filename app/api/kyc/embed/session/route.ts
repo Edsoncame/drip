@@ -11,6 +11,7 @@ import {
   parseTenantIdFromPk,
   isOriginAllowed,
 } from "@/lib/kyc/sdk/publishable-key";
+import { isSdkProxyEnabled, forwardToExternal } from "@/lib/drop-validation/proxy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -51,6 +52,20 @@ export async function OPTIONS() {
  * es la única auth. Pattern Stripe Elements / Plaid Link.
  */
 export async function POST(req: NextRequest) {
+  // Feature flag: forward al API externo Drop Validation. CORS bypass se
+  // mantiene a través del response del externo (que ya envía Access-Control-*).
+  if (isSdkProxyEnabled()) {
+    const body = await req.text();
+    return forwardToExternal({
+      externalPath: '/embed/session',
+      method: 'POST',
+      authorization: req.headers.get('authorization'),
+      contentType: req.headers.get('content-type'),
+      body,
+      origin: req.headers.get('origin'),
+    });
+  }
+
   await ensureSdkSchema();
 
   const origin = req.headers.get("origin");

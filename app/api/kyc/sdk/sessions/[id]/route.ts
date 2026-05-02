@@ -9,6 +9,7 @@ import {
   verifySessionToken,
 } from "@/lib/kyc/sdk/session-token";
 import { authenticateTenant } from "@/lib/kyc/sdk/tenant-auth";
+import { isSdkProxyEnabled, forwardToExternal } from "@/lib/drop-validation/proxy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,11 +30,20 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  await ensureSdkSchema();
   const { id } = await params;
   if (!id) {
     return NextResponse.json({ error: "session_id required" }, { status: 400 });
   }
+
+  if (isSdkProxyEnabled()) {
+    return forwardToExternal({
+      externalPath: `/sessions/${encodeURIComponent(id)}`,
+      method: 'GET',
+      authorization: req.headers.get('authorization'),
+    });
+  }
+
+  await ensureSdkSchema();
 
   const authHeader = req.headers.get("authorization");
 

@@ -10,6 +10,7 @@ import {
 } from "@/lib/kyc/sdk/session-token";
 import { uploadKycImage } from "@/lib/kyc/blob";
 import { ensureKycSchema } from "@/lib/kyc/db";
+import { isSdkProxyEnabled, forwardToExternal } from "@/lib/drop-validation/proxy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,6 +47,30 @@ function decodeBase64(b64: string): Buffer | null {
 }
 
 export async function POST(req: NextRequest) {
+  // Feature flag: forward al API externo. session_id sale del JWT payload
+  // (sin verificar firma — el API externo re-verifica con su propio secret).
+  if (isSdkProxyEnabled()) {
+    const auth = req.headers.get('authorization');
+    const token = auth?.replace(/^Bearer\s+/i, '') ?? '';
+    let sessionId: string | null = null;
+    try {
+      const part = token.split('.')[1];
+      const json = Buffer.from(part, 'base64url').toString('utf8');
+      sessionId = (JSON.parse(json) as { session_id?: string }).session_id ?? null;
+    } catch { /* ignore — devuelve 401 abajo */ }
+    if (!sessionId) {
+      return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+    }
+    const body = await req.text();
+    return forwardToExternal({
+      externalPath: `/sessions/${encodeURIComponent(sessionId)}/upload`,
+      method: 'POST',
+      authorization: auth,
+      contentType: req.headers.get('content-type'),
+      body,
+    });
+  }
+
   await ensureSdkSchema();
   await ensureKycSchema();
 

@@ -14,6 +14,7 @@ import { ingestSelfie } from "@/lib/kyc/pipeline/ingest-selfie";
 import { computeKycVerdict } from "@/lib/kyc/pipeline/verdict";
 import { matchIdentity } from "@/lib/kyc/match";
 import type { DbKycDniScan } from "@/lib/kyc/db";
+import { isSdkProxyEnabled, forwardToExternal } from "@/lib/drop-validation/proxy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,6 +41,29 @@ async function fetchBlobBytes(url: string): Promise<Buffer | null> {
 }
 
 export async function POST(req: NextRequest) {
+  // Feature flag: forward al API externo Drop Validation.
+  if (isSdkProxyEnabled()) {
+    const auth = req.headers.get('authorization');
+    const token = auth?.replace(/^Bearer\s+/i, '') ?? '';
+    let sessionId: string | null = null;
+    try {
+      const part = token.split('.')[1];
+      const json = Buffer.from(part, 'base64url').toString('utf8');
+      sessionId = (JSON.parse(json) as { session_id?: string }).session_id ?? null;
+    } catch { /* ignore */ }
+    if (!sessionId) {
+      return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+    }
+    const body = await req.text();
+    return forwardToExternal({
+      externalPath: `/sessions/${encodeURIComponent(sessionId)}/finalize`,
+      method: 'POST',
+      authorization: auth,
+      contentType: req.headers.get('content-type'),
+      body,
+    });
+  }
+
   await ensureSdkSchema();
 
   const token = extractBearer(req.headers.get("authorization"));

@@ -5,6 +5,7 @@ import { ensureSdkSchema, type DbSdkSession } from "@/lib/kyc/sdk/schema";
 import { authenticateTenant } from "@/lib/kyc/sdk/tenant-auth";
 import { signSessionToken } from "@/lib/kyc/sdk/session-token";
 import { isValidWebhookUrl } from "@/lib/kyc/sdk/webhook-url";
+import { isSdkProxyEnabled, forwardToExternal } from "@/lib/drop-validation/proxy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,6 +27,19 @@ function toIso(d: Date): string {
  */
 
 export async function POST(req: NextRequest) {
+  // Feature flag: forward al API externo Drop Validation. El consumer ve
+  // la misma URL flux.pe/api/kyc/sdk/sessions; internamente proxeamos.
+  if (isSdkProxyEnabled()) {
+    const body = await req.text();
+    return forwardToExternal({
+      externalPath: '/sessions',
+      method: 'POST',
+      authorization: req.headers.get('authorization'),
+      contentType: req.headers.get('content-type'),
+      body,
+    });
+  }
+
   await ensureSdkSchema();
 
   const auth = await authenticateTenant(req.headers.get("authorization"));
