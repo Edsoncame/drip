@@ -22,6 +22,14 @@ export interface BlogPost {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "equipar-equipo-remoto-peru-macbook-2026",
+    title: "Cómo equipar un equipo remoto en Perú con MacBooks: guía completa 2026",
+    description: "Guía práctica para CTOs y Ops managers: cómo llevar MacBooks a empleados remotos en Perú, onboarding zero-touch con MDM, gestión de flota distribuida y costos reales.",
+    date: "2026-05-03",
+    readingTime: "7 min",
+    category: "Guías",
+  },
+  {
     slug: "macbook-freelancer-cuarta-categoria-deduccion-ir-peru",
     title: "MacBook como gasto deducible: guía para freelancers con rentas de cuarta categoría en Perú (2026)",
     description: "¿Podés deducir el alquiler de una MacBook si sos freelancer en Perú? Guía tributaria completa: cuarta categoría, Art. 46 LIR, flujo de caja y cuándo sí conviene alquilar.",
