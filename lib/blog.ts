@@ -22,6 +22,14 @@ export interface BlogPost {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "macbook-desarrolladores-software-empresas-tech-peru",
+    title: "Por qué los mejores equipos de desarrollo en Lima trabajan en Mac",
+    description: "¿Cuánto cuesta equipar un equipo de desarrollo en Lima? Benchmarks M4 reales, análisis TCO, MDM para devs y por qué el UNIX nativo importa. Números 2026.",
+    date: "2026-05-04",
+    readingTime: "9 min",
+    category: "Guías",
+  },
+  {
     slug: "equipar-equipo-remoto-peru-macbook-2026",
     title: "Cómo equipar un equipo remoto en Perú con MacBooks: guía completa 2026",
     description: "Guía práctica para CTOs y Ops managers: cómo llevar MacBooks a empleados remotos en Perú, onboarding zero-touch con MDM, gestión de flota distribuida y costos reales.",
