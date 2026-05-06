@@ -22,6 +22,14 @@ export interface BlogPost {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "macbook-vs-windows-laptops-empresas-peru-2026",
+    title: "MacBook vs Windows para empresas en Perú 2026: ¿cuál conviene según el rol?",
+    description: "¿Mac o Windows para tu empresa? La respuesta depende del rol, no de la empresa. Guía con tabla de decisión, TCO real y benchmarks para el mercado peruano 2026.",
+    date: "2026-05-06",
+    readingTime: "7 min",
+    category: "Comparativas",
+  },
+  {
     slug: "macbook-desarrolladores-software-empresas-tech-peru",
     title: "Por qué los mejores equipos de desarrollo en Lima trabajan en Mac",
     description: "¿Cuánto cuesta equipar un equipo de desarrollo en Lima? Benchmarks M4 reales, análisis TCO, MDM para devs y por qué el UNIX nativo importa. Números 2026.",
