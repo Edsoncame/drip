@@ -22,6 +22,14 @@ export interface BlogPost {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "cuanto-cuesta-mac-peru",
+    title: "¿Cuánto cuesta un Mac en Perú en 2026? Precios reales y alternativas",
+    description: "Precios reales de MacBook Air, MacBook Pro y Mac mini en Perú 2026. En soles y dólares. Más: cómo usar un Mac desde $85/mes sin comprarlo.",
+    date: "2026-05-09",
+    readingTime: "7 min",
+    category: "Guías",
+  },
+  {
     slug: "macbook-vs-windows-laptops-empresas-peru-2026",
     title: "MacBook vs Windows para empresas en Perú 2026: ¿cuál conviene según el rol?",
     description: "¿Mac o Windows para tu empresa? La respuesta depende del rol, no de la empresa. Guía con tabla de decisión, TCO real y benchmarks para el mercado peruano 2026.",
