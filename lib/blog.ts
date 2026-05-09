@@ -22,6 +22,14 @@ export interface BlogPost {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "renting-tecnologico-peru-guia-2026",
+    title: "Renting Tecnológico en Perú: Qué es, cómo funciona y por qué cada vez más empresas lo eligen (2026)",
+    description: "Guía completa sobre renting tecnológico en Perú: diferencias con leasing, marco legal (NIIF 16, Art. 37 LIR), tratamiento contable y casos de uso para empresas.",
+    date: "2026-05-09",
+    readingTime: "8 min",
+    category: "Guías",
+  },
+  {
     slug: "cuanto-cuesta-mac-peru",
     title: "¿Cuánto cuesta un Mac en Perú en 2026? Precios reales y alternativas",
     description: "Precios reales de MacBook Air, MacBook Pro y Mac mini en Perú 2026. En soles y dólares. Más: cómo usar un Mac desde $85/mes sin comprarlo.",
