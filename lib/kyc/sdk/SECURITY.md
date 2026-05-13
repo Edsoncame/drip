@@ -80,6 +80,12 @@ latencia que prefieren bajar el false-accept rate.
 Para SLA <2h hábiles, el tenant debe contratar el plan con reviewer
 dedicado (TBD pricing).
 
+> **README.md del tenant** ya documenta este contrato en la sección
+> [Webhook timing — qué esperar](./README.md#webhook-timing--qué-esperar-aplica-a-los-3-modos)
+> con tabla por policy, implicancias UX y copy sugerido para mostrar
+> al usuario final. Este SECURITY.md es la versión para CTOs; el README
+> es la versión para devs integrando. Mantener ambos sincronizados.
+
 ## Rotación de `KYC_SDK_SESSION_SECRET`
 
 Cuándo rotar: leak sospechado, ex-empleado con acceso a Vercel, o anual
@@ -178,6 +184,16 @@ Si descubrís un vector:
 
 ## Gaps conocidos y roadmap
 
+### Cerrados ✅
+
+- **Gap #6 — SLA webhook con manual review documentado en README**:
+  README.md ahora tiene sección dedicada [Webhook timing — qué esperar](./README.md#webhook-timing--qué-esperar-aplica-a-los-3-modos)
+  con tabla por policy, blockquote ⚠️ en el ejemplo del modo C
+  (`/finalize` puede devolver verdict provisional), y copy sugerido
+  para mostrar al usuario final. Mantener en sync con esta sección.
+
+### Abiertos
+
 - **iBeta Level 2 certification** del liveness: el algoritmo de liveness
   casero (ML Kit / Vision + 3-frame yaw) NO está certificado. Para
   ofrecer SLA a fintechs reguladas hay que certificar en laboratorio
@@ -196,8 +212,6 @@ Si descubrís un vector:
   necesita logs append-only firmados (Hash-chain + HMAC).
 - **Gap #5 — revoke flow de publishable_key**: hoy solo vía SQL manual,
   sin invalidación de session_tokens activos. Mitigado por TTL JWT 15min.
-- **Gap #6 — SLA webhook con manual review**: documentado arriba pero
-  el README.md del tenant no lo enfatiza lo suficiente. Mejorar copy.
 - **Gap #10 — origin matching case-sensitive**: `isOriginAllowed` no
   hace `.toLowerCase()`. RFC 6454 dice que origin es case-insensitive
   en scheme/host, pero browsers reales mandan lowercase, así que no es
