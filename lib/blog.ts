@@ -22,6 +22,14 @@ export interface BlogPost {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "macbook-vs-windows-empresa-peru",
+    title: "MacBook vs Windows para empresas en Perú: comparativa completa 2026",
+    description: "¿MacBook o Windows para equipar tu empresa? Comparativa honesta de costos, productividad, soporte y tributación para empresas en Perú. Alquila desde $85/mes.",
+    date: "2026-05-13",
+    readingTime: "6 min",
+    category: "Comparativas",
+  },
+  {
     slug: "renting-tecnologico-peru-guia-2026",
     title: "Renting Tecnológico en Perú: Qué es, cómo funciona y por qué cada vez más empresas lo eligen (2026)",
     description: "Guía completa sobre renting tecnológico en Perú: diferencias con leasing, marco legal (NIIF 16, Art. 37 LIR), tratamiento contable y casos de uso para empresas.",
