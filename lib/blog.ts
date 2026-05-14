@@ -22,6 +22,14 @@ export interface BlogPost {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "renting-tecnologico-peru-que-es-como-funciona-2026",
+    title: "Renting Tecnológico en Perú: Qué Es, Cómo Funciona y Por Qué Cada Vez Más Empresas Lo Eligen (2026)",
+    description: "Qué es el renting tecnológico en Perú, cómo se diferencia del leasing financiero y operativo, el marco legal SUNAT, ventajas tributarias y cuándo conviene para tu empresa.",
+    date: "2026-05-14",
+    readingTime: "7 min",
+    category: "Guías",
+  },
+  {
     slug: "macbook-vs-windows-empresa-peru",
     title: "MacBook vs Windows para empresas en Perú: comparativa completa 2026",
     description: "¿MacBook o Windows para equipar tu empresa? Comparativa honesta de costos, productividad, soporte y tributación para empresas en Perú. Alquila desde $85/mes.",
