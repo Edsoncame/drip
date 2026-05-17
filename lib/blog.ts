@@ -22,6 +22,14 @@ export interface BlogPost {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "equipar-startup-lima-macbooks-sin-capex-2026",
+    title: "Cómo Equipar tu Startup en Lima con MacBooks sin Descapitalizarte (Guía 2026)",
+    description: "Guía práctica para founders y CEOs: cómo equipar un equipo de 5 a 50 personas en Lima con MacBooks, sin CAPEX, con factura SUNAT y entrega en 48h.",
+    date: "2026-05-17",
+    readingTime: "9 min",
+    category: "Guías",
+  },
+  {
     slug: "renting-tecnologico-peru-que-es-como-funciona-2026",
     title: "Renting Tecnológico en Perú: Qué Es, Cómo Funciona y Por Qué Cada Vez Más Empresas Lo Eligen (2026)",
     description: "Qué es el renting tecnológico en Perú, cómo se diferencia del leasing financiero y operativo, el marco legal SUNAT, ventajas tributarias y cuándo conviene para tu empresa.",
