@@ -100,13 +100,8 @@ export async function computeAnthropicSpend(period: string): Promise<number> {
   const start = new Date(Date.UTC(year, month - 1, 1));
   const end = new Date(Date.UTC(year, month, 1));
 
-  const res = await query<{ total: string | null }>(
-    `SELECT COALESCE(SUM(cost_usd::numeric), 0) AS total
-     FROM marketing_agent_runs
-     WHERE started_at >= $1 AND started_at < $2`,
-    [start, end],
-  );
-  const agentsCost = parseFloat(res.rows[0]?.total ?? "0") || 0;
+  // Los agentes de marketing fueron eliminados; ya no hay gasto en marketing_agent_runs.
+  const agentsCost = 0;
 
   // KYC arbiter — ~$0.05 por call. Contamos attempts con arbiter_used=true.
   const kycRes = await query<{ arbiter_calls: string | null }>(
