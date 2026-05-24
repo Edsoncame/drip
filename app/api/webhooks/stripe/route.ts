@@ -111,6 +111,14 @@ export async function POST(req: NextRequest) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promise<void> {
+  const meta = session.metadata ?? {};
+
+  // Rama: compra de equipo usado (pago único, no suscripción)
+  if (meta.order_type === "equipment_sale") {
+    await handleEquipmentSaleCompleted(session);
+    return;
+  }
+
   console.log(`${tag} [1/8] handleCheckoutCompleted start session=${session.id}`);
   const stripeSubscriptionId =
     typeof session.subscription === "string"
@@ -121,8 +129,6 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
     console.warn(`${tag} checkout.completed sin subscription id=${session.id}`);
     return;
   }
-
-  const meta = session.metadata ?? {};
   // session.customer_email viene del SDK de Stripe (no confundir con billing_* nuestro)
   const customerEmail = (session.customer_email ?? meta.billing_email ?? "").toLowerCase();
   if (!customerEmail) {
@@ -508,6 +514,84 @@ async function handleInvoiceFailed(invoice: Stripe.Invoice): Promise<void> {
   }));
 
   console.log(`${tag} invoice.payment_failed for sub=${row.id}`);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Compra de equipo usado (pago único, mode=payment)
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function handleEquipmentSaleCompleted(session: Stripe.Checkout.Session): Promise<void> {
+  const meta = session.metadata ?? {};
+  const saleOrderId = meta.sale_order_id;
+  const equipmentId = meta.equipment_id;
+
+  if (!saleOrderId || !equipmentId) {
+    console.warn(`${tag} equipment_sale sin sale_order_id o equipment_id session=${session.id}`);
+    return;
+  }
+
+  // Dedupe: si ya está paid, salimos
+  const existing = await query<{ id: string; status: string }>(
+    `SELECT id, status FROM equipment_sale_orders WHERE id = $1 LIMIT 1`,
+    [saleOrderId],
+  );
+  if (existing.rows.length === 0) {
+    console.warn(`${tag} equipment_sale order not found id=${saleOrderId}`);
+    return;
+  }
+  if (existing.rows[0].status === "paid") {
+    console.log(`${tag} equipment_sale already processed order=${saleOrderId}`);
+    return;
+  }
+
+  // Marcar orden como pagada
+  await query(
+    `UPDATE equipment_sale_orders
+     SET status = 'paid', payment_charge_id = $2, paid_at = NOW(), updated_at = NOW()
+     WHERE id = $1`,
+    [saleOrderId, session.payment_intent ?? session.id],
+  );
+
+  // Sacar equipo del catálogo de venta
+  await query(
+    `UPDATE equipment SET for_sale = false, estado_actual = 'Vendida', updated_at = NOW() WHERE id = $1`,
+    [equipmentId],
+  );
+
+  const customerEmail = (session.customer_email ?? meta.billing_email ?? "").toLowerCase();
+  const customerName = meta.billing_name ?? customerEmail;
+  const firstName = customerName.split(" ")[0];
+  const equipmentName = meta.equipment_name ?? "equipo";
+  const salePrice = parseFloat(meta.sale_price_usd ?? "0");
+
+  console.log(`${tag} equipment_sale completed order=${saleOrderId} equipment=${equipmentId} email=${customerEmail}`);
+
+  // Email al comprador
+  void safeSend("stripe_equipment_sale_customer", () => sendEmail({
+    to: customerEmail,
+    subject: `¡Tu MacBook está confirmado, ${firstName}! 🎉`,
+    html: `
+<div style="font-family:Inter,sans-serif;max-width:560px;margin:0 auto;background:#fff;padding:32px 24px;border-radius:16px">
+  <h1 style="font-size:22px;font-weight:900;color:#18191F;margin:0 0 8px">¡Todo listo, ${firstName}!</h1>
+  <p style="color:#666;margin:0 0 16px">Recibimos tu pago por <strong>${equipmentName}</strong>. En las próximas 24 horas te coordinamos la entrega.</p>
+  <div style="background:#F7F7F7;border-radius:12px;padding:16px;margin-bottom:16px">
+    <table style="width:100%;font-size:14px;color:#555">
+      <tr><td>Equipo</td><td style="text-align:right;font-weight:600;color:#18191F">${equipmentName}</td></tr>
+      <tr><td>Total pagado</td><td style="text-align:right;font-weight:600;color:#1B4FFF">$${salePrice} USD</td></tr>
+      <tr><td>N° de orden</td><td style="text-align:right;font-weight:600;color:#18191F;font-size:12px">${saleOrderId.slice(0, 8).toUpperCase()}</td></tr>
+    </table>
+  </div>
+  <p style="color:#666;font-size:13px">¿Tienes dudas? Escríbenos a <a href="mailto:hola@fluxperu.com" style="color:#1B4FFF">hola@fluxperu.com</a> o WhatsApp <a href="https://wa.me/51900164769" style="color:#1B4FFF">+51 900 164 769</a>.</p>
+  <p style="color:#999;font-size:12px;margin-top:24px">© 2026 FLUX — Tika Services S.A.C.</p>
+</div>`,
+  }));
+
+  // Email a operaciones
+  void safeSend("stripe_equipment_sale_ops", () => sendEmail({
+    to: "operaciones@fluxperu.com",
+    subject: `[OPS] 💰 Venta de equipo: ${equipmentName} — ${customerName}`,
+    html: `<div style="font-family:Inter,sans-serif;padding:24px"><h2 style="color:#1B4FFF">💰 Venta de equipo confirmada</h2><p><strong>${customerName}</strong> (${customerEmail}) pagó <strong>$${salePrice} USD</strong> por <strong>${equipmentName}</strong>.</p><p>N° de orden: ${saleOrderId}</p><p>Acción: coordinar entrega, emitir factura, actualizar estado del equipo.</p></div>`,
+  }));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

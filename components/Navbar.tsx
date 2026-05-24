@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 const nav = [
   { label: "MacBook Air", href: "/laptops?filter=air" },
   { label: "MacBook Pro", href: "/laptops?filter=pro" },
+  { label: "Comprar usado", href: "/comprar" },
   { label: "Empresas", href: "/empresas" },
   { label: "¿Cómo funciona?", href: "/como-funciona" },
 ];

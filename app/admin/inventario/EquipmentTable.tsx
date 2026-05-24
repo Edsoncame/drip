@@ -57,6 +57,10 @@ export interface Equipment {
   tipo_renta: string | null;
   meses_uso_previo: number | null;
   area: string | null;
+  for_sale: boolean | null;
+  sale_price_usd: string | null;
+  sale_condition: string | null;
+  sale_listed_at: string | null;
 }
 
 const ESTADO_STYLES: Record<string, string> = {
@@ -239,6 +243,9 @@ export default function EquipmentTable({ equipment }: { equipment: Equipment[] }
                     <td className="px-4 py-3 text-xs font-mono text-[#555]">{eq.numero_serie ?? "—"}</td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-700 ${stStyle}`}>{eq.estado_actual.split(" / ")[0]}</span>
+                      {eq.for_sale && (
+                        <span className="ml-1 px-2 py-0.5 rounded-full text-xs font-700 bg-[#1B4FFF] text-white">EN VENTA</span>
+                      )}
                       {eq.cliente_actual && <p className="text-xs text-[#999] mt-1 truncate max-w-[120px]">{eq.cliente_actual}</p>}
                     </td>
                     <td className="px-4 py-3 text-xs text-[#666666]">
@@ -623,6 +630,62 @@ function EquipmentModal({ data, onChange, onSave, onClose, saving }: ModalProps)
               <Field label="Notas compra" value={f("compra_notas")} onChange={set("compra_notas")} placeholder="Firmó contrato..." />
               <Field label="Inicio compra" type="date" value={f("compra_inicio")?.split("T")[0]} onChange={set("compra_inicio")} />
             </Row>
+          </Section>
+
+          {/* Venta pública */}
+          <Section title="Venta al público (MacBooks usados)">
+            <Row>
+              <div className="col-span-2 sm:col-span-4">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = !data.for_sale;
+                      onChange({
+                        for_sale: next,
+                        ...(next && !data.sale_listed_at ? { sale_listed_at: new Date().toISOString() } : {}),
+                        ...(next && !data.sale_price_usd && data.valor_residual_usd ? { sale_price_usd: data.valor_residual_usd } : {}),
+                      });
+                    }}
+                    className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${data.for_sale ? "bg-[#1B4FFF]" : "bg-[#E5E5E5]"}`}
+                  >
+                    <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${data.for_sale ? "translate-x-5" : "translate-x-0.5"}`} />
+                  </button>
+                  <span className="text-sm font-600 text-[#333]">
+                    {data.for_sale
+                      ? <span className="text-[#1B4FFF]">✓ En venta — visible en /comprar</span>
+                      : "Publicar en /comprar"}
+                  </span>
+                </label>
+              </div>
+            </Row>
+            {data.for_sale && (
+              <Row>
+                <Field label="Precio de venta (USD)" type="number"
+                  value={f("sale_price_usd")}
+                  onChange={set("sale_price_usd")}
+                  placeholder={f("valor_residual_usd") || "990"} />
+                <div>
+                  <label className="block text-xs text-[#666] mb-1">Condición</label>
+                  <select
+                    value={f("sale_condition") ?? ""}
+                    onChange={set("sale_condition")}
+                    className="w-full px-3 py-2 text-sm border border-[#E5E5E5] rounded-xl outline-none focus:border-[#1B4FFF] bg-white"
+                  >
+                    <option value="">— Seleccionar —</option>
+                    <option value="Excelente">Excelente</option>
+                    <option value="Muy bueno">Muy bueno</option>
+                    <option value="Bueno">Bueno</option>
+                  </select>
+                </div>
+                <div>
+                  <p className="text-xs text-[#666] mb-1">Publicado desde</p>
+                  <div className="px-3 py-2 text-xs border border-[#E5E5E5] rounded-xl bg-[#F7F7F7] text-[#666]">
+                    {data.sale_listed_at ? new Date(data.sale_listed_at).toLocaleDateString("es-PE") : "Hoy"}
+                  </div>
+                </div>
+              </Row>
+            )}
           </Section>
 
           {/* Credenciales del dispositivo */}

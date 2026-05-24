@@ -86,6 +86,7 @@ export async function PATCH(req: NextRequest) {
     'rentabilidad_pct','seguro','garantia_anos','ubicacion_fisica','responsable',
     'usuario_dispositivo','clave_dispositivo','clave_vault','clave_vault_url','observaciones',
     'colaborador','compra_status','compra_notas','compra_inicio','tipo_renta','meses_uso_previo','area',
+    'for_sale','sale_price_usd','sale_condition','sale_listed_at',
   ];
 
   const updates: string[] = [];
