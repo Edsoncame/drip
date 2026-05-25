@@ -141,8 +141,8 @@ export default function ComprarDetailPage() {
           <div className="mt-4 grid grid-cols-3 gap-3">
             {[
               { icon: "🛡️", label: "90 días de garantía" },
-              { icon: "↩️", label: "7 días devolución" },
               { icon: "📦", label: "Despacho Lima 24h" },
+              { icon: "✅", label: "15 puntos revisados" },
             ].map((t) => (
               <div key={t.label} className="flex flex-col items-center gap-1 p-3 bg-[#F7F7F7] rounded-2xl text-center">
                 <span className="text-xl">{t.icon}</span>

@@ -4,7 +4,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Términos y Condiciones — FLUX Certified | Venta de MacBooks Reacondicionados",
   description:
-    "Términos y condiciones de compraventa de equipos FLUX Certified (MacBooks reacondicionados). Garantía 90 días, política de devolución 7 días, métodos de pago y despacho. Tika Services S.A.C., Lima, Perú.",
+    "Términos y condiciones de compraventa de equipos FLUX Certified (MacBooks reacondicionados). Garantía 90 días, métodos de pago y despacho. Tika Services S.A.C., Lima, Perú.",
   robots: { index: true, follow: true },
 };
 
@@ -144,34 +144,7 @@ export default function TerminosCertifiedPage() {
         </p>
       </Section>
 
-      <Section title="6. Política de devolución — 7 días">
-        <p>
-          El Comprador tiene derecho a devolver el equipo <strong>dentro de los 7 días calendario</strong>
-          siguientes a la fecha de recepción, sin necesidad de expresar motivo, y recibir el reembolso total
-          del precio pagado, siempre que se cumplan las siguientes condiciones:
-        </p>
-        <ul>
-          <li>El equipo se devuelve en el mismo estado en que fue recibido (sin daños adicionales).</li>
-          <li>Se incluyen todos los accesorios y el empaque original entregado por FLUX.</li>
-          <li>El Comprador coordina la devolución escribiendo a <strong>hola@fluxperu.com</strong> antes del vencimiento del plazo.</li>
-        </ul>
-        <p>
-          El costo de envío de devolución es asumido por FLUX si la causa es un defecto no informado o un
-          error en el equipo enviado. En cualquier otro caso (arrepentimiento de compra), el costo de
-          devolución es asumido por el Comprador.
-        </p>
-        <p>
-          El reembolso se procesa en un plazo de <strong>5 a 10 días hábiles</strong> a través del mismo
-          método de pago utilizado en la compra, sujeto a los tiempos de procesamiento de Stripe y la
-          entidad financiera del Comprador.
-        </p>
-        <p>
-          Pasados los 7 días, no se aceptan devoluciones por arrepentimiento. Solo aplica la garantía
-          técnica descrita en la cláusula 5.
-        </p>
-      </Section>
-
-      <Section title="7. Comprobante de pago">
+      <Section title="6. Comprobante de pago">
         <p>
           FLUX emite <strong>boleta electrónica</strong> por defecto para personas naturales y{" "}
           <strong>factura electrónica</strong> para personas jurídicas. El comprobante se envía al correo
@@ -183,7 +156,7 @@ export default function TerminosCertifiedPage() {
         </p>
       </Section>
 
-      <Section title="8. Propiedad del equipo y restricciones">
+      <Section title="7. Propiedad del equipo y restricciones">
         <p>
           La propiedad del equipo se transfiere al Comprador al momento de la entrega física, una vez
           confirmado el pago íntegro.
@@ -194,7 +167,7 @@ export default function TerminosCertifiedPage() {
         </p>
       </Section>
 
-      <Section title="9. Limitación de responsabilidad">
+      <Section title="8. Limitación de responsabilidad">
         <p>
           La responsabilidad de FLUX frente al Comprador se limita al precio pagado por el equipo. FLUX no
           será responsable por daños indirectos, pérdida de datos, lucro cesante ni daños consecuentes
@@ -206,7 +179,7 @@ export default function TerminosCertifiedPage() {
         </p>
       </Section>
 
-      <Section title="10. Protección de datos personales">
+      <Section title="9. Protección de datos personales">
         <p>
           Los datos personales del Comprador son tratados por Tika Services S.A.C. conforme a la{" "}
           <strong>Ley N° 29733 — Ley de Protección de Datos Personales</strong> y su reglamento. Son
@@ -231,7 +204,7 @@ export default function TerminosCertifiedPage() {
         </p>
       </Section>
 
-      <Section title="11. Ley aplicable y jurisdicción">
+      <Section title="10. Ley aplicable y jurisdicción">
         <p>
           Los presentes Términos se rigen por las leyes de la <strong>República del Perú</strong>, en
           particular por el Código Civil (D.Leg. 295), el Código de Protección y Defensa del Consumidor
@@ -249,7 +222,7 @@ export default function TerminosCertifiedPage() {
         </p>
       </Section>
 
-      <Section title="12. Modificaciones">
+      <Section title="11. Modificaciones">
         <p>
           FLUX se reserva el derecho de modificar estos Términos en cualquier momento. Las modificaciones
           serán publicadas en esta página con indicación de la fecha de actualización. Las compras realizadas
@@ -257,7 +230,7 @@ export default function TerminosCertifiedPage() {
         </p>
       </Section>
 
-      <Section title="13. Contacto">
+      <Section title="12. Contacto">
         <p>
           Para consultas sobre estos Términos, garantías, devoluciones o cualquier aspecto de tu compra:
         </p>

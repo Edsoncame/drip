@@ -92,7 +92,7 @@ function CertifiedHero() {
       {/* Trust badges strip */}
       <div className="border-t relative" style={{ borderColor: "rgba(255,255,255,0.12)", zIndex: 2 }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex items-center gap-6 md:gap-10 overflow-x-auto no-scrollbar">
-          {["15 puntos revisados", "90 días de garantía", "Devolución en 7 días", "Despacho Lima en 24h"].map((b) => (
+          {["15 puntos revisados", "90 días de garantía", "Despacho Lima en 24h"].map((b) => (
             <div key={b} className="flex items-center gap-1.5 flex-shrink-0 text-xs font-semibold text-white/80 whitespace-nowrap">
               <span style={{ fontSize: 11, opacity: 0.6 }}>✓</span>
               <span>{b}</span>
@@ -274,12 +274,11 @@ export default function ComprarPage() {
               {
                 icon: (
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polyline points="9 14 4 9 9 4"/>
-                    <path d="M20 20v-7a4 4 0 0 0-4-4H4"/>
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
                   </svg>
                 ),
-                title: "Devolución en 7 días",
-                desc: "No te convenció, sin problema. 7 días para devolverlo sin preguntas.",
+                title: "Despacho Lima en 24h",
+                desc: "Entrega a domicilio en Lima en 24 horas hábiles. También puedes recoger en tienda.",
               },
             ].map((item) => (
               <div key={item.title} className="flex flex-col items-start gap-4 p-6 bg-white rounded-2xl border border-[#E5E5E5]">
