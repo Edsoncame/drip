@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import type { SaleEquipment } from "@/app/api/sale-equipment/route";
 
-const HERO_VIDEO = "https://orrhouuqrkvgo7yu.public.blob.vercel-storage.com/videos/macbook-certified-hero-v3.mp4";
+const HERO_VIDEO = "https://orrhouuqrkvgo7yu.public.blob.vercel-storage.com/videos/macbook-certified-hero-v4.mp4";
 
 const CONDITION_LABEL: Record<string, string> = {
   Excelente: "Excelente",
