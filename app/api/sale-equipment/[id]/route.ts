@@ -17,7 +17,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
        FROM equipment e
        LEFT JOIN products p
          ON e.modelo_completo ILIKE '%' || CASE
-           WHEN p.slug = 'macbook-air-13-m4' THEN 'MacBook Air'
+           WHEN p.slug = 'macbook-air-13-m1' THEN 'MacBook Air%M1'
+           WHEN p.slug = 'macbook-pro-13-m1' THEN 'MacBook Pro%M1'
+           WHEN p.slug = 'macbook-air-13-m4' THEN 'MacBook Air%M4'
            WHEN p.slug = 'macbook-pro-14-m4' THEN 'MacBook Pro%M4'
            WHEN p.slug = 'macbook-pro-14-m5' THEN 'MacBook Pro%M5'
            ELSE p.slug

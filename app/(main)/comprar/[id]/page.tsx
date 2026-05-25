@@ -7,13 +7,24 @@ import type { SaleEquipment } from "@/app/api/sale-equipment/route";
 
 // Specs adicionales por modelo (datos técnicos fijos por generación)
 const MODEL_SPECS: Record<string, { label: string; value: string }[]> = {
-  "MacBook Air": [
+  "MacBook Air M1": [
     { label: "Pantalla", value: "13.3\" Retina IPS, 2560 × 1600 px" },
+    { label: "GPU", value: "7 núcleos GPU integrado" },
     { label: "Batería", value: "Hasta 15 horas" },
     { label: "Cámara", value: "720p FaceTime HD" },
     { label: "Puertos", value: "2× Thunderbolt / USB 4, jack 3.5mm" },
     { label: "Peso", value: "1.29 kg" },
-    { label: "Sistema", value: "macOS — actualizable" },
+    { label: "Sistema", value: "macOS (actualizable a Sequoia)" },
+  ],
+  "MacBook Pro M1": [
+    { label: "Pantalla", value: "13.3\" Retina IPS, 2560 × 1600 px" },
+    { label: "GPU", value: "8 núcleos GPU integrado" },
+    { label: "Touch Bar", value: "Touch Bar + Touch ID" },
+    { label: "Batería", value: "Hasta 17 horas" },
+    { label: "Cámara", value: "720p FaceTime HD" },
+    { label: "Puertos", value: "2× Thunderbolt / USB 4, jack 3.5mm" },
+    { label: "Peso", value: "1.4 kg" },
+    { label: "Sistema", value: "macOS (actualizable a Sequoia)" },
   ],
   "MacBook Pro 14": [
     { label: "Pantalla", value: "14.2\" Liquid Retina XDR, 3024 × 1964 px" },
@@ -21,13 +32,15 @@ const MODEL_SPECS: Record<string, { label: string; value: string }[]> = {
     { label: "Cámara", value: "1080p FaceTime HD" },
     { label: "Puertos", value: "3× Thunderbolt 4, HDMI, SD, MagSafe 3" },
     { label: "Peso", value: "1.55 kg" },
-    { label: "Sistema", value: "macOS — actualizable" },
+    { label: "Sistema", value: "macOS (actualizable a Sequoia)" },
   ],
 };
 
 function getExtraSpecs(modelo: string) {
+  if (modelo.includes("MacBook Pro") && modelo.includes("M1")) return MODEL_SPECS["MacBook Pro M1"];
   if (modelo.includes("MacBook Pro 14")) return MODEL_SPECS["MacBook Pro 14"];
-  if (modelo.includes("MacBook Air")) return MODEL_SPECS["MacBook Air"];
+  if (modelo.includes("MacBook Air") && modelo.includes("M1")) return MODEL_SPECS["MacBook Air M1"];
+  if (modelo.includes("MacBook Air")) return MODEL_SPECS["MacBook Air M1"];
   return [];
 }
 
