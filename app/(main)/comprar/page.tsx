@@ -2,10 +2,9 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import type { SaleEquipment } from "@/app/api/sale-equipment/route";
 
-const CDN = "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is";
+const HERO_VIDEO = "https://orrhouuqrkvgo7yu.public.blob.vercel-storage.com/videos/macbook-certified-hero.mp4";
 
 const CONDITION_LABEL: Record<string, string> = {
   Excelente: "Excelente",
@@ -31,48 +30,50 @@ function ConditionBadge({ condition }: { condition: string }) {
 }
 
 function CertifiedHero() {
-  const airImg = `${CDN}/macbook-air-size-unselect-202601-gallery-1?wid=700&hei=448&fmt=png-alpha&qlt=80`;
-
   return (
-    <section className="relative overflow-hidden" style={{ background: "#F5F5F7", minHeight: 400 }}>
-      {/* MacBook image — right column */}
-      <div
-        className="absolute right-0 top-0 bottom-0 hidden md:flex items-center justify-end"
-        style={{ width: "48%", zIndex: 1 }}
+    <section className="relative overflow-hidden" style={{ background: "#0a0a0a", minHeight: 460 }}>
+      {/* Video de fondo — loop infinito */}
+      <video
+        autoPlay
+        muted
+        loop
+        playsInline
+        className="absolute inset-0 w-full h-full object-cover"
+        style={{ zIndex: 0, opacity: 0.85 }}
       >
-        <Image
-          src={airImg}
-          alt="MacBook FLUX Certified"
-          width={700}
-          height={448}
-          className="w-full h-full"
-          style={{ objectFit: "contain", objectPosition: "right center", padding: "12px 24px 12px 0" }}
-          unoptimized
-          priority
-        />
-        {/* Left-edge blend */}
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{ background: "linear-gradient(to right, #F5F5F7 0%, #F5F5F7bb 12%, transparent 32%)" }}
-        />
-      </div>
+        <source src={HERO_VIDEO} type="video/mp4" />
+      </video>
+
+      {/* Gradiente oscuro izquierda → transparente derecha para legibilidad del texto */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: "linear-gradient(to right, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.55) 45%, rgba(0,0,0,0.15) 100%)",
+          zIndex: 1,
+        }}
+      />
+
+      {/* Gradiente inferior para blend con el resto de la página */}
+      <div
+        className="absolute bottom-0 left-0 right-0 h-24 pointer-events-none"
+        style={{ background: "linear-gradient(to bottom, transparent, rgba(0,0,0,0.3))", zIndex: 1 }}
+      />
 
       {/* Text content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-14 md:py-20 relative" style={{ zIndex: 2 }}>
-        <div className="max-w-[480px]">
-          <span className="inline-block px-3 py-1 text-xs font-bold rounded-full mb-4 bg-[#1B4FFF]/10 text-[#1B4FFF] border border-[#1B4FFF]/20">
+        <div className="max-w-[520px]">
+          <span className="inline-block px-3 py-1 text-xs font-bold rounded-full mb-4 text-white border border-white/20 bg-white/10">
             FLUX Certified
           </span>
 
           <h1
-            className="text-3xl md:text-5xl font-black leading-tight mb-3 text-[#18191F]"
+            className="text-3xl md:text-5xl font-black leading-tight mb-3 text-white"
             style={{ letterSpacing: "-0.02em" }}
           >
-            MacBooks que ya<br className="hidden md:block" /> vivieron.{" "}
-            <br className="hidden md:block" />Ahora son tuyos.
+            MacBooks que ya<br />vivieron. Ahora<br />son tuyos.
           </h1>
 
-          <p className="text-sm md:text-base font-medium mb-6 leading-relaxed text-[#555555]">
+          <p className="text-sm md:text-base font-medium mb-6 leading-relaxed text-white/75">
             De nuestra flota de renta. Revisados en 15 puntos, con 90 días de garantía. Desde $380.
           </p>
 
@@ -88,24 +89,12 @@ function CertifiedHero() {
         </div>
       </div>
 
-      {/* Mobile image */}
-      <div className="md:hidden px-6 pb-8 flex justify-center">
-        <Image
-          src={airImg}
-          alt="MacBook FLUX Certified"
-          width={500}
-          height={320}
-          className="w-full max-w-xs object-contain"
-          unoptimized
-        />
-      </div>
-
       {/* Trust badges strip */}
-      <div className="border-t border-[#E5E5E5] relative" style={{ zIndex: 2 }}>
+      <div className="border-t relative" style={{ borderColor: "rgba(255,255,255,0.12)", zIndex: 2 }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex items-center gap-6 md:gap-10 overflow-x-auto no-scrollbar">
           {["15 puntos revisados", "90 días de garantía", "Devolución en 7 días", "Despacho Lima en 24h"].map((b) => (
-            <div key={b} className="flex items-center gap-1.5 flex-shrink-0 text-xs font-semibold text-[#18191F] opacity-70 whitespace-nowrap">
-              <span style={{ fontSize: 11 }}>✓</span>
+            <div key={b} className="flex items-center gap-1.5 flex-shrink-0 text-xs font-semibold text-white/80 whitespace-nowrap">
+              <span style={{ fontSize: 11, opacity: 0.6 }}>✓</span>
               <span>{b}</span>
             </div>
           ))}
