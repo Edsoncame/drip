@@ -67,8 +67,8 @@ function CertifiedHero() {
           </span>
 
           <h1
-            className="text-3xl md:text-5xl font-black leading-tight mb-3 text-white"
-            style={{ letterSpacing: "-0.02em" }}
+            className="text-3xl md:text-5xl font-black leading-tight mb-3"
+            style={{ letterSpacing: "-0.02em", color: "#ffffff" }}
           >
             MacBooks que ya<br />vivieron. Ahora<br />son tuyos.
           </h1>
