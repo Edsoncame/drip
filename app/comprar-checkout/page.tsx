@@ -64,7 +64,7 @@ interface DeliveryData {
 function Step1({ equipment, onNext }: { equipment: SaleEquipment; onNext: () => void }) {
   return (
     <div>
-      <h2 className="text-2xl font-800 text-[#18191F] mb-6">Equipo seleccionado</h2>
+      <h2 className="text-2xl font-800 text-[#18191F] mb-6">Tu FLUX Certified</h2>
 
       <div className="bg-[#F7F7F7] rounded-2xl p-6 mb-5">
         <div className="flex items-center gap-4 mb-5 pb-5 border-b border-[#E5E5E5]">
@@ -102,8 +102,8 @@ function Step1({ equipment, onNext }: { equipment: SaleEquipment; onNext: () => 
             </div>
           )}
           <div className="flex justify-between text-sm">
-            <span className="text-[#666666]">Estado</span>
-            <span className="font-700 text-[#18191F]">{equipment.sale_condition}</span>
+            <span className="text-[#666666]">Certificación</span>
+            <span className="font-700 text-[#1B4FFF]">FLUX Certified · {equipment.sale_condition}</span>
           </div>
         </div>
 
@@ -118,8 +118,9 @@ function Step1({ equipment, onNext }: { equipment: SaleEquipment; onNext: () => 
       <div className="bg-[#EEF2FF] rounded-xl p-4 mb-6 text-sm text-[#333333]">
         <p className="font-700 mb-1">Incluye:</p>
         <ul className="space-y-1 text-[#666666]">
-          <li>✅ Equipo revisado y formateado</li>
-          <li>✅ Entrega en Lima en 24-48h hábiles</li>
+          <li>✅ 15 puntos revisados y formateado</li>
+          <li>✅ 90 días de garantía incluida</li>
+          <li>✅ Despacho Lima en 24h hábiles</li>
           <li>✅ Factura de venta</li>
         </ul>
       </div>
@@ -431,7 +432,7 @@ function Step2({
             <a href="/terminos" target="_blank" className="text-[#1B4FFF] underline">
               Términos y Condiciones
             </a>{" "}
-            de FLUX para la compra de equipos usados.
+            de FLUX para la compra de equipos certificados.
           </span>
         </label>
         {errors.terms && <p className="text-xs text-red-500 mt-1 ml-7">{errors.terms}</p>}

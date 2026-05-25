@@ -29,12 +29,19 @@ function ConditionBadge({ condition }: { condition: string }) {
 
 function SaleCard({ item }: { item: SaleEquipment }) {
   return (
-    <div className="bg-white rounded-2xl border border-[#E5E5E5] overflow-hidden hover:shadow-md transition-shadow">
+    <div className="group bg-white rounded-2xl border border-[#E5E5E5] overflow-hidden hover:shadow-lg transition-all duration-200">
       {/* Imagen */}
-      <div className="bg-[#F7F7F7] h-48 flex items-center justify-center p-6">
+      <div className="relative bg-[#F7F7F7] h-48 overflow-hidden flex items-center justify-center p-6">
+        <div className="absolute top-3 left-3 z-10 px-2.5 py-1 bg-[#1B4FFF] text-white text-[10px] font-700 rounded-full tracking-wide">
+          FLUX Certified
+        </div>
         {item.image_url ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={item.image_url} alt={item.modelo_completo} className="max-h-full max-w-full object-contain" />
+          <img
+            src={item.image_url}
+            alt={item.modelo_completo}
+            className="max-h-full max-w-full object-contain transition-transform duration-300 group-hover:scale-105"
+          />
         ) : (
           <span className="text-6xl">💻</span>
         )}
@@ -65,8 +72,13 @@ function SaleCard({ item }: { item: SaleEquipment }) {
           )}
         </div>
 
-        <div className="flex items-center justify-between pt-4 border-t border-[#F0F0F0]">
-          <div>
+        <div className="pt-4 border-t border-[#F0F0F0]">
+          <div className="mb-3">
+            {item.precio_compra_usd ? (
+              <p className="text-sm text-[#999999] line-through">
+                Precio nuevo ${item.precio_compra_usd.toLocaleString("en-US")} USD
+              </p>
+            ) : null}
             <p className="text-2xl font-900 text-[#18191F]">
               ${item.sale_price_usd.toLocaleString("en-US")}
               <span className="text-sm font-500 text-[#999999] ml-1">USD</span>
@@ -74,9 +86,9 @@ function SaleCard({ item }: { item: SaleEquipment }) {
           </div>
           <Link
             href={`/comprar-checkout?id=${item.id}`}
-            className="px-5 py-2.5 bg-[#1B4FFF] text-white text-sm font-700 rounded-full hover:bg-[#1340CC] transition-colors"
+            className="block w-full py-2.5 bg-[#1B4FFF] text-white text-sm font-700 rounded-full hover:bg-[#1340CC] transition-colors text-center"
           >
-            Comprar
+            Comprar ahora
           </Link>
         </div>
       </div>
@@ -92,10 +104,10 @@ function EmptyState() {
       </div>
       <h2 className="text-xl font-800 text-[#18191F] mb-2">Pronto disponible</h2>
       <p className="text-[#666666] mb-6 max-w-sm mx-auto">
-        Estamos preparando la primera tanda de MacBooks certificados. Déjanos tu email y te avisamos cuando estén listos.
+        Estamos preparando la primera tanda de equipos FLUX Certified. Escríbenos y te avisamos cuando estén listos.
       </p>
       <a
-        href="https://wa.me/51900164769?text=Hola,%20quiero%20saber%20cu%C3%A1ndo%20estarán%20disponibles%20las%20MacBooks%20usadas"
+        href="https://wa.me/51900164769?text=Hola,%20quiero%20saber%20cu%C3%A1ndo%20estarán%20disponibles%20los%20equipos%20FLUX%20Certified"
         target="_blank"
         rel="noopener noreferrer"
         className="inline-flex items-center gap-2 px-6 py-3 bg-[#1B4FFF] text-white font-700 rounded-full hover:bg-[#1340CC] transition-colors"
@@ -122,24 +134,30 @@ export default function ComprarPage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
       {/* Header */}
       <div className="mb-8">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#E5F3DF] rounded-full text-[#2D7D46] text-xs font-700 mb-3">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#2D7D46]" />
-          MacBooks certificados
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#EEF2FF] rounded-full text-[#1B4FFF] text-xs font-700 mb-3">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#1B4FFF]" />
+          FLUX Certified
         </div>
         <h1 className="text-4xl font-black mb-2" style={{ color: "var(--dark-text)" }}>
-          MacBooks usados
+          FLUX Certified
         </h1>
-        <p style={{ color: "var(--medium-text)" }}>
-          Equipos de flota FLUX en perfecto estado. Probados, limpios y con garantía.
+        <p className="mb-4" style={{ color: "var(--medium-text)" }}>
+          MacBooks de nuestro programa de renta, revisados al 100% y listos para tu día a día.
         </p>
+        <div className="inline-flex items-center gap-2.5 px-4 py-2.5 bg-[#E5F3DF] rounded-xl text-[#2D7D46] text-sm font-600">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          90 días de garantía incluida · Devolución en 7 días si no estás satisfecho
+        </div>
       </div>
 
-      {/* Garantías */}
+      {/* Trust bar */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-10">
         {[
-          { icon: "🔍", title: "Revisados", desc: "Cada equipo pasa inspección técnica antes de salir" },
-          { icon: "🧹", title: "Formateados", desc: "Borrado seguro de datos. Llega como nuevo para ti" },
-          { icon: "📦", title: "Entrega en Lima", desc: "Envío a domicilio en 24-48 horas hábiles" },
+          { icon: "🔍", title: "15 puntos revisados", desc: "Batería, pantalla, puertos, teclado y más. Cada unidad pasa la barra." },
+          { icon: "💾", title: "Disco limpio", desc: "Borrado seguro de datos del inquilino anterior. Llega formateado como nuevo." },
+          { icon: "📦", title: "Despacho Lima en 24h", desc: "Envío a domicilio en 24 horas hábiles a los principales distritos." },
         ].map((item) => (
           <div key={item.title} className="flex items-start gap-3 p-4 bg-[#F7F7F7] rounded-2xl">
             <span className="text-2xl flex-shrink-0">{item.icon}</span>
@@ -167,6 +185,57 @@ export default function ComprarPage() {
       ) : (
         <EmptyState />
       )}
+
+      {/* ¿Por qué FLUX Certified? */}
+      <div className="mt-14 mb-2">
+        <h2 className="text-2xl font-black text-[#18191F] mb-2 text-center">¿Por qué FLUX Certified?</h2>
+        <p className="text-center text-[#666666] text-sm mb-8">
+          MacBooks que ya tienen kilómetros recorridos — revisados para que tú arranques sin sorpresas.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+          {[
+            {
+              icon: (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M9 12l2 2 4-4"/>
+                  <path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/>
+                </svg>
+              ),
+              title: "15 puntos revisados",
+              desc: "Batería, pantalla, puertos, teclado, altavoces y cámara. Nada se salva sin revisión.",
+            },
+            {
+              icon: (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+              ),
+              title: "90 días de garantía",
+              desc: "Si falla algo de hardware después de comprarlo, nos hacemos cargo. Sin letra chica.",
+            },
+            {
+              icon: (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                  <polyline points="9 22 9 12 15 12 15 22"/>
+                </svg>
+              ),
+              title: "Devolución en 7 días",
+              desc: "No te convenció, sin problema. 7 días para devolverlo sin preguntas.",
+            },
+          ].map((item) => (
+            <div key={item.title} className="flex flex-col items-start gap-4 p-6 bg-white rounded-2xl border border-[#E5E5E5]">
+              <div className="w-10 h-10 bg-[#EEF2FF] rounded-xl flex items-center justify-center text-[#1B4FFF]">
+                {item.icon}
+              </div>
+              <div>
+                <p className="font-700 text-[#18191F] mb-1">{item.title}</p>
+                <p className="text-sm text-[#666666]">{item.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* Footer info */}
       <div className="mt-12 p-6 rounded-2xl" style={{ background: "var(--primary-light)" }}>
