@@ -290,6 +290,15 @@ export default function ComprarDetailPage() {
               </p>
             </Accordion>
           </div>
+
+          {/* T&C link */}
+          <p className="mt-6 text-xs text-[#999999]">
+            Al comprar aceptas nuestros{" "}
+            <Link href="/terminos-certified" className="text-[#1B4FFF] hover:underline">
+              Términos y Condiciones de compraventa FLUX Certified
+            </Link>
+            .
+          </p>
         </div>
       </div>
     </div>
