@@ -105,29 +105,44 @@ function CertifiedHero() {
 }
 
 function SaleCard({ item }: { item: SaleEquipment }) {
+  const savings = item.precio_compra_usd
+    ? Math.round((1 - item.sale_price_usd / item.precio_compra_usd) * 100)
+    : null;
+
   return (
     <div className="group bg-white rounded-2xl border border-[#E5E5E5] overflow-hidden hover:shadow-lg transition-all duration-200">
-      {/* Imagen */}
-      <div className="relative bg-[#F7F7F7] h-48 overflow-hidden flex items-center justify-center p-6">
-        <div className="absolute top-3 left-3 z-10 px-2.5 py-1 bg-[#1B4FFF] text-white text-[10px] font-700 rounded-full tracking-wide">
-          FLUX Certified
+      {/* Imagen — clickeable al detalle */}
+      <Link href={`/comprar/${item.id}`} className="block">
+        <div className="relative bg-[#F7F7F7] h-48 overflow-hidden flex items-center justify-center p-6 cursor-pointer">
+          <div className="absolute top-3 left-3 z-10 px-2.5 py-1 bg-[#1B4FFF] text-white text-[10px] font-700 rounded-full tracking-wide">
+            FLUX Certified
+          </div>
+          {savings && (
+            <div className="absolute top-3 right-3 z-10 px-2 py-0.5 bg-[#E5F3DF] text-[#2D7D46] text-[10px] font-700 rounded-full">
+              -{savings}%
+            </div>
+          )}
+          {item.image_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={item.image_url}
+              alt={item.modelo_completo}
+              className="max-h-full max-w-full object-contain transition-transform duration-300 group-hover:scale-105"
+            />
+          ) : (
+            <span className="text-6xl">💻</span>
+          )}
         </div>
-        {item.image_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={item.image_url}
-            alt={item.modelo_completo}
-            className="max-h-full max-w-full object-contain transition-transform duration-300 group-hover:scale-105"
-          />
-        ) : (
-          <span className="text-6xl">💻</span>
-        )}
-      </div>
+      </Link>
 
       {/* Info */}
       <div className="p-5">
         <div className="flex items-start justify-between gap-2 mb-3">
-          <h3 className="font-800 text-[#18191F] text-base leading-tight">{item.modelo_completo}</h3>
+          <Link href={`/comprar/${item.id}`}>
+            <h3 className="font-800 text-[#18191F] text-base leading-tight hover:text-[#1B4FFF] transition-colors cursor-pointer">
+              {item.modelo_completo} Reacondicionado
+            </h3>
+          </Link>
           <ConditionBadge condition={item.sale_condition} />
         </div>
 
@@ -162,10 +177,10 @@ function SaleCard({ item }: { item: SaleEquipment }) {
             </p>
           </div>
           <Link
-            href={`/comprar-checkout?id=${item.id}`}
+            href={`/comprar/${item.id}`}
             className="block w-full py-2.5 bg-[#1B4FFF] text-white text-sm font-700 rounded-full hover:bg-[#1340CC] transition-colors text-center"
           >
-            Comprar ahora
+            Ver equipo →
           </Link>
         </div>
       </div>
