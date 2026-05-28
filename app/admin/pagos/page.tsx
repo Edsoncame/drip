@@ -37,6 +37,19 @@ export default async function AdminPagosPage() {
   const session = await requireAdmin();
   if (!session) redirect("/");
 
+  // Auto-create table if missing (idempotent)
+  await query(`
+    CREATE TABLE IF NOT EXISTS payment_invoices (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      payment_id UUID NOT NULL REFERENCES payments(id) ON DELETE CASCADE,
+      invoice_number TEXT NOT NULL,
+      invoice_url TEXT NOT NULL,
+      amount NUMERIC(10,2),
+      uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      uploaded_by TEXT
+    )
+  `);
+
   const result = await query<PaymentRow>(`
     SELECT p.id, p.user_id, u.name AS user_name, u.email AS user_email, u.phone AS user_phone,
            u.company, p.amount, p.period_label, p.due_date, p.status,

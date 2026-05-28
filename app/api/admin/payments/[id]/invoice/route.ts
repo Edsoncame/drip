@@ -21,6 +21,19 @@ export async function POST(
   let invoiceNumber: string;
   let amount: number | null = null;
 
+  // Auto-create table if missing in production (idempotent)
+  await query(`
+    CREATE TABLE IF NOT EXISTS payment_invoices (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      payment_id UUID NOT NULL REFERENCES payments(id) ON DELETE CASCADE,
+      invoice_number TEXT NOT NULL,
+      invoice_url TEXT NOT NULL,
+      amount NUMERIC(10,2),
+      uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      uploaded_by TEXT
+    )
+  `);
+
   try {
     if (contentType.includes("multipart/form-data")) {
       // New path: file upload via FormData

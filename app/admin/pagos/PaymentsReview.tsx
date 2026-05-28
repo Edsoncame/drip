@@ -557,7 +557,7 @@ export default function PaymentsReview({ payments }: { payments: Payment[] }) {
                           <label className="flex items-center justify-center gap-1 w-full px-2 py-1.5 bg-[#1B4FFF] text-white rounded-lg cursor-pointer hover:bg-[#1340CC]">
                             <input type="file" accept="application/pdf,image/*" className="sr-only"
                               disabled={processing === p.id}
-                              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleInvoiceUpload(p.id, f); }} />
+                              onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) handleInvoiceUpload(p.id, f); }} />
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
                             <span className="text-[11px] font-700">{processing === p.id ? "Subiendo..." : "Seleccionar archivo"}</span>
                           </label>
