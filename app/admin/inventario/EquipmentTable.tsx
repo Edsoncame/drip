@@ -61,6 +61,15 @@ export interface Equipment {
   sale_price_usd: string | null;
   sale_condition: string | null;
   sale_listed_at: string | null;
+  // SimpleMDM (estado en vivo del hardware)
+  mdm_device_id?: string | null;
+  mdm_status?: string | null;
+  mdm_last_seen?: string | null;
+  mdm_os_version?: string | null;
+  mdm_battery?: string | null;
+  mdm_filevault?: boolean | null;
+  mdm_supervised?: boolean | null;
+  mdm_synced_at?: string | null;
 }
 
 const ESTADO_STYLES: Record<string, string> = {
@@ -92,6 +101,25 @@ export default function EquipmentTable({ equipment }: { equipment: Equipment[] }
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [showCreds, setShowCreds] = useState<string | null>(null);
+  const [syncingMdm, setSyncingMdm] = useState(false);
+
+  async function handleSyncMdm() {
+    setSyncingMdm(true);
+    try {
+      const res = await fetch("/api/admin/equipment/sync-mdm", { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) {
+        alert(`No se pudo sincronizar con SimpleMDM:\n${json.error || res.status}`);
+        return;
+      }
+      alert(`Sincronización lista ✓\n${json.created} creados · ${json.updated} actualizados · ${json.total} equipos en MDM`);
+      startTransition(() => router.refresh());
+    } catch (e) {
+      alert(`Error al sincronizar: ${e instanceof Error ? e.message : "desconocido"}`);
+    } finally {
+      setSyncingMdm(false);
+    }
+  }
 
   const estados = ["Todos", ...Array.from(new Set(equipment.map(e => e.estado_actual.split(" / ")[0])))];
 
@@ -187,6 +215,11 @@ export default function EquipmentTable({ equipment }: { equipment: Equipment[] }
         <div className="flex items-center gap-3">
           <input type="text" placeholder="Buscar código, modelo, S/N…" value={search} onChange={e => setSearch(e.target.value)}
             className="px-3 py-2 text-sm border border-[#E5E5E5] rounded-xl outline-none focus:border-[#1B4FFF] w-56" />
+          <button onClick={handleSyncMdm} disabled={syncingMdm} title="Importar equipos y estado desde SimpleMDM"
+            className="flex items-center gap-1.5 px-4 py-2 bg-white text-[#1B4FFF] border border-[#1B4FFF] text-xs font-700 rounded-full hover:bg-[#EEF2FF] transition-colors cursor-pointer disabled:opacity-60">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className={syncingMdm ? "animate-spin" : ""}><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
+            {syncingMdm ? "Sincronizando…" : "Sincronizar MDM"}
+          </button>
           <button onClick={openCreate}
             className="flex items-center gap-1.5 px-4 py-2 bg-[#1B4FFF] text-white text-xs font-700 rounded-full hover:bg-[#1340CC] transition-colors cursor-pointer">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
@@ -297,6 +330,14 @@ export default function EquipmentTable({ equipment }: { equipment: Equipment[] }
                     <tr key={`${eq.id}-exp`} className="bg-[#F5F8FF]">
                       <td colSpan={11} className="px-6 pb-5 pt-3">
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+                          {eq.mdm_device_id && (
+                            <>
+                              <InfoCell label="MDM estado" value={eq.mdm_status === "enrolled" ? "🟢 Enrolado" : eq.mdm_status === "unenrolled" ? "🔴 Fuera del MDM" : (eq.mdm_status ?? "—")} />
+                              <InfoCell label="MDM última conexión" value={fmtDate(eq.mdm_last_seen ?? null)} />
+                              <InfoCell label="macOS" value={eq.mdm_os_version ?? "—"} />
+                              <InfoCell label="Batería / FileVault" value={`${eq.mdm_battery ?? "—"}${eq.mdm_filevault ? " · 🔒 FileVault" : ""}`} />
+                            </>
+                          )}
                           <InfoCell label="Proveedor" value={eq.proveedor ?? "—"} />
                           <InfoCell label="Fecha compra" value={fmtDate(eq.fecha_compra)} />
                           <InfoCell label="Ingreso neto/mes" value={fmtUSD(eq.ingreso_neto_mensual_usd)} />
