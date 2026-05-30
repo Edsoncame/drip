@@ -109,6 +109,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* Favicon explícito con cache-buster para forzar a Google a re-scrapear */}
         <link rel="icon" href="/icon.png?v=2" type="image/png" sizes="32x32" />
         <link rel="apple-touch-icon" href="/apple-icon.png?v=2" />
+        {/* Stratos (tipografía de títulos de marca) vía Adobe Fonts kit acm7ive (proyecto Flux).
+            El cuerpo sigue en Inter; solo los h1-h6 usan Stratos (ver globals.css). */}
+        <link rel="preconnect" href="https://use.typekit.net" crossOrigin="anonymous" />
+        <link rel="stylesheet" href="https://use.typekit.net/acm7ive.css" />
         {GTM_ID && (
           <Script id="gtm-head" strategy="afterInteractive">
             {`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':

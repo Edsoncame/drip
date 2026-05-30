@@ -3,6 +3,7 @@
 
 @theme {
   --font-sans: "Inter", sans-serif;
+  --font-heading: "stratos", "Inter", sans-serif;
   --color-primary: #1B4FFF;
   --color-primary-dark: #1340CC;
   --color-primary-light: #EEF2FF;
@@ -45,6 +46,7 @@ body {
 }
 
 h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
   font-weight: 800;
   letter-spacing: -0.01em;
   color: #333333;
