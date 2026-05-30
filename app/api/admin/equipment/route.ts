@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { fireSyncCatalog } from "@/lib/dropchat-catalog";
+import { ensureInventoryColumns } from "@/lib/inventory";
 
 async function checkAdmin() {
   return await requireAdmin();
@@ -9,6 +10,7 @@ async function checkAdmin() {
 
 export async function GET() {
   if (!await checkAdmin()) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  await ensureInventoryColumns();
   const result = await query(`SELECT * FROM equipment ORDER BY codigo_interno`);
   return NextResponse.json({ equipment: result.rows });
 }
@@ -27,12 +29,14 @@ export async function POST(req: NextRequest) {
     rentabilidad_pct, seguro, garantia_anos, ubicacion_fisica, responsable,
     usuario_dispositivo, clave_dispositivo, clave_vault, clave_vault_url, observaciones,
     colaborador, compra_status, compra_notas, compra_inicio, tipo_renta, meses_uso_previo, area,
+    tipo, battery_cycles,
   } = body;
 
   if (!codigo_interno || !modelo_completo) {
     return NextResponse.json({ error: "Código interno y modelo son requeridos" }, { status: 400 });
   }
 
+  await ensureInventoryColumns();
   const result = await query(
     `INSERT INTO equipment (
       codigo_interno, marca, modelo_completo, chip, ram, ssd, color, teclado,
@@ -43,10 +47,11 @@ export async function POST(req: NextRequest) {
       ingreso_neto_mensual_usd, valor_residual_usd, ingreso_total_proyectado_usd,
       rentabilidad_pct, seguro, garantia_anos, ubicacion_fisica, responsable,
       usuario_dispositivo, clave_dispositivo, clave_vault, clave_vault_url, observaciones,
-      colaborador, compra_status, compra_notas, compra_inicio, tipo_renta, meses_uso_previo, area
+      colaborador, compra_status, compra_notas, compra_inicio, tipo_renta, meses_uso_previo, area,
+      tipo, battery_cycles
     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
               $21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,
-              $41,$42,$43,$44,$45,$46,$47)
+              $41,$42,$43,$44,$45,$46,$47,$48,$49)
     RETURNING *`,
     [
       codigo_interno, marca || 'Apple', modelo_completo, chip, ram, ssd, color, teclado,
@@ -63,6 +68,7 @@ export async function POST(req: NextRequest) {
       observaciones || null,
       colaborador || null, compra_status || 'no_desea', compra_notas || null, compra_inicio || null,
       tipo_renta || 'estreno', meses_uso_previo || 0, area || null,
+      tipo || 'alquiler', battery_cycles || null,
     ]
   );
 
@@ -87,6 +93,7 @@ export async function PATCH(req: NextRequest) {
     'usuario_dispositivo','clave_dispositivo','clave_vault','clave_vault_url','observaciones',
     'colaborador','compra_status','compra_notas','compra_inicio','tipo_renta','meses_uso_previo','area',
     'for_sale','sale_price_usd','sale_condition','sale_listed_at',
+    'tipo','battery_cycles',
   ];
 
   const updates: string[] = [];

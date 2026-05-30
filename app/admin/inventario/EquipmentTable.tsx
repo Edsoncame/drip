@@ -61,6 +61,9 @@ export interface Equipment {
   sale_price_usd: string | null;
   sale_condition: string | null;
   sale_listed_at: string | null;
+  // Tipo de inventario: 'alquiler' | 'venta'
+  tipo?: string | null;
+  battery_cycles?: number | null;
   // SimpleMDM (estado en vivo del hardware)
   mdm_device_id?: string | null;
   mdm_status?: string | null;
@@ -102,6 +105,8 @@ export default function EquipmentTable({ equipment }: { equipment: Equipment[] }
   const [deleting, setDeleting] = useState<string | null>(null);
   const [showCreds, setShowCreds] = useState<string | null>(null);
   const [syncingMdm, setSyncingMdm] = useState(false);
+  const [tipoTab, setTipoTab] = useState<"alquiler" | "venta">("alquiler");
+  const [importOpen, setImportOpen] = useState(false);
 
   async function handleSyncMdm() {
     setSyncingMdm(true);
@@ -121,16 +126,21 @@ export default function EquipmentTable({ equipment }: { equipment: Equipment[] }
     }
   }
 
-  const estados = ["Todos", ...Array.from(new Set(equipment.map(e => e.estado_actual.split(" / ")[0])))];
+  // Inventario dividido por tipo: Alquiler | Venta
+  const tipoEquip = equipment.filter(e => (e.tipo ?? "alquiler") === tipoTab);
+  const countAlquiler = equipment.filter(e => (e.tipo ?? "alquiler") === "alquiler").length;
+  const countVenta = equipment.length - countAlquiler;
 
-  const filtered = equipment.filter(e => {
+  const estados = ["Todos", ...Array.from(new Set(tipoEquip.map(e => e.estado_actual.split(" / ")[0])))];
+
+  const filtered = tipoEquip.filter(e => {
     const q = search.toLowerCase();
     const matchSearch = !q || [e.codigo_interno, e.modelo_completo, e.numero_serie, e.cliente_actual, e.proveedor, e.color].some(v => v?.toLowerCase().includes(q));
     const matchEstado = filterEstado === "Todos" || e.estado_actual.startsWith(filterEstado);
     return matchSearch && matchEstado;
   });
 
-  function openCreate() { setEditing({ ...EMPTY }); setModalOpen(true); }
+  function openCreate() { setEditing({ ...EMPTY, tipo: tipoTab }); setModalOpen(true); }
   function openEdit(eq: Equipment) { setEditing({ ...eq }); setModalOpen(true); }
   function closeModal() { setModalOpen(false); setEditing(null); }
 
@@ -215,6 +225,11 @@ export default function EquipmentTable({ equipment }: { equipment: Equipment[] }
         <div className="flex items-center gap-3">
           <input type="text" placeholder="Buscar código, modelo, S/N…" value={search} onChange={e => setSearch(e.target.value)}
             className="px-3 py-2 text-sm border border-[#E5E5E5] rounded-xl outline-none focus:border-[#1B4FFF] w-56" />
+          <button onClick={() => setImportOpen(true)} title="Pegar filas de tu hoja de Drive/Excel para crear o actualizar en masa"
+            className="flex items-center gap-1.5 px-4 py-2 bg-white text-[#18191F] border border-[#E5E5E5] text-xs font-700 rounded-full hover:bg-[#F5F5F7] transition-colors cursor-pointer">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+            Importar desde hoja
+          </button>
           <button onClick={handleSyncMdm} disabled={syncingMdm} title="Importar equipos y estado desde SimpleMDM"
             className="flex items-center gap-1.5 px-4 py-2 bg-white text-[#1B4FFF] border border-[#1B4FFF] text-xs font-700 rounded-full hover:bg-[#EEF2FF] transition-colors cursor-pointer disabled:opacity-60">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className={syncingMdm ? "animate-spin" : ""}><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
@@ -228,10 +243,20 @@ export default function EquipmentTable({ equipment }: { equipment: Equipment[] }
         </div>
       </div>
 
-      {/* Filter tabs */}
+      {/* Tabs por tipo de inventario: Alquiler | Venta */}
+      <div className="flex gap-2 px-4 pt-3 border-b border-[#F0F0F0]">
+        {([["alquiler", "Alquiler", countAlquiler], ["venta", "Venta", countVenta]] as const).map(([key, label, count]) => (
+          <button key={key} onClick={() => { setTipoTab(key); setFilterEstado("Todos"); }}
+            className={`px-4 py-2 text-sm font-700 border-b-2 -mb-px transition-colors cursor-pointer ${tipoTab === key ? "border-[#1B4FFF] text-[#1B4FFF]" : "border-transparent text-[#999] hover:text-[#333]"}`}>
+            {label} <span className="ml-1 opacity-70">{count}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Filter tabs (por estado, dentro del tipo) */}
       <div className="flex gap-1 px-4 pt-3 pb-0 overflow-x-auto">
         {estados.map(e => {
-          const count = e === "Todos" ? equipment.length : equipment.filter(eq => eq.estado_actual.startsWith(e)).length;
+          const count = e === "Todos" ? tipoEquip.length : tipoEquip.filter(eq => eq.estado_actual.startsWith(e)).length;
           return (
             <button key={e} onClick={() => setFilterEstado(e)}
               className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-600 transition-colors cursor-pointer ${filterEstado === e ? "bg-[#1B4FFF] text-white" : "bg-[#F5F5F7] text-[#666666] hover:bg-[#E8E8EA]"}`}>
@@ -399,6 +424,114 @@ export default function EquipmentTable({ equipment }: { equipment: Equipment[] }
           saving={saving}
         />
       )}
+
+      {importOpen && (
+        <ImportModal
+          defaultTipo={tipoTab}
+          onClose={() => setImportOpen(false)}
+          onDone={() => { setImportOpen(false); startTransition(() => router.refresh()); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Modal de importación: pegar filas de la hoja ──────────────────────────────
+function ImportModal({ defaultTipo, onClose, onDone }: {
+  defaultTipo: "alquiler" | "venta"; onClose: () => void; onDone: () => void;
+}) {
+  const [text, setText] = useState("");
+  const [tipo, setTipo] = useState<"alquiler" | "venta">(defaultTipo);
+  const [importing, setImporting] = useState(false);
+  const [result, setResult] = useState<{ creados: number; actualizados: number; conflictos: { codigo: string; serie_hoja: string; serie_actual: string }[] } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function run() {
+    setImporting(true); setError(null); setResult(null);
+    try {
+      const res = await fetch("/api/admin/equipment/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, tipo }),
+      });
+      const json = await res.json();
+      if (!res.ok) { setError(json.error || `Error ${res.status}`); return; }
+      setResult(json);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error desconocido");
+    } finally { setImporting(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 overflow-y-auto py-8 px-4">
+      <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E5E5]">
+          <h3 className="font-800 text-[#18191F]">Importar desde hoja</h3>
+          <button onClick={onClose} className="text-[#999] hover:text-[#333] cursor-pointer">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div className="px-6 py-4 space-y-4">
+          {!result ? (
+            <>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-[#666]">Tipo:</span>
+                {(["alquiler", "venta"] as const).map(t => (
+                  <button key={t} onClick={() => setTipo(t)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-700 cursor-pointer transition-colors ${tipo === t ? "bg-[#1B4FFF] text-white" : "bg-[#F5F5F7] text-[#666]"}`}>
+                    {t === "alquiler" ? "Alquiler" : "Venta"}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-[#666] leading-relaxed">
+                Copia las filas de tu hoja (incluyendo la fila de encabezados) y pégalas aquí. Hago match por
+                <b> Código interno</b>: actualizo lo que existe y creo lo que falta. El <b>N° de serie lo manda SimpleMDM</b> —
+                no lo piso; si tu hoja difiere, te lo reporto.
+              </p>
+              <textarea value={text} onChange={e => setText(e.target.value)} rows={10}
+                placeholder="Código interno  Marca  Modelo completo  Chip  RAM  SSD  ...&#10;TKA-MACPRO-M4-001  Apple  MacBook Pro 14&quot; M4 (2024)  M4  16 GB  ..."
+                className="w-full px-3 py-2 text-xs font-mono border border-[#E5E5E5] rounded-xl outline-none focus:border-[#1B4FFF] resize-none" />
+              {error && <p className="text-xs text-red-600">{error}</p>}
+            </>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex gap-3">
+                <div className="flex-1 bg-green-50 rounded-xl p-3 text-center">
+                  <p className="text-2xl font-800 text-green-700">{result.creados}</p>
+                  <p className="text-xs text-green-700">creados</p>
+                </div>
+                <div className="flex-1 bg-blue-50 rounded-xl p-3 text-center">
+                  <p className="text-2xl font-800 text-[#1B4FFF]">{result.actualizados}</p>
+                  <p className="text-xs text-[#1B4FFF]">actualizados</p>
+                </div>
+              </div>
+              {result.conflictos.length > 0 && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+                  <p className="text-xs font-700 text-amber-800 mb-1">⚠️ {result.conflictos.length} conflicto(s) de N° serie (se conservó el de SimpleMDM):</p>
+                  <ul className="text-xs text-amber-800 space-y-0.5 max-h-32 overflow-y-auto">
+                    {result.conflictos.map(c => (
+                      <li key={c.codigo}><b>{c.codigo}</b>: hoja <code>{c.serie_hoja}</code> ≠ MDM <code>{c.serie_actual}</code></li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="px-6 py-4 border-t border-[#E5E5E5] flex justify-end gap-3">
+          {!result ? (
+            <>
+              <button onClick={onClose} className="px-4 py-2 text-sm text-[#666] hover:text-[#333] cursor-pointer">Cancelar</button>
+              <button onClick={run} disabled={importing || !text.trim()}
+                className="px-6 py-2 bg-[#1B4FFF] text-white text-sm font-700 rounded-full hover:bg-[#1340CC] disabled:opacity-60 cursor-pointer">
+                {importing ? "Importando…" : "Importar"}
+              </button>
+            </>
+          ) : (
+            <button onClick={onDone} className="px-6 py-2 bg-[#1B4FFF] text-white text-sm font-700 rounded-full hover:bg-[#1340CC] cursor-pointer">Listo</button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -436,6 +569,9 @@ function EquipmentModal({ data, onChange, onSave, onClose, saving }: ModalProps)
   const f = (key: keyof Equipment) => (data[key] as string) ?? "";
   const set = (key: keyof Equipment) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     onChange({ [key]: e.target.value });
+
+  const tipo = (data.tipo as string) ?? "alquiler";
+  const isVenta = tipo === "venta";
 
   // ── Financial calculator state ──────────────────────────────────────────
   const [calcMargin, setCalcMargin] = useState(TARGET_MARGIN * 100); // editable margin %
@@ -502,8 +638,19 @@ function EquipmentModal({ data, onChange, onSave, onClose, saving }: ModalProps)
 
         <div className="px-6 py-4 space-y-6 max-h-[78vh] overflow-y-auto">
 
-          {/* ══ CALCULADORA FINANCIERA ══════════════════════════════════════ */}
-          {precio > 0 && (
+          {/* Tipo de inventario */}
+          <div className="flex items-center gap-3 bg-[#F7F7F7] rounded-xl p-2">
+            <span className="text-xs font-700 text-[#666] pl-2">Tipo:</span>
+            {(["alquiler", "venta"] as const).map(t => (
+              <button key={t} type="button" onClick={() => onChange({ tipo: t })}
+                className={`flex-1 px-3 py-2 rounded-lg text-sm font-700 cursor-pointer transition-colors ${tipo === t ? "bg-[#1B4FFF] text-white" : "bg-white text-[#666] hover:bg-[#EEF2FF]"}`}>
+                {t === "alquiler" ? "🔄 Alquiler" : "🏷️ Venta"}
+              </button>
+            ))}
+          </div>
+
+          {/* ══ CALCULADORA FINANCIERA (solo alquiler) ══════════════════════ */}
+          {precio > 0 && !isVenta && (
             <div className="bg-[#EEF2FF] rounded-2xl p-4 border border-[#C7D2FE]">
               <div className="flex items-center justify-between mb-3">
                 <p className="text-xs font-800 text-[#1B4FFF] uppercase tracking-wide">Calculadora financiera</p>
@@ -643,7 +790,8 @@ function EquipmentModal({ data, onChange, onSave, onClose, saving }: ModalProps)
             </Row>
           </Section>
 
-          {/* Estado y arrendamiento */}
+          {/* Estado y arrendamiento (solo alquiler) */}
+          {!isVenta && (
           <Section title="Estado y arrendamiento">
             <Row>
               <SelectField label="Estado actual" value={f("estado_actual")} onChange={set("estado_actual")}
@@ -672,9 +820,17 @@ function EquipmentModal({ data, onChange, onSave, onClose, saving }: ModalProps)
               <Field label="Inicio compra" type="date" value={f("compra_inicio")?.split("T")[0]} onChange={set("compra_inicio")} />
             </Row>
           </Section>
+          )}
 
-          {/* Venta pública */}
-          <Section title="Venta al público (MacBooks usados)">
+          {/* Venta (solo tipo venta) */}
+          {isVenta && (
+          <Section title="Venta">
+            <Row>
+              <SelectField label="Estado actual" value={f("estado_actual")} onChange={set("estado_actual")}
+                options={["Disponible","Vendida","Reservada","Mantenimiento"]} />
+              <Field label="Ciclos de batería" type="number" value={String(data.battery_cycles ?? "")} onChange={set("battery_cycles")} placeholder="615" />
+              <Field label="Cliente anterior" value={f("cliente_actual")} onChange={set("cliente_actual")} placeholder="Securex Perú" />
+            </Row>
             <Row>
               <div className="col-span-2 sm:col-span-4">
                 <label className="flex items-center gap-3 cursor-pointer">
@@ -728,6 +884,7 @@ function EquipmentModal({ data, onChange, onSave, onClose, saving }: ModalProps)
               </Row>
             )}
           </Section>
+          )}
 
           {/* Credenciales del dispositivo */}
           <Section title="Credenciales del dispositivo (visibles para el cliente)">
@@ -737,7 +894,8 @@ function EquipmentModal({ data, onChange, onSave, onClose, saving }: ModalProps)
             </Row>
           </Section>
 
-          {/* Métricas financieras — calculadas o manuales */}
+          {/* Métricas financieras — calculadas o manuales (solo alquiler) */}
+          {!isVenta && (
           <Section title="Métricas financieras">
             <p className="text-xs text-[#999] -mt-2 mb-2">Usa la calculadora de arriba para auto-rellenar estos campos.</p>
             <Row>
@@ -747,6 +905,7 @@ function EquipmentModal({ data, onChange, onSave, onClose, saving }: ModalProps)
               <Field label="Rentabilidad (%)" type="number" value={f("rentabilidad_pct")} onChange={set("rentabilidad_pct")} placeholder="15.3" />
             </Row>
           </Section>
+          )}
 
           {/* Logística */}
           <Section title="Logística">

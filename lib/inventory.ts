@@ -20,3 +20,21 @@ export function normalizeChip(raw: string | null | undefined): string {
     .replace(/^apple\s+/, "")
     .replace(/\s+/g, " ");
 }
+
+import { query } from "@/lib/db";
+
+/**
+ * Migración idempotente del inventario. Agrega el discriminador `tipo`
+ * (alquiler | venta) y asegura `battery_cycles` (Ciclos). Mismo patrón que
+ * ensureMdmColumns en lib/simplemdm.ts: corre una sola vez por proceso.
+ */
+let inventoryColumnsEnsured = false;
+export async function ensureInventoryColumns(): Promise<void> {
+  if (inventoryColumnsEnsured) return;
+  await query(`
+    ALTER TABLE equipment
+      ADD COLUMN IF NOT EXISTS tipo           TEXT DEFAULT 'alquiler',
+      ADD COLUMN IF NOT EXISTS battery_cycles INTEGER
+  `);
+  inventoryColumnsEnsured = true;
+}
