@@ -805,7 +805,7 @@ function FileUpload({ label, value, onUrl, kind, codigo }: {
       <input
         ref={inputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp,application/pdf"
+        accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf,.heic,.heif"
         onChange={(e) => { const file = e.target.files?.[0]; if (file) handleFile(file); }}
         className="hidden"
       />
