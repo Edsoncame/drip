@@ -10,6 +10,28 @@
  */
 
 import { query } from "./db";
+import { modelKey } from "./inventory";
+
+/**
+ * Stock disponible EN VIVO por slug: cuenta equipos de alquiler "Disponible"
+ * agrupados por modelKey. Misma lógica que /api/stock — fuente de verdad del
+ * stock para el catálogo público.
+ */
+async function liveStockBySlug(): Promise<Record<string, number>> {
+  const res = await query<{ modelo_completo: string; disponible: string }>(
+    `SELECT modelo_completo,
+            COUNT(*) FILTER (WHERE estado_actual = 'Disponible') AS disponible
+     FROM equipment
+     WHERE COALESCE(tipo, 'alquiler') = 'alquiler'
+     GROUP BY modelo_completo`
+  );
+  const out: Record<string, number> = {};
+  for (const r of res.rows) {
+    const slug = modelKey(r.modelo_completo);
+    if (slug) out[slug] = (out[slug] ?? 0) + parseInt(r.disponible, 10);
+  }
+  return out;
+}
 
 /**
  * Forma del producto que esperan todos los componentes del frontend.
@@ -85,7 +107,14 @@ export async function getProducts(): Promise<Product[]> {
      WHERE active = true
      ORDER BY display_order ASC, created_at ASC`
   );
-  return res.rows.map(rowToProduct);
+  // El catálogo muestra SOLO modelos con unidades disponibles ahora mismo.
+  // Si toda la flota de un modelo está rentada, desaparece de la web hasta
+  // que se libere una unidad (o se agregue stock).
+  const live = await liveStockBySlug();
+  return res.rows
+    .map(rowToProduct)
+    .map((p) => ({ ...p, stock: live[p.slug] ?? 0 }))
+    .filter((p) => p.stock > 0);
 }
 
 /**

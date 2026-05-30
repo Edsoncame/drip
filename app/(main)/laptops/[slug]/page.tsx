@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import ProductDetail from "@/components/ProductDetail";
 import { ProductJsonLd, BreadcrumbJsonLd } from "@/components/JsonLd";
 import { query } from "@/lib/db";
+import { modelKey } from "@/lib/inventory";
 
 export const revalidate = 86400;
 
@@ -28,23 +29,17 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   };
 }
 
-async function getLiveStock(slug: string): Promise<number | null> {
+async function getLiveStock(slug: string): Promise<number> {
   try {
-    const MODEL_MAP: Record<string, string> = {
-      "macbook-air-13-m4": "MacBook Air",
-      "macbook-pro-14-m4": "MacBook Pro M4",
-      "macbook-pro-14-m5": "MacBook Pro M5",
-    };
-    const modelLike = MODEL_MAP[slug];
-    if (!modelLike) return null;
-    const r = await query(
-      `SELECT COUNT(*) AS disponible FROM equipment
-       WHERE modelo ILIKE $1 AND estado_actual = 'Disponible'`,
-      [`%${modelLike}%`]
+    const r = await query<{ modelo_completo: string; disponible: string }>(
+      `SELECT modelo_completo, COUNT(*) FILTER (WHERE estado_actual = 'Disponible') AS disponible
+       FROM equipment WHERE COALESCE(tipo,'alquiler')='alquiler' GROUP BY modelo_completo`
     );
-    return parseInt(r.rows[0]?.disponible ?? "0", 10);
+    let n = 0;
+    for (const row of r.rows) if (modelKey(row.modelo_completo) === slug) n += parseInt(row.disponible, 10);
+    return n;
   } catch {
-    return null;
+    return 0;
   }
 }
 
@@ -57,8 +52,10 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
     getAppleImageSets(),
     getLiveStock(slug),
   ]);
+  // Sin unidades disponibles → el modelo no se muestra en la web (404).
+  if (liveStock <= 0) notFound();
   const images = imageSets[slug];
-  const productWithStock = liveStock !== null ? { ...product, stock: liveStock } : product;
+  const productWithStock = { ...product, stock: liveStock };
 
   const BASE = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.fluxperu.com";
 
