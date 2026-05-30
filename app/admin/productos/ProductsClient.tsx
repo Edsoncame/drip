@@ -1,8 +1,15 @@
 "use client";
 
-import { useState, useRef, useTransition } from "react";
+import { useState, useRef, useTransition, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { calcAllPrices } from "@/lib/pricing-formula";
+
+interface VentaUnit {
+  id: string; codigo_interno: string; modelo_completo: string;
+  chip: string | null; ram: string | null; ssd: string | null; color: string | null;
+  battery_cycles: number | null; sale_price_usd: number | null; sale_condition: string | null;
+  precio_compra_usd: number | null; for_sale: boolean; estado_actual: string; image_url: string | null;
+}
 
 /**
  * Convierte un nombre de producto en un slug URL-friendly.
@@ -113,6 +120,48 @@ export default function ProductsClient({ initialProducts }: { initialProducts: P
     }
   };
 
+  // ── Tabs Alquiler/Venta + sincronización desde inventario ──
+  const [tab, setTab] = useState<"alquiler" | "venta">("alquiler");
+  const [syncing, setSyncing] = useState(false);
+  const [venta, setVenta] = useState<VentaUnit[] | null>(null);
+
+  const loadVenta = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/products/derived");
+      const json = await res.json();
+      if (res.ok) setVenta(json.venta ?? []);
+    } catch { /* noop */ }
+  }, []);
+
+  useEffect(() => { if (tab === "venta" && venta === null) loadVenta(); }, [tab, venta, loadVenta]);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const res = await fetch("/api/admin/products/derived", { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) { showToast("error", json.error ?? "Error"); return; }
+      const faltan = (json.sinImagen ?? []).length;
+      showToast("success", `Sincronizado ✓ ${json.creados} creados · ${json.actualizados} actualizados${faltan ? ` · ${faltan} sin imagen` : ""}`);
+      setVenta(null);
+      startTransition(() => router.refresh());
+    } catch (e) {
+      showToast("error", e instanceof Error ? e.message : "Error");
+    } finally { setSyncing(false); }
+  };
+
+  const handleToggleForSale = async (u: VentaUnit) => {
+    const res = await fetch("/api/admin/equipment", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: u.id, for_sale: !u.for_sale, ...(!u.for_sale && { sale_listed_at: new Date().toISOString() }) }),
+    });
+    if (res.ok) {
+      showToast("success", u.for_sale ? "Oculto de /comprar" : "Publicado en /comprar");
+      setVenta((prev) => prev?.map((x) => x.id === u.id ? { ...x, for_sale: !x.for_sale } : x) ?? null);
+    }
+  };
+
   return (
     <>
       {toast && (
@@ -123,20 +172,38 @@ export default function ProductsClient({ initialProducts }: { initialProducts: P
         </div>
       )}
 
-      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-800 text-[#18191F]">Productos</h1>
-          <p className="text-sm text-[#999]">Catálogo que aparece en fluxperu.com/laptops</p>
+          <p className="text-sm text-[#999]">Specs, precio y stock se jalan del <b>inventario</b>. Aquí solo gestionas imagen y copy web.</p>
         </div>
-        <button
-          onClick={() => setEditing({ ...empty })}
-          className="px-5 py-2.5 bg-[#1B4FFF] text-white text-sm font-700 rounded-full hover:bg-[#1340CC] cursor-pointer"
-        >
-          + Nuevo producto
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={handleSync} disabled={syncing}
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-white text-[#1B4FFF] border border-[#1B4FFF] text-sm font-700 rounded-full hover:bg-[#EEF2FF] cursor-pointer disabled:opacity-60">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className={syncing ? "animate-spin" : ""}><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
+            {syncing ? "Sincronizando…" : "Sincronizar desde inventario"}
+          </button>
+          {tab === "alquiler" && (
+            <button onClick={() => setEditing({ ...empty })}
+              className="px-5 py-2.5 bg-[#1B4FFF] text-white text-sm font-700 rounded-full hover:bg-[#1340CC] cursor-pointer">
+              + Nuevo
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Grid of products */}
+      {/* Tabs Alquiler | Venta */}
+      <div className="flex gap-2 mb-6 border-b border-[#E5E5E5]">
+        {(["alquiler", "venta"] as const).map(t => (
+          <button key={t} onClick={() => setTab(t)}
+            className={`px-4 py-2 text-sm font-700 border-b-2 -mb-px cursor-pointer transition-colors ${tab === t ? "border-[#1B4FFF] text-[#1B4FFF]" : "border-transparent text-[#999] hover:text-[#333]"}`}>
+            {t === "alquiler" ? "🔄 Alquiler (por modelo)" : "🏷️ Venta (por unidad)"}
+          </button>
+        ))}
+      </div>
+
+      {/* Grid de ALQUILER (por modelo) */}
+      {tab === "alquiler" && (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {initialProducts.map((p) => (
           <div key={p.id} className={`bg-white rounded-2xl border overflow-hidden ${p.active ? "border-[#E5E5E5]" : "border-red-200 opacity-60"}`}>
@@ -182,7 +249,53 @@ export default function ProductsClient({ initialProducts }: { initialProducts: P
             </div>
           </div>
         ))}
+        {initialProducts.length === 0 && (
+          <p className="text-sm text-[#999] col-span-full">Aún no hay modelos. Dale a <b>“Sincronizar desde inventario”</b> para crearlos automáticamente.</p>
+        )}
       </div>
+      )}
+
+      {/* Grid de VENTA (por unidad, derivado del inventario) */}
+      {tab === "venta" && (
+        venta === null ? (
+          <p className="text-sm text-[#999]">Cargando unidades en venta…</p>
+        ) : venta.length === 0 ? (
+          <p className="text-sm text-[#999]">No hay equipos de tipo <b>Venta</b>. Pásalos desde Inventario → pestaña Venta.</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {venta.map((u) => {
+              const savings = u.precio_compra_usd && u.sale_price_usd ? Math.round((1 - u.sale_price_usd / u.precio_compra_usd) * 100) : null;
+              return (
+                <div key={u.id} className={`bg-white rounded-2xl border overflow-hidden ${u.for_sale ? "border-[#E5E5E5]" : "border-amber-200"}`}>
+                  <div className="aspect-video bg-[#F7F7F7] flex items-center justify-center relative">
+                    {u.image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={u.image_url} alt={u.modelo_completo} className="w-full h-full object-contain" />
+                    ) : <span className="text-4xl">💻</span>}
+                    {!u.for_sale && <div className="absolute top-2 left-2 bg-amber-500 text-white text-[10px] font-700 px-2 py-0.5 rounded-full">SIN PUBLICAR</div>}
+                  </div>
+                  <div className="p-4">
+                    <p className="font-700 text-[#18191F] text-sm truncate">{u.modelo_completo}</p>
+                    <p className="text-[10px] text-[#999] font-mono">{u.codigo_interno}</p>
+                    <p className="text-xs text-[#666] mt-1">{u.chip} · {u.ram} · {u.ssd}{u.battery_cycles != null ? ` · ${u.battery_cycles} ciclos` : ""}</p>
+                    <div className="mt-3 pt-3 border-t border-[#F0F0F0] flex items-center justify-between">
+                      <span className="font-800 text-[#18191F]">{u.sale_price_usd != null ? `$${u.sale_price_usd}` : "Sin precio"}</span>
+                      {savings != null && <span className="text-xs text-green-600 font-700">-{savings}%</span>}
+                    </div>
+                    <p className="text-[11px] text-[#999] mt-1">{u.sale_condition ?? "Sin condición"} · {u.estado_actual}</p>
+                  </div>
+                  <div className="flex border-t border-[#F0F0F0]">
+                    <button onClick={() => handleToggleForSale(u)} className={`flex-1 py-2 text-xs font-700 cursor-pointer ${u.for_sale ? "text-[#666] hover:bg-[#F7F7F7]" : "text-[#1B4FFF] hover:bg-[#EEF2FF]"}`}>
+                      {u.for_sale ? "Ocultar de /comprar" : "Publicar en /comprar"}
+                    </button>
+                    <a href="/admin/inventario" className="flex-1 py-2 text-center text-xs font-700 text-[#666] hover:bg-[#F7F7F7] border-l border-[#F0F0F0]">Editar en inventario</a>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )
+      )}
 
       {isPending && <p className="text-xs text-[#1B4FFF] mt-3">Actualizando...</p>}
 
