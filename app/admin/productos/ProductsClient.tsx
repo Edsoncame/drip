@@ -2,7 +2,14 @@
 
 import { useState, useRef, useTransition, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { calcAllPrices } from "@/lib/pricing-formula";
+
+interface DerivedModel {
+  slug: string; modelo_completo: string | null;
+  chip: string | null; ram: string | null; ssd: string | null; color: string | null;
+  total: number; stock: number; avgCost: number;
+  pricing: { months: number; price: number }[];
+  overlay: { name: string; short_name: string; image_url: string; badge: string | null; is_new: boolean; active: boolean; display_order: number } | null;
+}
 
 interface VentaUnit {
   id: string; codigo_interno: string; modelo_completo: string;
@@ -47,39 +54,6 @@ export interface ProductRow {
   active: boolean;
 }
 
-const empty: ProductRow = {
-  id: "",
-  slug: "",
-  name: "",
-  short_name: "",
-  chip: "Apple M4",
-  ram: "16 GB",
-  ssd: "256 GB SSD",
-  color: "Gris Espacial",
-  image_url: "",
-  badge: null,
-  is_new: false,
-  stock: 0,
-  cost_usd: null,
-  pricing: [
-    { months: 8, price: 0 },
-    { months: 16, price: 0 },
-    { months: 24, price: 0 },
-  ],
-  specs: [
-    { label: "Chip", value: "" },
-    { label: "CPU", value: "" },
-    { label: "GPU", value: "" },
-    { label: "RAM", value: "" },
-    { label: "SSD", value: "" },
-    { label: "Pantalla", value: "" },
-    { label: "Batería", value: "" },
-    { label: "Peso", value: "" },
-  ],
-  includes: [],
-  display_order: 999,
-  active: true,
-};
 
 export default function ProductsClient({ initialProducts }: { initialProducts: ProductRow[] }) {
   const router = useRouter();
@@ -150,6 +124,47 @@ export default function ProductsClient({ initialProducts }: { initialProducts: P
     } finally { setSyncing(false); }
   };
 
+  // ── Selector de modelos del inventario para "agregar producto" ──
+  const [picker, setPicker] = useState<DerivedModel[] | null>(null);
+  const [pickerLoading, setPickerLoading] = useState(false);
+
+  const openPicker = async () => {
+    setPickerLoading(true);
+    try {
+      const res = await fetch("/api/admin/products/derived");
+      const json = await res.json();
+      if (res.ok) setPicker(json.alquiler ?? []);
+      else showToast("error", json.error ?? "Error");
+    } catch (e) {
+      showToast("error", e instanceof Error ? e.message : "Error");
+    } finally { setPickerLoading(false); }
+  };
+
+  const chooseModel = (m: DerivedModel) => {
+    const existing = initialProducts.find((p) => p.slug === m.slug);
+    setEditing({
+      id: existing?.id ?? "",
+      slug: m.slug,
+      name: existing?.name || m.overlay?.name || m.modelo_completo || m.slug,
+      short_name: existing?.short_name || m.overlay?.short_name || (m.modelo_completo ?? ""),
+      chip: m.chip ?? "", ram: m.ram ?? "", ssd: m.ssd ?? "", color: m.color ?? "",
+      image_url: existing?.image_url ?? "",
+      badge: existing?.badge ?? null,
+      is_new: existing?.is_new ?? false,
+      stock: m.stock,
+      cost_usd: m.avgCost ? String(m.avgCost) : null,
+      pricing: m.pricing,
+      specs: existing?.specs?.length ? existing.specs : [
+        { label: "Chip", value: m.chip ?? "" }, { label: "RAM", value: m.ram ?? "" },
+        { label: "SSD", value: m.ssd ?? "" }, { label: "Color", value: m.color ?? "" },
+      ],
+      includes: existing?.includes ?? [],
+      display_order: existing?.display_order ?? 999,
+      active: true,
+    });
+    setPicker(null);
+  };
+
   const handleToggleForSale = async (u: VentaUnit) => {
     const res = await fetch("/api/admin/equipment", {
       method: "PATCH",
@@ -184,9 +199,9 @@ export default function ProductsClient({ initialProducts }: { initialProducts: P
             {syncing ? "Sincronizando…" : "Sincronizar desde inventario"}
           </button>
           {tab === "alquiler" && (
-            <button onClick={() => setEditing({ ...empty })}
-              className="px-5 py-2.5 bg-[#1B4FFF] text-white text-sm font-700 rounded-full hover:bg-[#1340CC] cursor-pointer">
-              + Nuevo
+            <button onClick={openPicker} disabled={pickerLoading}
+              className="px-5 py-2.5 bg-[#1B4FFF] text-white text-sm font-700 rounded-full hover:bg-[#1340CC] cursor-pointer disabled:opacity-60">
+              {pickerLoading ? "Cargando…" : "+ Agregar del inventario"}
             </button>
           )}
         </div>
@@ -298,6 +313,46 @@ export default function ProductsClient({ initialProducts }: { initialProducts: P
       )}
 
       {isPending && <p className="text-xs text-[#1B4FFF] mt-3">Actualizando...</p>}
+
+      {/* Selector: elige un modelo del inventario para publicarlo */}
+      {picker && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 overflow-y-auto py-8 px-4" onClick={() => setPicker(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-xl shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E5E5]">
+              <div>
+                <h3 className="font-800 text-[#18191F]">Agregar del inventario</h3>
+                <p className="text-xs text-[#999]">Elige un modelo. Solo le agregas imagen y copy.</p>
+              </div>
+              <button onClick={() => setPicker(null)} className="text-[#999] hover:text-[#333] text-2xl cursor-pointer">✕</button>
+            </div>
+            <div className="p-4 space-y-2 max-h-[60vh] overflow-y-auto">
+              {picker.length === 0 && <p className="text-sm text-[#999] p-4 text-center">No hay modelos en el inventario de alquiler.</p>}
+              {picker.map((m) => {
+                const existing = initialProducts.find((p) => p.slug === m.slug);
+                const publicado = existing && existing.image_url;
+                return (
+                  <button key={m.slug} onClick={() => chooseModel(m)}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl border border-[#E5E5E5] hover:border-[#1B4FFF] hover:bg-[#EEF2FF] text-left cursor-pointer transition-colors">
+                    <div className="w-12 h-12 rounded-lg bg-[#F7F7F7] flex items-center justify-center overflow-hidden flex-shrink-0">
+                      {existing?.image_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={existing.image_url} alt="" className="w-full h-full object-contain" />
+                      ) : <span className="text-xl">💻</span>}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-700 text-sm text-[#18191F] truncate">{m.modelo_completo ?? m.slug}</p>
+                      <p className="text-xs text-[#666]">{m.chip} · {m.ram} · {m.ssd} · {m.total} en inventario · {m.stock} disp.</p>
+                    </div>
+                    <span className={`text-[10px] font-700 px-2 py-1 rounded-full flex-shrink-0 ${publicado ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+                      {publicado ? "Editar" : "Agregar"}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {editing && (
         <ProductModal
@@ -440,20 +495,6 @@ function ProductModal({
     }
   };
 
-  const applyCalculator = () => {
-    const cost = Number(form.cost_usd);
-    if (!cost || cost <= 0) {
-      onError("Ingresa el costo del equipo primero");
-      return;
-    }
-    const calculated = calcAllPrices(cost, form.slug);
-    const updated = form.pricing.map((p) => {
-      const match = calculated.find((c) => c.months === p.months && c.plan.startsWith("estreno_"));
-      return match ? { months: p.months, price: match.offline } : p;
-    });
-    setForm({ ...form, pricing: updated });
-  };
-
   const handleSave = async () => {
     if (!form.slug.trim() || !form.name.trim() || !form.image_url) {
       onError("Completa slug, nombre e imagen");
@@ -488,12 +529,6 @@ function ProductModal({
 
   const addSpec = () => setForm({ ...form, specs: [...form.specs, { label: "", value: "" }] });
   const removeSpec = (idx: number) => setForm({ ...form, specs: form.specs.filter((_, i) => i !== idx) });
-
-  const updatePricing = (idx: number, field: "months" | "price", value: number) => {
-    const pricing = [...form.pricing];
-    pricing[idx] = { ...pricing[idx], [field]: value };
-    setForm({ ...form, pricing });
-  };
 
   const addInclude = () => setForm({ ...form, includes: [...form.includes, ""] });
   const updateInclude = (idx: number, value: string) => {
@@ -717,17 +752,27 @@ function ProductModal({
             </Row>
             <Row>
               <Field label="Nombre corto *" value={form.short_name} onChange={(v) => setForm({ ...form, short_name: v })} placeholder="MacBook Air 13&quot;" />
-              <Field label="Color" value={form.color} onChange={(v) => setForm({ ...form, color: v })} placeholder="Gris Espacial" />
-            </Row>
-            <Row>
-              <Field label="Chip" value={form.chip} onChange={(v) => setForm({ ...form, chip: v })} placeholder="Apple M4" />
-              <Field label="RAM" value={form.ram} onChange={(v) => setForm({ ...form, ram: v })} placeholder="16 GB" />
-              <Field label="SSD" value={form.ssd} onChange={(v) => setForm({ ...form, ssd: v })} placeholder="256 GB SSD" />
-            </Row>
-            <Row>
               <Field label="Badge (opcional)" value={form.badge ?? ""} onChange={(v) => setForm({ ...form, badge: v || null })} placeholder="Nuevo 2025" />
-              <Field label="Stock" type="number" value={String(form.stock)} onChange={(v) => setForm({ ...form, stock: parseInt(v || "0") })} />
-              <Field label="Orden" type="number" value={String(form.display_order)} onChange={(v) => setForm({ ...form, display_order: parseInt(v || "0") })} />
+            </Row>
+
+            {/* Specs, stock y precio — vienen del inventario (no se editan aquí) */}
+            <div className="bg-[#F7F7F7] rounded-xl p-3 text-xs">
+              <p className="font-700 text-[#666] mb-2">📦 Desde inventario (no editable)</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-1 gap-x-3 text-[#333]">
+                <div><span className="text-[#999]">Chip:</span> {form.chip || "—"}</div>
+                <div><span className="text-[#999]">RAM:</span> {form.ram || "—"}</div>
+                <div><span className="text-[#999]">SSD:</span> {form.ssd || "—"}</div>
+                <div><span className="text-[#999]">Color:</span> {form.color || "—"}</div>
+                <div><span className="text-[#999]">Stock:</span> {form.stock}</div>
+                <div><span className="text-[#999]">Costo:</span> {form.cost_usd ? `$${form.cost_usd}` : "—"}</div>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-3 pt-2 border-t border-[#E5E5E5]">
+                {form.pricing.map((p) => <span key={p.months} className="font-700 text-[#18191F]">{p.months}m: ${p.price}/mes</span>)}
+              </div>
+            </div>
+
+            <Row>
+              <Field label="Orden de aparición" type="number" value={String(form.display_order)} onChange={(v) => setForm({ ...form, display_order: parseInt(v || "0") })} />
             </Row>
             <label className="flex items-center gap-2 text-sm text-[#333] cursor-pointer">
               <input type="checkbox" checked={form.is_new} onChange={(e) => setForm({ ...form, is_new: e.target.checked })} />
@@ -735,65 +780,7 @@ function ProductModal({
             </label>
           </Section>
 
-          {/* Price calculator */}
-          <Section title="💰 Calculadora de precios">
-            <p className="text-xs text-[#666] mb-3">
-              Ingresa el costo de compra del equipo y presiona el botón para calcular automáticamente los precios de los 3 planes.
-            </p>
-            <div className="flex items-end gap-3 flex-wrap">
-              <div className="flex-1 min-w-[160px]">
-                <label className="block text-xs text-[#666] mb-1">Costo del equipo (USD)</label>
-                <input
-                  type="number"
-                  value={form.cost_usd ?? ""}
-                  onChange={(e) => setForm({ ...form, cost_usd: e.target.value || null })}
-                  placeholder="1200"
-                  step="0.01"
-                  className="w-full px-3 py-2 text-sm border border-[#E5E5E5] rounded-xl outline-none focus:border-[#1B4FFF]"
-                />
-              </div>
-              <button
-                type="button"
-                onClick={applyCalculator}
-                className="px-5 py-2 bg-[#1B4FFF] text-white text-sm font-700 rounded-xl hover:bg-[#1340CC] cursor-pointer"
-              >
-                Calcular precios →
-              </button>
-            </div>
-          </Section>
-
-          {/* Pricing */}
-          <Section title="Planes y precios (USD/mes)">
-            <p className="text-xs text-[#666] mb-3">Precio mensual offline (sin comisión Stripe). Usa la calculadora arriba o ingresa manualmente.</p>
-            <div className="space-y-2">
-              {form.pricing.map((p, i) => (
-                <div key={i} className="flex items-center gap-3">
-                  <div className="flex-1">
-                    <label className="block text-[10px] text-[#999] mb-0.5">Meses</label>
-                    <input
-                      type="number"
-                      value={p.months}
-                      onChange={(e) => updatePricing(i, "months", parseInt(e.target.value || "0"))}
-                      className="w-full px-3 py-2 text-sm border border-[#E5E5E5] rounded-xl outline-none focus:border-[#1B4FFF]"
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <label className="block text-[10px] text-[#999] mb-0.5">Precio USD/mes</label>
-                    <input
-                      type="number"
-                      value={p.price}
-                      onChange={(e) => updatePricing(i, "price", parseFloat(e.target.value || "0"))}
-                      step="0.01"
-                      className="w-full px-3 py-2 text-sm border border-[#E5E5E5] rounded-xl outline-none focus:border-[#1B4FFF]"
-                    />
-                  </div>
-                  <div className="text-xs text-[#666] w-24">
-                    Total: <strong>${(p.price * p.months).toFixed(0)}</strong>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Section>
+          {/* Precio y specs vienen del inventario — se muestran arriba en solo-lectura */}
 
           {/* Specs */}
           <Section title="Especificaciones técnicas">
