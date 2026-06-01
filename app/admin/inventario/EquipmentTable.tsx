@@ -568,6 +568,14 @@ type ModalProps = {
 
 function EquipmentModal({ data, onChange, onSave, onClose, saving }: ModalProps) {
   const f = (key: keyof Equipment) => (data[key] as string) ?? "";
+  // Para <input type="date">: Postgres devuelve fechas como Date (no string),
+  // así que normalizamos a "YYYY-MM-DD" aceptando Date | string | null.
+  const fdate = (key: keyof Equipment): string => {
+    const v = data[key] as unknown;
+    if (!v) return "";
+    if (v instanceof Date) return v.toISOString().slice(0, 10);
+    return String(v).slice(0, 10);
+  };
   const set = (key: keyof Equipment) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     onChange({ [key]: e.target.value });
 
@@ -768,7 +776,7 @@ function EquipmentModal({ data, onChange, onSave, onClose, saving }: ModalProps)
           <Section title="Compra y financiamiento">
             <Row>
               <Field label="Proveedor" value={f("proveedor")} onChange={set("proveedor")} placeholder="CASESWORLD" />
-              <Field label="Fecha compra" type="date" value={f("fecha_compra")?.split("T")[0]} onChange={set("fecha_compra")} />
+              <Field label="Fecha compra" type="date" value={fdate("fecha_compra")} onChange={set("fecha_compra")} />
               <FileUpload label="Factura (PDF/imagen)" value={f("factura_url")} onUrl={(url) => onChange({ factura_url: url })} kind="factura" codigo={f("codigo_interno") || "nuevo"} />
               <FileUpload label="Foto clave vault" value={f("clave_vault_url")} onUrl={(url) => onChange({ clave_vault_url: url })} kind="vault" codigo={f("codigo_interno") || "nuevo"} />
               <Field label="URL Marketplace" value={f("web_url")} onChange={set("web_url")} placeholder="https://mercadolibre.com/…" />
@@ -801,8 +809,8 @@ function EquipmentModal({ data, onChange, onSave, onClose, saving }: ModalProps)
               <Field label="Duración arriendo (m)" type="number" value={String(data.tipo_arriendo_meses ?? "")} onChange={set("tipo_arriendo_meses")} placeholder="16" />
             </Row>
             <Row>
-              <Field label="Inicio alquiler" type="date" value={f("inicio_alquiler")?.split("T")[0]} onChange={set("inicio_alquiler")} />
-              <Field label="Fin alquiler" type="date" value={f("fin_alquiler")?.split("T")[0]} onChange={set("fin_alquiler")} />
+              <Field label="Inicio alquiler" type="date" value={fdate("inicio_alquiler")} onChange={set("inicio_alquiler")} />
+              <Field label="Fin alquiler" type="date" value={fdate("fin_alquiler")} onChange={set("fin_alquiler")} />
               <Field label="Tarifa (USD/mes)" type="number" value={f("tarifa_usd")} onChange={set("tarifa_usd")} placeholder="120" />
               <Field label="OPEX (USD/mes)" type="number" value={f("opex_usd")} onChange={set("opex_usd")} placeholder="32.50" />
             </Row>
@@ -818,7 +826,7 @@ function EquipmentModal({ data, onChange, onSave, onClose, saving }: ModalProps)
               <SelectField label="Opción de compra" value={f("compra_status") ?? "no_desea"} onChange={set("compra_status")}
                 options={["no_desea", "contrato_firmado", "en_proceso", "desestimado", "completada"]} />
               <Field label="Notas compra" value={f("compra_notas")} onChange={set("compra_notas")} placeholder="Firmó contrato..." />
-              <Field label="Inicio compra" type="date" value={f("compra_inicio")?.split("T")[0]} onChange={set("compra_inicio")} />
+              <Field label="Inicio compra" type="date" value={fdate("compra_inicio")} onChange={set("compra_inicio")} />
             </Row>
           </Section>
           )}
@@ -911,7 +919,7 @@ function EquipmentModal({ data, onChange, onSave, onClose, saving }: ModalProps)
           {/* Logística */}
           <Section title="Logística">
             <Row>
-              <Field label="Próximo mantenimiento" type="date" value={f("mantenimiento_proximo")?.split("T")[0]} onChange={set("mantenimiento_proximo")} />
+              <Field label="Próximo mantenimiento" type="date" value={fdate("mantenimiento_proximo")} onChange={set("mantenimiento_proximo")} />
               <Field label="Ubicación física" value={f("ubicacion_fisica")} onChange={set("ubicacion_fisica")} placeholder="Av. Primavera 543 – Lima" />
               <Field label="Responsable" value={f("responsable")} onChange={set("responsable")} placeholder="Tika Admin" />
             </Row>
