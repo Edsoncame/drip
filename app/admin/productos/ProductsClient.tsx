@@ -11,8 +11,9 @@ function saleResidualPct(monthsUsed: number): number {
 function roundTo5(n: number): number { return Math.round(n / 5) * 5; }
 function calcSalePrice(cost: number, monthsUsed: number) {
   const residualPct = saleResidualPct(monthsUsed);
-  const offline = roundTo5((cost * residualPct) / 100);
-  const online = roundTo5(offline * 1.045); // +comisión Stripe
+  const raw = (cost * residualPct) / 100;
+  const offline = roundTo5(raw);
+  const online = roundTo5(raw * 1.045); // +comisión Stripe (sobre el residual crudo)
   return { residualPct, offline, online };
 }
 
