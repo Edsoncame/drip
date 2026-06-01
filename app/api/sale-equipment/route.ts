@@ -13,6 +13,7 @@ export interface SaleEquipment {
   sale_condition: string;
   sale_listed_at: string;
   precio_compra_usd: number | null;
+  battery_cycles: number | null;
   image_url: string | null;
   slug: string | null;
 }
@@ -32,7 +33,7 @@ export async function GET() {
          COALESCE(e.sale_condition, 'Bueno') AS sale_condition,
          e.sale_listed_at,
          e.precio_compra_usd::float AS precio_compra_usd,
-         p.image_url,
+         COALESCE(e.image_url, p.image_url) AS image_url,
          p.slug
        FROM equipment e
        LEFT JOIN products p

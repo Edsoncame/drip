@@ -77,7 +77,8 @@ export async function ensureInventoryColumns(): Promise<void> {
   await query(`
     ALTER TABLE equipment
       ADD COLUMN IF NOT EXISTS tipo           TEXT DEFAULT 'alquiler',
-      ADD COLUMN IF NOT EXISTS battery_cycles INTEGER
+      ADD COLUMN IF NOT EXISTS battery_cycles INTEGER,
+      ADD COLUMN IF NOT EXISTS image_url      TEXT
   `);
   inventoryColumnsEnsured = true;
 }

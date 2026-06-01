@@ -93,7 +93,7 @@ export async function PATCH(req: NextRequest) {
     'usuario_dispositivo','clave_dispositivo','clave_vault','clave_vault_url','observaciones',
     'colaborador','compra_status','compra_notas','compra_inicio','tipo_renta','meses_uso_previo','area',
     'for_sale','sale_price_usd','sale_condition','sale_listed_at',
-    'tipo','battery_cycles',
+    'tipo','battery_cycles','image_url',
   ];
 
   const updates: string[] = [];

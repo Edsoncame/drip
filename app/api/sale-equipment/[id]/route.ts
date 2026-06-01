@@ -13,7 +13,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
          COALESCE(e.sale_condition, 'Bueno') AS sale_condition,
          e.sale_listed_at,
          e.precio_compra_usd::float AS precio_compra_usd,
-         p.image_url, p.slug
+         e.battery_cycles,
+         COALESCE(e.image_url, p.image_url) AS image_url, p.slug
        FROM equipment e
        LEFT JOIN products p
          ON e.modelo_completo ILIKE '%' || CASE
