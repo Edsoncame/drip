@@ -3,6 +3,7 @@
 import { useState, useRef, useTransition, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { calcAllPrices } from "@/lib/pricing-formula";
+import { compressImage } from "@/lib/compress-image";
 
 // ── Calculadora de VENTA (equipos usados): residual baja con los meses de uso ──
 function saleResidualPct(monthsUsed: number): number {
@@ -505,13 +506,16 @@ function ProductModal({
   const handleFileUpload = async (file: File) => {
     setUploading(true);
     try {
+      const small = await compressImage(file);
       const fd = new FormData();
-      fd.append("file", file);
+      fd.append("file", small);
       fd.append("slug", form.slug || "new");
       const res = await fetch("/api/admin/products/upload", { method: "POST", body: fd });
-      const json = await res.json();
+      const text = await res.text();
+      let json: { url?: string; error?: string };
+      try { json = JSON.parse(text); } catch { throw new Error(res.status === 413 ? "Imagen muy pesada, intenta otra" : `Error ${res.status}`); }
       if (!res.ok) throw new Error(json.error || "Error al subir");
-      setForm((f) => ({ ...f, image_url: json.url }));
+      setForm((f) => ({ ...f, image_url: json.url! }));
     } catch (e) {
       onError(e instanceof Error ? e.message : "Error");
     } finally {
@@ -1040,12 +1044,15 @@ function VentaModal({ unit, onClose, onSaved, onError }: {
   const upload = async (file: File) => {
     setUploading(true);
     try {
+      const small = await compressImage(file);
       const fd = new FormData();
-      fd.append("file", file); fd.append("kind", "venta"); fd.append("codigo", unit.codigo_interno);
+      fd.append("file", small); fd.append("kind", "venta"); fd.append("codigo", unit.codigo_interno);
       const res = await fetch("/api/admin/equipment/upload", { method: "POST", body: fd });
-      const json = await res.json();
+      const text = await res.text();
+      let json: { url?: string; error?: string };
+      try { json = JSON.parse(text); } catch { throw new Error(res.status === 413 ? "Imagen muy pesada, intenta otra" : `Error ${res.status}`); }
       if (!res.ok) throw new Error(json.error || "Error al subir");
-      setImageUrl(json.url);
+      setImageUrl(json.url!);
     } catch (e) { onError(e instanceof Error ? e.message : "Error"); }
     finally { setUploading(false); }
   };

@@ -6,6 +6,7 @@ import {
   calcPlan, solveMonthlyRate, monthlyToAnnualPct, calcCuota,
   PLAN_RESIDUAL_PCT, TARGET_MARGIN,
 } from "@/lib/finance";
+import { compressImage } from "@/lib/compress-image";
 
 export interface Equipment {
   id: string;
@@ -984,14 +985,17 @@ function FileUpload({ label, value, onUrl, kind, codigo }: {
     setError(null);
     setUploading(true);
     try {
+      const small = await compressImage(file); // HEIC→JPG + reduce tamaño antes de subir
       const fd = new FormData();
-      fd.append("file", file);
+      fd.append("file", small);
       fd.append("kind", kind);
       fd.append("codigo", codigo);
       const res = await fetch("/api/admin/equipment/upload", { method: "POST", body: fd });
-      const json = await res.json();
+      const text = await res.text();
+      let json: { url?: string; error?: string };
+      try { json = JSON.parse(text); } catch { throw new Error(res.status === 413 ? "Archivo muy pesado, intenta otra foto" : `Error ${res.status}`); }
       if (!res.ok) throw new Error(json.error || "Error al subir");
-      onUrl(json.url);
+      onUrl(json.url!);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error");
     } finally {
