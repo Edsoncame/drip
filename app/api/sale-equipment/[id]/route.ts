@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { ensureInventoryColumns } from "@/lib/inventory";
 import type { SaleEquipment } from "../route";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
+    await ensureInventoryColumns();
     const result = await query<SaleEquipment>(
       `SELECT
          e.id, e.codigo_interno, e.modelo_completo, e.chip, e.ram, e.ssd, e.color,

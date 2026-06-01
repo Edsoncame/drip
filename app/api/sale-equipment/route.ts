@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { ensureInventoryColumns } from "@/lib/inventory";
 
 export interface SaleEquipment {
   id: string;
@@ -20,6 +21,7 @@ export interface SaleEquipment {
 
 export async function GET() {
   try {
+    await ensureInventoryColumns();
     const result = await query<SaleEquipment>(
       `SELECT
          e.id,
