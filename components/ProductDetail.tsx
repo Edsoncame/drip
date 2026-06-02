@@ -35,10 +35,10 @@ export default function ProductDetail({ product, images }: { product: Product; i
   const selected = product.pricing.find(p => p.months === selectedMonths)!;
   const total = selected.price * selected.months;
 
-  // Fallback: si el producto no está en el mapa de Apple CDN (getAppleImageSets),
-  // usa la imagen que el admin subió a DB (product.image).
-  const galleryImgs = images?.gallery ?? (product.image ? [product.image] : []);
-  const currentImg = galleryImgs[activeImg] ?? images?.open ?? product.image ?? null;
+  // Prioridad: la imagen que el admin subió a DB (product.image) manda.
+  // Solo si el producto no tiene imagen propia se usa el mapa de Apple CDN.
+  const galleryImgs = product.image ? [product.image] : (images?.gallery ?? []);
+  const currentImg = galleryImgs[activeImg] ?? product.image ?? images?.open ?? null;
 
   useEffect(() => {
     trackViewItem({ name: product.name, slug: product.slug, price: selected.price, months: selectedMonths });
