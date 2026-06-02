@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getProduct, getProducts } from "@/lib/products";
+import { getProduct } from "@/lib/products";
 import { getAppleImageSets } from "@/lib/appleImages";
 import { notFound } from "next/navigation";
 import ProductDetail from "@/components/ProductDetail";
@@ -7,12 +7,10 @@ import { ProductJsonLd, BreadcrumbJsonLd } from "@/components/JsonLd";
 import { query } from "@/lib/db";
 import { modelKey } from "@/lib/inventory";
 
-export const revalidate = 86400;
-
-export async function generateStaticParams() {
-  const products = await getProducts();
-  return products.map(p => ({ slug: p.slug }));
-}
+// Dinámico: precio y stock se leen en vivo del inventario en cada visita,
+// así los cambios de precio/stock se reflejan al instante (antes era ISR 24h
+// y la página quedaba congelada con precios viejos).
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
