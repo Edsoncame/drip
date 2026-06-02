@@ -506,7 +506,7 @@ function ProductModal({
   const handleFileUpload = async (file: File) => {
     setUploading(true);
     try {
-      const small = await compressImage(file);
+      const small = await compressImage(file, { reframe: true });
       const fd = new FormData();
       fd.append("file", small);
       fd.append("slug", form.slug || "new");
@@ -1044,7 +1044,7 @@ function VentaModal({ unit, onClose, onSaved, onError }: {
   const upload = async (file: File) => {
     setUploading(true);
     try {
-      const small = await compressImage(file);
+      const small = await compressImage(file, { reframe: true });
       const fd = new FormData();
       fd.append("file", small); fd.append("kind", "venta"); fd.append("codigo", unit.codigo_interno);
       const res = await fetch("/api/admin/equipment/upload", { method: "POST", body: fd });
