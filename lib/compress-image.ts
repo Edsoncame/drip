@@ -53,7 +53,7 @@ export async function compressImage(file: File, opts: Opts = {}): Promise<File> 
     const box = contentBounds(tctx, img.width, img.height);
 
     // 2) Marco 4:3 de salida con el producto centrado al ~88% del lado largo.
-    const OUT_W = 1600, OUT_H = 1200, FILL = 0.88;
+    const OUT_W = 1600, OUT_H = 1200, FILL = 0.9;
     canvas.width = OUT_W; canvas.height = OUT_H;
     ctx.fillStyle = "#FFFFFF";
     ctx.fillRect(0, 0, OUT_W, OUT_H);
@@ -88,7 +88,9 @@ function contentBounds(ctx: CanvasRenderingContext2D, w: number, h: number) {
       const i = (y * w + x) * 4;
       const a = data[i + 3];
       const r = data[i], g = data[i + 1], b = data[i + 2];
-      const isBg = a < 12 || (r > 244 && g > 244 && b > 244);
+      const mn = Math.min(r, g, b), mx = Math.max(r, g, b);
+      // Fondo = transparente, o blanco/gris claro casi neutro (cubre degradados suaves).
+      const isBg = a < 14 || (mn > 222 && (mx - mn) < 20);
       if (!isBg) {
         found = true;
         if (x < minX) minX = x; if (x > maxX) maxX = x;
