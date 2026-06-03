@@ -482,6 +482,12 @@ function Step3({
         setLoading(false);
         return;
       }
+      // Guardar teléfono + dirección para prellenar el próximo pedido (sin bloquear el pago)
+      fetch("/api/me/delivery", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: customer.phone, delivery }),
+      }).catch(() => {});
       window.location.href = data.url;
     } catch {
       setError("Error de conexión. Intenta de nuevo.");
@@ -616,6 +622,21 @@ function PurchaseCheckoutContent() {
             email: prev.email || data.user.email || "",
             phone: prev.phone !== "+51" ? prev.phone : (data.user.phone || "+51"),
           }));
+          // Prellenar dirección guardada del último pedido
+          const sd = data.user.saved_delivery;
+          if (sd && (sd.street || sd.distrito)) {
+            setDelivery((prev) => ({
+              ...prev,
+              method: sd.method || prev.method,
+              street: prev.street || sd.street || "",
+              streetNumber: prev.streetNumber || sd.streetNumber || "",
+              distrito: prev.distrito || sd.distrito || "",
+              reference: prev.reference || sd.reference || "",
+              placeType: prev.placeType || sd.placeType || "",
+              apartment: prev.apartment || sd.apartment || "",
+              floor: prev.floor || sd.floor || "",
+            }));
+          }
         } else {
           // No session → redirect to login
           const next = encodeURIComponent(`/comprar-checkout?id=${equipmentId}`);

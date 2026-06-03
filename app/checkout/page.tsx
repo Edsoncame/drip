@@ -1459,6 +1459,12 @@ function PaymentForm({
         setLoading(false);
         return;
       }
+      // Guardar teléfono + dirección para prellenar el próximo pedido (sin bloquear el pago)
+      fetch("/api/me/delivery", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: customer.phone, delivery }),
+      }).catch(() => {});
       // Redirect a Stripe Checkout — Stripe aloja la página de pago.
       // trackPurchase se dispara en /checkout/success cuando Stripe redirige de vuelta.
       window.location.href = data.url;
@@ -1613,6 +1619,21 @@ function CheckoutContent() {
               dniNumber: prev.dniNumber || u.dni_number || "",
               // If already verified, mark photos as done so we skip the upload
               ...(u.identity_verified ? { dniPhoto: "verified", selfiePhoto: "verified" } : {}),
+            }));
+          }
+          // Prellenar dirección guardada del último pedido
+          const sd = u.saved_delivery;
+          if (sd && (sd.street || sd.distrito)) {
+            setDelivery(prev => ({
+              ...prev,
+              method: (sd.method === "pickup" || sd.method === "shipping") ? sd.method : prev.method,
+              street: prev.street || sd.street || "",
+              streetNumber: prev.streetNumber || sd.streetNumber || "",
+              distrito: prev.distrito || sd.distrito || "",
+              reference: prev.reference || sd.reference || "",
+              placeType: prev.placeType || sd.placeType || "",
+              apartment: prev.apartment || sd.apartment || "",
+              floor: prev.floor || sd.floor || "",
             }));
           }
         } else {
