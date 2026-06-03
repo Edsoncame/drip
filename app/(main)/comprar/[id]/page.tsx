@@ -73,7 +73,7 @@ function Accordion({ title, children }: { title: string; children: React.ReactNo
 
 export default function ComprarDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const [equipment, setEquipment] = useState<SaleEquipment & { teclado?: string } | null>(null);
+  const [equipment, setEquipment] = useState<SaleEquipment & { teclado?: string; battery_cycles?: number | null } | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
@@ -130,7 +130,7 @@ export default function ComprarDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
         {/* ── Columna izquierda — Imagen ── */}
         <div>
-          <div className="relative bg-[#F7F7F7] rounded-3xl overflow-hidden aspect-square flex items-center justify-center p-10">
+          <div className="relative bg-white border border-[#F0F0F0] rounded-3xl overflow-hidden aspect-square flex items-center justify-center p-10">
             <div className="absolute top-4 left-4 px-3 py-1 bg-[#1B4FFF] text-white text-xs font-700 rounded-full">
               FLUX Certified
             </div>
@@ -222,6 +222,7 @@ export default function ComprarDetailPage() {
                 { label: "Almacenamiento", value: eq.ssd },
                 { label: "Color", value: eq.color },
                 { label: "Teclado", value: (eq as { teclado?: string }).teclado ?? "Español" },
+                { label: "Ciclos de batería", value: eq.battery_cycles != null ? String(eq.battery_cycles) : null },
                 ...extraSpecs,
               ].filter((s) => s.value).map((spec, i) => (
                 <div

@@ -113,7 +113,7 @@ function SaleCard({ item }: { item: SaleEquipment }) {
     <div className="group bg-white rounded-2xl border border-[#E5E5E5] overflow-hidden hover:shadow-lg transition-all duration-200">
       {/* Imagen — clickeable al detalle */}
       <Link href={`/comprar/${item.id}`} className="block">
-        <div className="relative bg-[#F7F7F7] h-48 overflow-hidden flex items-center justify-center p-6 cursor-pointer">
+        <div className="relative bg-white h-48 overflow-hidden flex items-center justify-center p-6 cursor-pointer">
           <div className="absolute top-3 left-3 z-10 px-2.5 py-1 bg-[#1B4FFF] text-white text-[10px] font-700 rounded-full tracking-wide">
             FLUX Certified
           </div>
