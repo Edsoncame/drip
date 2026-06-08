@@ -249,15 +249,25 @@ export default async function PagosPage() {
                       <UploadReceipt paymentId={payment.id} hasReceipt={!!payment.receipt_url} />
                     ))}
 
-                  {payment.status === "upcoming" && (
-                    <div className="bg-[#F3F4F6] rounded-xl p-3">
-                      <p className="text-sm text-[#666666]">
-                        {isStripePayment
-                          ? "Este mes se cobrará automáticamente. No tienes que hacer nada."
-                          : "Este pago aún no vence. Te avisaremos cuando sea momento."}
-                      </p>
-                    </div>
-                  )}
+                  {payment.status === "upcoming" &&
+                    (isStripePayment ? (
+                      <div className="bg-[#F3F4F6] rounded-xl p-3">
+                        <p className="text-sm text-[#666666]">
+                          Este mes se cobrará automáticamente. No tienes que hacer nada.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="bg-[#F3F4F6] rounded-xl p-3">
+                          <p className="text-sm text-[#666666]">
+                            Este pago aún no vence. Si quieres, puedes{" "}
+                            <span className="font-700 text-[#18191F]">adelantarlo</span>{" "}
+                            subiendo tu comprobante ahora.
+                          </p>
+                        </div>
+                        <UploadReceipt paymentId={payment.id} hasReceipt={!!payment.receipt_url} />
+                      </div>
+                    ))}
 
                   {/* Invoices — show all or locked state */}
                   {payment.invoices && payment.invoices.length > 0 ? (
