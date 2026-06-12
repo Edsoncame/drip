@@ -138,8 +138,20 @@ export async function GET() {
   }
   result.google_ads = googleAds;
 
-  // ══════ GA4 ══════
+  // ══════ GA4 (informativo — la app NO consume GA4 en ninguna feature hoy) ══════
+  // Las APIs Admin/Data de Analytics están deshabilitadas en el proyecto Cloud del
+  // service account, pero no rompe nada: ningún flujo real las usa. Para no mostrar
+  // un 403 alarmante, traducimos "SERVICE_DISABLED" a un estado legible.
+  const softenGa4 = (ok: boolean, body: unknown): unknown => {
+    if (ok) return body;
+    const reason = (body as { error?: { status?: string } })?.error?.status;
+    if (reason === "PERMISSION_DENIED") {
+      return "API de Analytics no habilitada en el proyecto Cloud — no la usa la app, solo informativo";
+    }
+    return body;
+  };
   const ga4: Record<string, unknown> = {
+    note: "No usado por ninguna feature de la app — solo diagnóstico informativo",
     envs: {
       property_id: process.env.GA4_PROPERTY_ID ?? null,
       measurement_id: process.env.GA4_MEASUREMENT_ID ?? null,
@@ -154,7 +166,7 @@ export async function GET() {
       { headers: { Authorization: `Bearer ${ga4Tok.token}` } },
     );
     const listBody = (await listRes.json()) as { accountSummaries?: unknown[] };
-    ga4.accessible = listRes.ok ? listBody.accountSummaries ?? [] : listBody;
+    ga4.accessible = listRes.ok ? listBody.accountSummaries ?? [] : softenGa4(false, listBody);
     if (process.env.GA4_PROPERTY_ID) {
       const r = await fetch(
         `https://analyticsdata.googleapis.com/v1beta/properties/${process.env.GA4_PROPERTY_ID}:runReport`,
@@ -167,7 +179,9 @@ export async function GET() {
           }),
         },
       );
-      ga4.test_report = r.ok ? await r.json() : { status: r.status, error: await r.text().then(t => t.slice(0, 300)) };
+      ga4.test_report = r.ok
+        ? await r.json()
+        : softenGa4(false, JSON.parse(await r.text().catch(() => "{}") || "{}"));
     }
   }
   result.ga4 = ga4;
