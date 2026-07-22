@@ -30,7 +30,8 @@ interface VentaUnit {
   id: string; codigo_interno: string; modelo_completo: string;
   chip: string | null; ram: string | null; ssd: string | null; color: string | null;
   battery_cycles: number | null; sale_price_usd: number | null; sale_condition: string | null;
-  precio_compra_usd: number | null; for_sale: boolean; estado_actual: string; image_url: string | null;
+  precio_compra_usd: number | null; retail_price_usd: number | null;
+  for_sale: boolean; estado_actual: string; image_url: string | null;
 }
 
 /**
@@ -295,7 +296,9 @@ export default function ProductsClient({ initialProducts }: { initialProducts: P
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {venta.map((u) => {
-              const savings = u.precio_compra_usd && u.sale_price_usd ? Math.round((1 - u.sale_price_usd / u.precio_compra_usd) * 100) : null;
+              // Mismo criterio que /comprar: el ahorro se ancla al precio de lista Apple, no al costo de compra.
+              const savings = u.retail_price_usd && u.sale_price_usd && u.retail_price_usd > u.sale_price_usd
+                ? Math.round((1 - u.sale_price_usd / u.retail_price_usd) * 100) : null;
               return (
                 <div key={u.id} className={`bg-white rounded-2xl border overflow-hidden ${u.for_sale ? "border-[#E5E5E5]" : "border-amber-200"}`}>
                   <div className="aspect-video bg-[#F7F7F7] flex items-center justify-center relative">
@@ -1037,6 +1040,7 @@ function VentaModal({ unit, onClose, onSaved, onError }: {
   const [imageUrl, setImageUrl] = useState(unit.image_url ?? "");
   const [salePrice, setSalePrice] = useState(unit.sale_price_usd != null ? String(unit.sale_price_usd) : "");
   const [condition, setCondition] = useState(unit.sale_condition ?? "");
+  const [retailPrice, setRetailPrice] = useState(unit.retail_price_usd != null ? String(unit.retail_price_usd) : "");
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -1062,7 +1066,10 @@ function VentaModal({ unit, onClose, onSaved, onError }: {
     try {
       const res = await fetch("/api/admin/equipment", {
         method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: unit.id, image_url: imageUrl || null, sale_price_usd: salePrice || null, sale_condition: condition || null }),
+        body: JSON.stringify({
+          id: unit.id, image_url: imageUrl || null, sale_price_usd: salePrice || null,
+          sale_condition: condition || null, retail_price_usd: retailPrice || null,
+        }),
       });
       if (!res.ok) { const j = await res.json(); throw new Error(j.error || "Error"); }
       onSaved("Equipo de venta actualizado");
@@ -1120,6 +1127,17 @@ function VentaModal({ unit, onClose, onSaved, onError }: {
                 <option value="Bueno">Bueno</option>
               </select>
             </div>
+          </div>
+
+          {/* Precio de lista Apple cuando era nuevo — es lo que se tacha en la web */}
+          <div>
+            <label className="block text-xs text-[#666] mb-1">Precio nuevo en Apple (USD)</label>
+            <input type="number" value={retailPrice} onChange={(e) => setRetailPrice(e.target.value)} placeholder="1799"
+              className="w-full px-3 py-2 text-sm border border-[#E5E5E5] rounded-xl outline-none focus:border-[#1B4FFF]" />
+            <p className="text-[10px] text-[#999] mt-1">
+              Se muestra tachado en /comprar junto al % de ahorro. Déjalo vacío y no se muestra nada.
+              No es el costo de compra de FLUX.
+            </p>
           </div>
 
           {/* Calculadora de venta */}

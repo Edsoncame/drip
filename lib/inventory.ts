@@ -27,6 +27,11 @@ import { query } from "@/lib/db";
  * Migración idempotente del inventario. Agrega el discriminador `tipo`
  * (alquiler | venta) y asegura `battery_cycles` (Ciclos). Mismo patrón que
  * ensureMdmColumns en lib/simplemdm.ts: corre una sola vez por proceso.
+ *
+ * `retail_price_usd` = precio de lista Apple cuando el equipo era nuevo. Es el
+ * ancla de ahorro que se muestra tachada en /comprar. NO confundir con
+ * `precio_compra_usd`, que es lo que FLUX pagó por el equipo (dato interno que
+ * nunca debe salir a la web).
  */
 /**
  * Convierte el `modelo_completo` del inventario en el slug del catálogo
@@ -76,9 +81,10 @@ export async function ensureInventoryColumns(): Promise<void> {
   if (inventoryColumnsEnsured) return;
   await query(`
     ALTER TABLE equipment
-      ADD COLUMN IF NOT EXISTS tipo           TEXT DEFAULT 'alquiler',
-      ADD COLUMN IF NOT EXISTS battery_cycles INTEGER,
-      ADD COLUMN IF NOT EXISTS image_url      TEXT
+      ADD COLUMN IF NOT EXISTS tipo             TEXT DEFAULT 'alquiler',
+      ADD COLUMN IF NOT EXISTS battery_cycles   INTEGER,
+      ADD COLUMN IF NOT EXISTS image_url        TEXT,
+      ADD COLUMN IF NOT EXISTS retail_price_usd NUMERIC(10,2)
   `);
   inventoryColumnsEnsured = true;
 }

@@ -105,9 +105,13 @@ function CertifiedHero() {
 }
 
 function SaleCard({ item }: { item: SaleEquipment }) {
-  const savings = item.precio_compra_usd
-    ? Math.round((1 - item.sale_price_usd / item.precio_compra_usd) * 100)
-    : null;
+  // Ancla de ahorro contra el precio de lista Apple cuando el equipo era nuevo.
+  // Si no está seteado (o quedó por debajo del precio de venta) no mostramos nada.
+  const retail =
+    item.retail_price_usd && item.retail_price_usd > item.sale_price_usd
+      ? item.retail_price_usd
+      : null;
+  const savings = retail ? Math.round((1 - item.sale_price_usd / retail) * 100) : null;
 
   return (
     <div className="group bg-white rounded-2xl border border-[#E5E5E5] overflow-hidden hover:shadow-lg transition-all duration-200">
@@ -117,11 +121,11 @@ function SaleCard({ item }: { item: SaleEquipment }) {
           <div className="absolute top-3 left-3 z-10 px-2.5 py-1 bg-[#1B4FFF] text-white text-[10px] font-700 rounded-full tracking-wide">
             FLUX Certified
           </div>
-          {savings && (
+          {savings ? (
             <div className="absolute top-3 right-3 z-10 px-2 py-0.5 bg-[#E5F3DF] text-[#2D7D46] text-[10px] font-700 rounded-full">
               -{savings}%
             </div>
-          )}
+          ) : null}
           {item.image_url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -166,9 +170,9 @@ function SaleCard({ item }: { item: SaleEquipment }) {
 
         <div className="pt-4 border-t border-[#F0F0F0]">
           <div className="mb-3">
-            {item.precio_compra_usd ? (
+            {retail ? (
               <p className="text-sm text-[#999999] line-through">
-                Precio nuevo ${item.precio_compra_usd.toLocaleString("en-US")} USD
+                Precio nuevo ${retail.toLocaleString("en-US")} USD
               </p>
             ) : null}
             <p className="text-2xl font-900 text-[#18191F]">

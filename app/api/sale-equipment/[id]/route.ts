@@ -14,7 +14,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
          e.sale_price_usd::float AS sale_price_usd,
          COALESCE(e.sale_condition, 'Bueno') AS sale_condition,
          e.sale_listed_at,
-         e.precio_compra_usd::float AS precio_compra_usd,
+         e.retail_price_usd::float AS retail_price_usd,
          e.battery_cycles,
          COALESCE(e.image_url, p.image_url) AS image_url, p.slug
        FROM equipment e

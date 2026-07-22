@@ -13,7 +13,7 @@ interface EqRow {
   id: string; codigo_interno: string; modelo_completo: string;
   chip: string | null; ram: string | null; ssd: string | null; color: string | null;
   precio_compra_usd: string | null; estado_actual: string; tipo: string;
-  battery_cycles: number | null; sale_price_usd: string | null;
+  battery_cycles: number | null; sale_price_usd: string | null; retail_price_usd: string | null;
   sale_condition: string | null; for_sale: boolean | null; image_url: string | null;
 }
 
@@ -45,7 +45,7 @@ async function buildDerived() {
   const eq = await query<EqRow>(
     `SELECT id, codigo_interno, modelo_completo, chip, ram, ssd, color,
             precio_compra_usd, estado_actual, COALESCE(tipo,'alquiler') AS tipo,
-            battery_cycles, sale_price_usd, sale_condition, for_sale, image_url
+            battery_cycles, sale_price_usd, retail_price_usd, sale_condition, for_sale, image_url
      FROM equipment`,
   );
   const ov = await query<Overlay>(
@@ -95,6 +95,7 @@ async function buildDerived() {
       sale_price_usd: r.sale_price_usd ? Number(r.sale_price_usd) : null,
       sale_condition: r.sale_condition,
       precio_compra_usd: r.precio_compra_usd ? Number(r.precio_compra_usd) : null,
+      retail_price_usd: r.retail_price_usd ? Number(r.retail_price_usd) : null,
       for_sale: !!r.for_sale,
       estado_actual: r.estado_actual,
       // Imagen propia de la unidad; si no tiene, cae a la del modelo.

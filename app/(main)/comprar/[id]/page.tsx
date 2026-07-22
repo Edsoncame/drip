@@ -112,9 +112,13 @@ export default function ComprarDetailPage() {
   const eq = equipment;
   const condColor = CONDITION_COLOR[eq.sale_condition] ?? "bg-gray-100 text-gray-600";
   const extraSpecs = getExtraSpecs(eq.modelo_completo);
-  const savings = eq.precio_compra_usd
-    ? Math.round((1 - eq.sale_price_usd / eq.precio_compra_usd) * 100)
-    : null;
+  // Precio de lista Apple cuando era nuevo (ancla de ahorro). Nunca el costo
+  // de compra de FLUX, que es dato interno.
+  const retail =
+    eq.retail_price_usd && eq.retail_price_usd > eq.sale_price_usd
+      ? eq.retail_price_usd
+      : null;
+  const savings = retail ? Math.round((1 - eq.sale_price_usd / retail) * 100) : null;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
@@ -179,18 +183,18 @@ export default function ComprarDetailPage() {
 
           {/* Precio */}
           <div className="mb-5">
-            {eq.precio_compra_usd && (
+            {retail ? (
               <div className="flex items-center gap-3 mb-1">
                 <span className="text-base text-[#999999] line-through">
-                  ${eq.precio_compra_usd.toLocaleString("en-US")} USD
+                  ${retail.toLocaleString("en-US")} USD
                 </span>
-                {savings && (
+                {savings ? (
                   <span className="px-2 py-0.5 bg-[#E5F3DF] text-[#2D7D46] text-xs font-700 rounded-full">
                     {savings}% de ahorro
                   </span>
-                )}
+                ) : null}
               </div>
-            )}
+            ) : null}
             <p className="text-4xl font-black text-[#18191F]">
               ${eq.sale_price_usd.toLocaleString("en-US")}
               <span className="text-lg font-500 text-[#999999] ml-2">USD</span>

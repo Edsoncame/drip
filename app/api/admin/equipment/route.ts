@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     rentabilidad_pct, seguro, garantia_anos, ubicacion_fisica, responsable,
     usuario_dispositivo, clave_dispositivo, clave_vault, clave_vault_url, observaciones,
     colaborador, compra_status, compra_notas, compra_inicio, tipo_renta, meses_uso_previo, area,
-    tipo, battery_cycles,
+    tipo, battery_cycles, retail_price_usd,
   } = body;
 
   if (!codigo_interno || !modelo_completo) {
@@ -48,10 +48,10 @@ export async function POST(req: NextRequest) {
       rentabilidad_pct, seguro, garantia_anos, ubicacion_fisica, responsable,
       usuario_dispositivo, clave_dispositivo, clave_vault, clave_vault_url, observaciones,
       colaborador, compra_status, compra_notas, compra_inicio, tipo_renta, meses_uso_previo, area,
-      tipo, battery_cycles
+      tipo, battery_cycles, retail_price_usd
     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
               $21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,
-              $41,$42,$43,$44,$45,$46,$47,$48,$49)
+              $41,$42,$43,$44,$45,$46,$47,$48,$49,$50)
     RETURNING *`,
     [
       codigo_interno, marca || 'Apple', modelo_completo, chip, ram, ssd, color, teclado,
@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
       observaciones || null,
       colaborador || null, compra_status || 'no_desea', compra_notas || null, compra_inicio || null,
       tipo_renta || 'estreno', meses_uso_previo || 0, area || null,
-      tipo || 'alquiler', battery_cycles || null,
+      tipo || 'alquiler', battery_cycles || null, retail_price_usd || null,
     ]
   );
 
@@ -93,7 +93,7 @@ export async function PATCH(req: NextRequest) {
     'usuario_dispositivo','clave_dispositivo','clave_vault','clave_vault_url','observaciones',
     'colaborador','compra_status','compra_notas','compra_inicio','tipo_renta','meses_uso_previo','area',
     'for_sale','sale_price_usd','sale_condition','sale_listed_at',
-    'tipo','battery_cycles','image_url',
+    'tipo','battery_cycles','image_url','retail_price_usd',
   ];
 
   const updates: string[] = [];
