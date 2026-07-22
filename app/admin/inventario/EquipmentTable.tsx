@@ -60,6 +60,7 @@ export interface Equipment {
   area: string | null;
   for_sale: boolean | null;
   sale_price_usd: string | null;
+  retail_price_usd: string | null;
   sale_condition: string | null;
   sale_listed_at: string | null;
   // Tipo de inventario: 'alquiler' | 'venta'
@@ -180,6 +181,22 @@ export default function EquipmentTable({ equipment }: { equipment: Equipment[] }
     return Math.ceil((new Date(d).getTime() - Date.now()) / 86400000);
   }
 
+  // % de ahorro que ve el cliente: precio de lista Apple vs precio de venta.
+  function saleAnchor(eq: Equipment): number | null {
+    const retail = Number(eq.retail_price_usd);
+    const price = Number(eq.sale_price_usd);
+    if (!retail || !price || retail <= price) return null;
+    return Math.round((1 - price / retail) * 100);
+  }
+
+  // Lo que gana (o pierde) FLUX al vender: precio de venta menos lo que costó.
+  function saleMargin(eq: Equipment): number | null {
+    const cost = Number(eq.precio_compra_usd);
+    const price = Number(eq.sale_price_usd);
+    if (!cost || !price) return null;
+    return Math.round(price - cost);
+  }
+
   // Compute live rentabilidad for table display — tasa always derived from cuota+plazo
   function liveRent(eq: Equipment): number | null {
     const precio = Number(eq.precio_compra_usd);
@@ -272,7 +289,12 @@ export default function EquipmentTable({ equipment }: { equipment: Equipment[] }
         <table className="w-full text-sm">
           <thead className="bg-[#F7F7F7]">
             <tr>
-              {["Código / Modelo","Spec","N° Serie","Estado / Cliente","Alquiler","Tarifa / OPEX","Costo compra","Financiamiento","Mantenimiento","ROI",""].map(h => (
+              {/* Las columnas de alquiler (plazo, tarifa, financiamiento, mantenimiento, ROI)
+                  no aplican a una unidad de venta: ahí van precio, ancla, ciclos y margen. */}
+              {(tipoTab === "venta"
+                ? ["Código / Modelo","Spec","N° Serie","Estado","Batería","Precio venta","Costo compra","Precio nuevo","Margen","Publicado",""]
+                : ["Código / Modelo","Spec","N° Serie","Estado / Cliente","Alquiler","Tarifa / OPEX","Costo compra","Financiamiento","Mantenimiento","ROI",""]
+              ).map(h => (
                 <th key={h} className="text-left px-4 py-3 text-xs font-700 text-[#666666] whitespace-nowrap">{h}</th>
               ))}
             </tr>
@@ -307,6 +329,46 @@ export default function EquipmentTable({ equipment }: { equipment: Equipment[] }
                       )}
                       {eq.cliente_actual && <p className="text-xs text-[#999] mt-1 truncate max-w-[120px]">{eq.cliente_actual}</p>}
                     </td>
+                    {tipoTab === "venta" ? (
+                      <>
+                        <td className="px-4 py-3 text-xs text-[#666666]">
+                          {eq.battery_cycles != null ? (
+                            <>
+                              <p className="font-600 text-[#18191F]">{eq.battery_cycles} ciclos</p>
+                              <p className="text-[#999]">{eq.sale_condition ?? "Sin condición"}</p>
+                            </>
+                          ) : <span className="text-[#999]">—</span>}
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="font-700 text-[#18191F]">{fmtUSD(eq.sale_price_usd)}</p>
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="text-xs font-600">{fmtUSD(eq.precio_compra_usd)}</p>
+                          <p className="text-xs text-[#999]">S/ {eq.valor_soles ? Number(eq.valor_soles).toLocaleString() : "—"}</p>
+                        </td>
+                        <td className="px-4 py-3 text-xs">
+                          {saleAnchor(eq) ? (
+                            <>
+                              <p className="text-[#666666]">{fmtUSD(eq.retail_price_usd)}</p>
+                              <p className="text-[10px] text-green-600 font-700">-{saleAnchor(eq)}%</p>
+                            </>
+                          ) : <span className="text-[#999]">—</span>}
+                        </td>
+                        <td className="px-4 py-3 text-xs">
+                          {saleMargin(eq) !== null ? (
+                            <p className={`font-700 ${saleMargin(eq)! >= 0 ? "text-green-600" : "text-red-600"}`}>
+                              {saleMargin(eq)! >= 0 ? "+" : "−"}${Math.abs(saleMargin(eq)!).toLocaleString("en-US")}
+                            </p>
+                          ) : <span className="text-[#999]">—</span>}
+                        </td>
+                        <td className="px-4 py-3 text-xs">
+                          {eq.for_sale && eq.sale_listed_at
+                            ? <p className="text-[#666666]">{fmtDate(eq.sale_listed_at)}</p>
+                            : <span className="text-[#999]">Sin publicar</span>}
+                        </td>
+                      </>
+                    ) : (
+                      <>
                     <td className="px-4 py-3 text-xs text-[#666666]">
                       <p>{eq.tipo_arriendo_meses ? `${eq.tipo_arriendo_meses}m` : "—"}</p>
                       <p className="text-[#999]">{fmtDate(eq.inicio_alquiler)} → {fmtDate(eq.fin_alquiler)}</p>
@@ -341,6 +403,8 @@ export default function EquipmentTable({ equipment }: { equipment: Equipment[] }
                     <td className="px-4 py-3">
                       {rent !== null ? <RentBadge pct={rent} /> : <span className="text-xs text-[#999]">—</span>}
                     </td>
+                      </>
+                    )}
                     <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                       <div className="flex gap-1">
                         <button onClick={() => openEdit(eq)} className="px-2.5 py-1 rounded-full text-xs font-700 bg-[#F5F5F7] text-[#333] hover:bg-[#E8E8EA] cursor-pointer">Editar</button>
@@ -871,6 +935,10 @@ function EquipmentModal({ data, onChange, onSave, onClose, saving }: ModalProps)
                   value={f("sale_price_usd")}
                   onChange={set("sale_price_usd")}
                   placeholder={f("valor_residual_usd") || "990"} />
+                <Field label="Precio nuevo en Apple (USD)" type="number"
+                  value={f("retail_price_usd")}
+                  onChange={set("retail_price_usd")}
+                  placeholder="1799" />
                 <div>
                   <label className="block text-xs text-[#666] mb-1">Condición</label>
                   <select
