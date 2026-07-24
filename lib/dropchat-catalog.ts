@@ -47,8 +47,8 @@ export interface DropchatProduct {
   image_url?: string;
   url?: string;
   attributes?: {
-    pricing_model: "subscription";
-    plans: DropchatSubscriptionPlan[];
+    pricing_model: "subscription" | "one_time";
+    plans?: DropchatSubscriptionPlan[];
   };
   custom_fields?: Record<string, unknown>;
 }
@@ -333,6 +333,13 @@ export function toDropchatSaleProduct(u: SaleUnitRow): DropchatProduct {
     stock: u.available ? 1 : 0,
     image_url: u.image_url ?? undefined,
     url: productUrl,
+    // Drop Chat lee `attributes.pricing_model` para renderizar el catálogo del bot.
+    // 'one_time' hace que IAn muestre "· pago único" (vs los planes /mes del alquiler).
+    // El resto de metadatos van en custom_fields (Drop Chat aún no los ingesta en
+    // productos, pero se mantienen por retrocompatibilidad y para otros consumers).
+    attributes: {
+      pricing_model: "one_time",
+    },
     custom_fields: {
       currency: "USD",
       type: "sale",                       // ← distingue de los de alquiler (type: rental)
