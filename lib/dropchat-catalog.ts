@@ -1,8 +1,10 @@
 /**
  * Drop Chat — Sync del catálogo de productos de Flux.
  *
- * Envía los 4 modelos de MacBook a Drop Chat para que su IAn (bot de WhatsApp)
- * cotice en tiempo real con precios y stock reales.
+ * Envía a Drop Chat para que su IAn (bot de WhatsApp) cotice en tiempo real:
+ *   1. Los modelos de MacBook en ALQUILER (tabla `products`, precio mensual).
+ *   2. Las unidades FLUX Certified en VENTA (tabla `equipment` tipo='venta',
+ *      pago único). Cada unidad usada va como su propio SKU (codigo_interno).
  *
  * Un SKU por modelo de MacBook (no por plan) — el bot puede preguntar al
  * cliente cuál plan (8/16/24 meses) prefiere después. Los 3 precios quedan
@@ -259,6 +261,109 @@ export function toDropchatProduct(p: ProductRow): DropchatProduct {
   };
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+// VENTA — unidades FLUX Certified (reacondicionadas, pago único)
+// ════════════════════════════════════════════════════════════════════════════
+
+interface SaleUnitRow {
+  id: string;
+  codigo_interno: string;
+  modelo_completo: string;
+  chip: string | null;
+  ram: string | null;
+  ssd: string | null;
+  color: string | null;
+  sale_price_usd: number | null;
+  retail_price_usd: number | null;
+  battery_cycles: number | null;
+  sale_condition: string | null;
+  image_url: string | null;
+  /** true si está publicada Y sin orden de compra activa (no reservada/vendida). */
+  available: boolean;
+}
+
+/**
+ * Lee las unidades de VENTA (tipo='venta') con precio. `available` replica el
+ * mismo criterio que /api/sale-equipment: publicada (`for_sale`) y sin orden
+ * de compra que no esté 'cancelled'. Enviamos también las NO disponibles con
+ * stock=0 para que, si una se vende o se despublica, el bot deje de ofrecerla.
+ */
+async function loadSaleUnits(): Promise<SaleUnitRow[]> {
+  const res = await query<SaleUnitRow>(
+    `SELECT
+       e.id, e.codigo_interno, e.modelo_completo, e.chip, e.ram, e.ssd, e.color,
+       e.sale_price_usd::float   AS sale_price_usd,
+       e.retail_price_usd::float AS retail_price_usd,
+       e.battery_cycles,
+       COALESCE(e.sale_condition, 'Bueno') AS sale_condition,
+       e.image_url,
+       (e.for_sale = true AND NOT EXISTS (
+          SELECT 1 FROM equipment_sale_orders eso
+          WHERE eso.equipment_id = e.id AND eso.status NOT IN ('cancelled')
+       )) AS available
+     FROM equipment e
+     WHERE e.tipo = 'venta' AND e.sale_price_usd IS NOT NULL
+     ORDER BY e.sale_listed_at DESC NULLS LAST`,
+  );
+  return res.rows;
+}
+
+/**
+ * Convierte una unidad de venta al payload Drop Chat.
+ * SKU = codigo_interno lowercase (estable por unidad física).
+ * price = precio de venta (PAGO ÚNICO, no mensual). stock = 1 si disponible, 0 si no.
+ */
+export function toDropchatSaleProduct(u: SaleUnitRow): DropchatProduct {
+  const price = Number(u.sale_price_usd);
+  const retail = u.retail_price_usd && u.retail_price_usd > price ? Number(u.retail_price_usd) : null;
+  const savings = retail ? Math.round((1 - price / retail) * 100) : null;
+  const productUrl = `https://www.fluxperu.com/comprar/${u.id}`;
+  const description = [
+    u.chip, u.ram, u.ssd, u.color, u.sale_condition,
+    u.battery_cycles != null ? `${u.battery_cycles} ciclos de batería` : null,
+  ].filter(Boolean).join(" · ");
+
+  return {
+    sku: u.codigo_interno.toLowerCase(),
+    name: `${u.modelo_completo} Reacondicionado`,
+    description,
+    category: "reacondicionadas",
+    price,
+    price_currency: "USD",
+    stock: u.available ? 1 : 0,
+    image_url: u.image_url ?? undefined,
+    url: productUrl,
+    custom_fields: {
+      currency: "USD",
+      type: "sale",                       // ← distingue de los de alquiler (type: rental)
+      billing_cycle: "one_time",
+      one_time_payment: true,
+      is_refurbished: true,
+      category: "MacBook",
+      subcategory: "FLUX Certified (reacondicionada)",
+      brand: "Apple",
+      chip: u.chip,
+      ram: u.ram,
+      ssd: u.ssd,
+      color: u.color,
+      condition: u.sale_condition,
+      battery_cycles: u.battery_cycles,
+      sale_price_usd: price,
+      retail_price_usd: retail,
+      savings_pct: savings,
+      warranty_days: 90,
+      units_available: u.available ? 1 : 0,
+      delivery_lima_hours: 24,
+      delivery_free: true,
+      product_url: productUrl,
+      buy_url: productUrl,
+      contact_whatsapp: "https://wa.me/51900164769",
+      note: "Equipo reacondicionado FLUX Certified. Es una COMPRA (pago único), no alquiler. 90 días de garantía. Stock limitado: 1 unidad — si se vende, ya no está disponible.",
+      source: "flux",
+    },
+  };
+}
+
 /**
  * Fire-and-forget — usado por los hooks de admin/productos y admin/precios.
  * Nunca throws.
@@ -347,8 +452,11 @@ export async function syncAllProducts(): Promise<{
     return { ok: false, total: 0, synced: 0, errors: [{ sku: "-", error: "DROPCHAT_API_KEY no seteado" }] };
   }
 
-  const products = await loadProducts();
-  const payloads = products.map(toDropchatProduct);
+  const [products, saleUnits] = await Promise.all([loadProducts(), loadSaleUnits()]);
+  const payloads = [
+    ...products.map(toDropchatProduct),
+    ...saleUnits.map(toDropchatSaleProduct),
+  ];
 
   try {
     const r = await fetch(`${API_URL}/api/v1/sync/products`, {
