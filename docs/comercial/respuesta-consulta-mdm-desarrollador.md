@@ -4,9 +4,9 @@
 > Los campos entre corchetes los completa el equipo comercial antes de enviar.
 > Fuente de los datos técnicos: `docs/POLITICA-CUENTA-MDM.md`.
 
-**Antes de enviar, revisar que siga siendo cierto:** si en algún momento se despliega un perfil de
-configuración en SimpleMDM, esta respuesta deja de ser válida y hay que reescribirla. Hoy la cuenta
-tiene cero perfiles.
+**Antes de enviar, revisar que siga siendo cierto:** si se despliega un perfil de configuración
+nuevo en SimpleMDM, esta respuesta deja de ser válida y hay que reescribirla. Hoy la cuenta tiene un
+único perfil, el de depósito de llave de FileVault, activado el 21-ago-2026.
 
 ---
 
@@ -35,10 +35,14 @@ Lock personal activo no lo podemos reasignar y el desbloqueo se factura.
 
 ## Sobre el perfil de configuración (cláusula 10.1)
 
-Le contesto con el dato exacto: **nuestra cuenta de MDM no tiene ningún perfil de configuración
-desplegado**. Cero perfiles personalizados y cero perfiles integrados. El MDM se usa para inventario
-de hardware y para la facultad de bloqueo o borrado remoto prevista en el contrato, y no aplica
-ninguna política de restricción de uso.
+Le contesto con el dato exacto: **nuestra cuenta de MDM tiene un solo perfil de configuración, y es
+el de FileVault** que le detallo en el punto 8. Ningún otro. El MDM se usa para inventario de
+hardware, para el depósito de la llave de cifrado y para la facultad de bloqueo o borrado remoto
+prevista en el contrato.
+
+Ese perfil tiene una sola restricción, y se la digo de frente para que no la descubra después: el
+usuario no puede desactivar el cifrado del disco. No toca nada más — ni instalación de software, ni
+extensiones, ni actualizaciones, ni permisos de privacidad.
 
 Eso responde sus cuatro preguntas, pero se las contesto una por una para que quede constancia:
 
@@ -76,16 +80,23 @@ manual, aprobada por el usuario. En consecuencia:
 Le pediríamos, eso sí, avisarnos si lo hace, para volver a inscribirlo y mantener el inventario al
 día. Es una obligación operativa del contrato, no una barrera técnica.
 
-**8. FileVault.** El equipo se entrega con FileVault activo. La llave de recuperación **no queda en
-custodia institucional de FLUX**: hoy no tenemos habilitado el depósito de llaves en el MDM, de modo
-que el cifrado queda enteramente bajo su control.
+**8. FileVault.** El equipo se entrega con FileVault activo y **sí, FLUX guarda una copia de la
+llave de recuperación**. Se la respondo sin adornos porque es la pregunta más importante de su lista.
 
-Le señalo la contrapartida para que la tenga presente: si al devolver el equipo el disco está cifrado
-y la llave se perdió, el disco se borra por completo. Eso es lo esperable de todas formas al terminar
-un contrato.
+Qué significa y qué no:
 
-Si en el futuro decidiéramos habilitar el depósito de llave institucional, se lo comunicaríamos
-antes y quedaría declarado en el acta de entrega. No desplegamos perfiles en silencio.
+- La llave de recuperación queda depositada en nuestro MDM. Sirve para una sola cosa: poder abrir el
+  disco de un equipo que vuelve cifrado y cuya contraseña se perdió. Sin ella el disco se borra
+  entero y no hay vuelta atrás.
+- **No** nos da acceso a su sesión, a sus archivos ni a su pantalla mientras el equipo está con
+  usted. Una llave de recuperación no es una puerta trasera: sirve para arrancar un disco que se
+  tiene físicamente en la mano.
+- El perfil está declarado en el equipo. Lo puede ver usted mismo en Ajustes del sistema, Gestión de
+  dispositivos, con una descripción en español que dice exactamente esto.
+- La contrapartida es que no puede desactivar FileVault. Es la única restricción del equipo.
+
+Si esto le resulta inaceptable para su caso, dígamelo y lo conversamos antes de firmar en vez de
+después. Es una decisión de la empresa sobre equipos de su propiedad, pero prefiero que la conozca.
 
 ## Sobre el equipo
 

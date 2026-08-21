@@ -16,7 +16,7 @@ Consultado vía API de SimpleMDM sobre los 14 equipos inscritos. Los 14 dan el m
 
 | Atributo | Valor en los 14 equipos | Qué significa |
 |---|---|---|
-| Perfiles de configuración | 0 | No hay ninguna restricción aplicada |
+| Perfiles de configuración | 1 (solo FileVault, desde el 21-ago-2026) | No aplica ninguna restricción de uso |
 | Grupos de dispositivos | 0 | Sin segmentación por política |
 | Grupos de asignación | 1 ("Default", auto-deploy) | Solo despliega apps |
 | Apps desplegadas | SimpleMDM DeviceLink, Google Chrome | Nada más |
@@ -26,7 +26,7 @@ Consultado vía API de SimpleMDM sobre los 14 equipos inscritos. Los 14 dan el m
 | `is_user_approved_enrollment` | `true` | Inscripción manual aprobada por el usuario |
 | `is_supervised` | `true` | Supervisión otorgada por el UAMDM de macOS 11+ |
 | `filevault_enabled` | `true` | Cifrado de disco activo |
-| `filevault_recovery_key` | `null` | La llave NO está en custodia de FLUX |
+| `filevault_recovery_key` | `null` al momento de la auditoría | Depósito activado el 21-ago-2026; se va poblando equipo por equipo |
 | `firmware_password_enabled` | `false` | Sin contraseña de firmware |
 | `recovery_lock_password_enabled` | `false` | Sin bloqueo de recuperación |
 | `is_activation_lock_enabled` | `false` | Sin Activation Lock corporativo |
@@ -34,7 +34,11 @@ Consultado vía API de SimpleMDM sobre los 14 equipos inscritos. Los 14 dan el m
 | `os_update.automatic_os_installation_enabled` | `true` | Actualizaciones automáticas activas |
 | `os_update.default_catalog` | `true` | Catálogo público de Apple, sin diferimiento |
 
-Traducción en una línea: **el MDM inventaría y puede bloquear o borrar, pero no restringe nada del uso diario.**
+Traducción en una línea: **el MDM inventaría, deposita la llave de FileVault y puede bloquear o
+borrar, pero no restringe nada del uso diario.**
+
+El único perfil desplegado es el de FileVault y su única restricción es que el usuario no puede
+apagar el cifrado del disco. No toca nada de desarrollo.
 
 ---
 
@@ -127,23 +131,29 @@ No se decide en este documento. Se deja levantado.
 
 ## 5. FileVault
 
-FileVault está activo en los 14 equipos. La llave de recuperación **no está en custodia de FLUX**:
-`filevault_recovery_key` devuelve `null` en todos.
+FileVault está activo en los 14 equipos.
 
-Es decir, hoy la respuesta honesta a "¿FileVault se activa de forma obligatoria con llave de
-recuperación institucional en su poder?" es: FileVault sí, llave institucional no. El cliente
-controla su propio cifrado.
+**Depósito de llave activado el 21-ago-2026.** Se creó en SimpleMDM el perfil
+"FileVault - deposito de llave de recuperacion" (id 233202) con la opción de escrow y con la
+remediación automática de llaves faltantes, y se asignó a los 14 equipos. A partir de ahora FLUX
+guarda una copia de la llave de recuperación y puede abrir un disco cifrado que vuelva sin su clave.
 
-### Decisión pendiente
+El depósito no es instantáneo: cada equipo captura su llave cuando hace check-in y el usuario
+autentica. Para ver el avance sin exponer ninguna llave:
 
-Habilitar el escrow de llave de recuperación requiere desplegar un perfil de configuración
-(payload FDE Recovery Key Escrow). Sería el primer perfil de la cuenta. A favor: si un cliente
-devuelve el equipo cifrado y sin la llave, hoy el disco es irrecuperable y hay que borrarlo por
-completo. En contra: hay que declarárselo al cliente, y a un cliente técnico le va a importar.
+```bash
+SIMPLEMDM_API_KEY=... node scripts/check-filevault-escrow.mjs
+```
 
-Si se activa, se declara en el acta de entrega. No se despliega en silencio.
+Dos equipos no van a remediar solos porque la función pide macOS 26.0 o superior:
+`TKA-MACAIR-M4-001` (macOS 15.5) y `TKA-MACPRO-M4-002` (macOS 15.7.2). Hay que actualizarlos, o
+apagar y volver a prender FileVault en el equipo.
 
----
+Detalle de la configuración y de lo que ve el usuario en `docs/RUNBOOK-ENDURECER-FLOTA.md`.
+
+**Hay que declararlo.** El perfil lleva una descripción visible para el usuario en Ajustes del
+sistema, y desde ahora tiene que constar también en el acta de entrega. La respuesta comercial ya
+está actualizada. No se despliegan perfiles en silencio.
 
 ## 6. Qué se le responde a un cliente que pregunta
 
@@ -156,7 +166,8 @@ Resumen para el equipo comercial, en el orden en que suelen preguntar:
 5. No diferimos ni fijamos versión de macOS. Actualiza cuando quiera.
 6. No hay restricciones de Full Disk Access ni de Developer Tools.
 7. No estamos en ADE. Puede borrar el disco y reinstalar por su cuenta; la inscripción no vuelve sola.
-8. FileVault viene activo. La llave de recuperación la controla él, no nosotros.
+8. FileVault viene activo y FLUX guarda una copia de la llave de recuperación, para poder abrir el
+   disco si se pierde la contraseña. No da acceso a los archivos. Se declara en el acta de entrega.
 9. El número de serie se entrega antes de firmar, para que lo verifique en el portal de cobertura de Apple.
 10. El contrato completo y el acuerdo de llenado del pagaré se entregan antes de firmar.
     Ver `docs/legal/pagare-acuerdo-de-llenado.md`.
