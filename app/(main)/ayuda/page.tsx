@@ -140,7 +140,7 @@ const categories: Category[] = [
       },
       {
         q: "¿FLUX puede acceder o controlar mi MacBook remotamente?",
-        a: "FLUX inscribe los equipos en Apple Business Manager y aplica una solución MDM para gestión y seguridad. NO accede a tus archivos ni monitorea tu actividad. La capacidad de bloqueo o borrado remoto solo se activa en escenarios específicos: mora prolongada, robo reportado, no devolución vencido el contrato, o uso para actividades ilícitas. Es la misma tecnología que usan empresas Apple-managed (Google, Cisco, etc.) para proteger sus equipos corporativos.",
+        a: "FLUX inscribe los equipos en una solución MDM (SimpleMDM) para inventario y seguridad. La inscripción registra datos del equipo — modelo, número de serie, versión de macOS, batería, estado de FileVault — y permite bloqueo o borrado remoto. NO accedemos a tus archivos ni monitoreamos tu actividad. El MDM no aplica restricciones de uso: puedes instalar el software que necesites, actualizar macOS libremente y usar tu propio Apple ID. El bloqueo o borrado remoto solo se activa en escenarios específicos: mora prolongada, robo reportado, no devolución vencido el contrato, o uso para actividades ilícitas. Es la misma tecnología que usan las empresas para proteger sus equipos corporativos.",
       },
     ],
   },
