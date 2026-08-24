@@ -18,6 +18,16 @@
 --   TKA-MACPRO-M4-001 comprada 2025-10-21 → LCQFN9K4JL inscrita 2025-10-22
 --   TKA-MACAIR-M4-001 comprada 2025-10-23 → FQJ6YYPL2H inscrita 2025-10-23
 --
+-- POR QUÉ EL INTERCAMBIO VA EN TRES PASOS
+-- `equipment_numero_serie_key` es una restricción UNIQUE y NO es diferible
+-- (condeferrable = false), así que Postgres la valida fila por fila. Un swap
+-- directo de dos valores falla en el primer UPDATE, porque el valor destino
+-- todavía lo ocupa la otra fila:
+--   ERROR: duplicate key value violates unique constraint
+-- Se libera primero uno de los dos valores dejando la columna en NULL. La
+-- restricción UNIQUE admite varios NULL — de hecho ya hay dos filas así
+-- (TKA-MACAIR-M4-008 y TKA-MACPRO-M5-004, sin equipo físico cargado).
+--
 -- Se pone `mdm_device_id` en NULL para que la próxima sincronización vuelva a
 -- enlazar cada fila con su equipo real por número de serie.
 --
@@ -26,25 +36,38 @@
 --
 -- Respaldo previo recomendado:
 --   \copy (select * from equipment) to 'equipment_backup.csv' with csv header
+--
+-- Uso:
+--   DB=$(grep -m1 '^DATABASE_URL=' .env.local | cut -d= -f2- | tr -d '"')
+--   psql "$DB" -f scripts/fix-seriales-cruzados-m4-001.sql
 
 BEGIN;
 
+-- Paso 1: liberar LCQFN9K4JL, que hoy lo ocupa la fila del Air.
+UPDATE equipment
+   SET numero_serie  = NULL,
+       mdm_device_id = NULL,
+       updated_at    = now()
+ WHERE codigo_interno = 'TKA-MACAIR-M4-001';
+
+-- Paso 2: el Pro toma su serie real. Esto libera FQJ6YYPL2H.
 UPDATE equipment
    SET numero_serie  = 'LCQFN9K4JL',
        mdm_device_id = NULL,
        updated_at    = now()
  WHERE codigo_interno = 'TKA-MACPRO-M4-001';
 
+-- Paso 3: el Air toma la suya.
 UPDATE equipment
    SET numero_serie  = 'FQJ6YYPL2H',
-       mdm_device_id = NULL,
        updated_at    = now()
  WHERE codigo_interno = 'TKA-MACAIR-M4-001';
 
--- Verificación: deben salir Pro→LCQFN9K4JL y Air→FQJ6YYPL2H.
+-- Verificación: deben salir Pro→LCQFN9K4JL y Air→FQJ6YYPL2H, ambos sin mdm_device_id.
 SELECT codigo_interno, modelo_completo, numero_serie, mdm_device_id
   FROM equipment
- WHERE codigo_interno IN ('TKA-MACPRO-M4-001', 'TKA-MACAIR-M4-001');
+ WHERE codigo_interno IN ('TKA-MACPRO-M4-001', 'TKA-MACAIR-M4-001')
+ ORDER BY codigo_interno;
 
 COMMIT;
 
