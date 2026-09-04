@@ -650,6 +650,14 @@ function Step2({
       setKycVerifying(false);
 
       if (verifyData.status !== "verified") {
+        // La prueba de vida pasó, pero la verificación final no. Hay que borrar
+        // TODOS los indicadores de éxito. Si no, la pantalla se contradice: el
+        // check verde del paso 3, la etiqueta "Listo" y el banner "Identidad
+        // verificada" quedaban visibles junto al error en rojo, y el cliente no
+        // tenía forma de saber qué corregir ni el formulario avanzaba.
+        onIdentityChange({ ...identity, selfiePhoto: "" });
+        setKycSelfieOk(false);
+        setKycSelfieScore(null);
         setErrors((prev) => ({
           ...prev,
           selfiePhoto:
@@ -996,8 +1004,19 @@ function Step2({
               <p className="text-xs text-[#999999] mb-3">Con tu cámara frontal tomaremos 3 fotos rápidas. Mira de frente, izquierda y derecha. Toma menos de 30 segundos.</p>
               {identity.selfiePhoto ? (
                 <div className="relative rounded-2xl overflow-hidden border-2 border-[#2D7D46]">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={identity.selfiePhoto} alt="Tu selfie" className="w-full h-36 object-cover" />
+                  {/^(https?:|data:|blob:)/.test(identity.selfiePhoto) ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={identity.selfiePhoto} alt="Tu selfie" className="w-full h-36 object-cover" />
+                  ) : (
+                    // selfiePhoto no siempre es una imagen: la prueba de vida puede
+                    // devolver el marcador "kyc:ok", y un usuario ya verificado trae
+                    // "verified". Pasarlos a <img src> dejaba un recuadro blanco roto
+                    // con la etiqueta "Listo" encima.
+                    <div className="w-full h-36 bg-[#E5F3DF] flex flex-col items-center justify-center gap-1">
+                      <span className="text-2xl text-[#2D7D46]">✓</span>
+                      <p className="text-xs font-600 text-[#2D7D46]">Selfie capturada</p>
+                    </div>
+                  )}
                   <div className="absolute top-2 right-2 flex gap-1.5">
                     <span className="bg-[#2D7D46] text-white text-[10px] font-700 px-2 py-1 rounded-full">Listo</span>
                     <button type="button" onClick={() => onIdentityChange({ ...identity, selfiePhoto: "" })}
