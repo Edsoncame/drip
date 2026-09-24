@@ -163,6 +163,7 @@ function B2BForm() {
     valid?: boolean;
     razonSocial?: string;
     loading?: boolean;
+    unavailable?: boolean;
   }>({});
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -175,7 +176,7 @@ function B2BForm() {
     try {
       const res = await fetch(`/api/verify-ruc?ruc=${ruc}`);
       const data = await res.json();
-      setRucStatus({ valid: data.valid, razonSocial: data.razonSocial });
+      setRucStatus({ valid: data.valid, razonSocial: data.razonSocial, unavailable: !!data.unavailable });
       if (data.valid && data.razonSocial && !form.company) {
         setForm((f) => ({ ...f, company: data.razonSocial }));
       }
@@ -328,7 +329,10 @@ function B2BForm() {
               ✓ {rucStatus.razonSocial}
             </p>
           )}
-          {rucStatus.valid === false && form.ruc.length === 11 && (
+          {rucStatus.valid === false && rucStatus.unavailable && form.ruc.length === 11 && (
+            <p className="text-xs text-white/50 mt-1">No pudimos consultar SUNAT ahora. Puedes continuar.</p>
+          )}
+          {rucStatus.valid === false && !rucStatus.unavailable && form.ruc.length === 11 && (
             <p className="text-xs text-red-300 mt-1">✕ RUC no válido en SUNAT</p>
           )}
         </div>

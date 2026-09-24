@@ -399,7 +399,7 @@ function Step2({
   const [tycSignatureName, setTycSignatureName] = useState("");
   const [tycSignatureDocument, setTycSignatureDocument] = useState("");
   const [tycScrollCompleted, setTycScrollCompleted] = useState(false);
-  const [rucStatus, setRucStatus] = useState<{ valid?: boolean; razonSocial?: string; loading?: boolean }>({});
+  const [rucStatus, setRucStatus] = useState<{ valid?: boolean; razonSocial?: string; loading?: boolean; unavailable?: boolean }>({});
   const [uploadingDni, setUploadingDni] = useState(false);
   const [uploadingSelfie, setUploadingSelfie] = useState(false);
   const [cameraMode, setCameraMode] = useState<"dni" | "selfie" | null>(null);
@@ -420,7 +420,7 @@ function Step2({
     try {
       const res = await fetch(`/api/verify-ruc?ruc=${ruc}`);
       const data = await res.json();
-      setRucStatus({ valid: data.valid, razonSocial: data.razonSocial });
+      setRucStatus({ valid: data.valid, razonSocial: data.razonSocial, unavailable: !!data.unavailable });
     } catch {
       setRucStatus({});
     }
@@ -858,7 +858,7 @@ function Step2({
                   placeholder="20123456789"
                   maxLength={11}
                   className={`flex-1 px-4 py-3 rounded-xl border text-sm outline-none transition-all ${
-                    errors.ruc || rucStatus.valid === false ? "border-red-400" : "border-[#E5E5E5] focus:border-[#1B4FFF] focus:ring-2 focus:ring-[#1B4FFF]/10"
+                    errors.ruc || (rucStatus.valid === false && !rucStatus.unavailable) ? "border-red-400" : "border-[#E5E5E5] focus:border-[#1B4FFF] focus:ring-2 focus:ring-[#1B4FFF]/10"
                   }`} />
                 {rucStatus.loading && <div className="flex items-center text-xs text-[#999999]">Verificando...</div>}
               </div>
@@ -866,7 +866,10 @@ function Step2({
               {!errors.ruc && rucStatus.valid === true && (
                 <p className="text-xs text-green-600 mt-1 font-600">✓ {rucStatus.razonSocial} — ACTIVO/HABIDO</p>
               )}
-              {!errors.ruc && rucStatus.valid === false && data.ruc.length === 11 && (
+              {!errors.ruc && rucStatus.valid === false && rucStatus.unavailable && data.ruc.length === 11 && (
+                <p className="text-xs text-[#999999] mt-1">No pudimos consultar SUNAT ahora. Puedes continuar; lo verificamos nosotros.</p>
+              )}
+              {!errors.ruc && rucStatus.valid === false && !rucStatus.unavailable && data.ruc.length === 11 && (
                 <p className="text-xs text-red-500 mt-1">✕ RUC no activo o no habido en SUNAT</p>
               )}
               <p className="text-[10px] text-[#999999] mt-1">RUC debe tener 11 dígitos y empezar con 10, 15, 17 o 20.</p>
