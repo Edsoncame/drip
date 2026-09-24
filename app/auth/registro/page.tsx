@@ -1,12 +1,15 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { trackSignUp } from "@/lib/analytics";
 import Link from "next/link";
 import GoogleAuthButton, { isGoogleOAuthEnabled } from "@/components/GoogleAuthButton";
 import PhoneInput from "@/components/PhoneInput";
+
+/** Misma versión que firma el checkout — si cambian los Términos, se actualiza acá. */
+const TERMS_VERSION = "2026-04-28";
 
 function RegisterForm() {
   const router = useRouter();
@@ -24,13 +27,29 @@ function RegisterForm() {
     ruc: "",
     referralCode: refParam,
   });
+  const [accepted, setAccepted] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [rucStatus, setRucStatus] = useState<{ valid?: boolean; razonSocial?: string; loading?: boolean }>({});
+  const [rucStatus, setRucStatus] = useState<{ valid?: boolean; razonSocial?: string; loading?: boolean; unavailable?: boolean }>({});
+  // Campo trampa: va oculto y una persona nunca lo llena.
+  const [website, setWebsite] = useState("");
+  // Cuándo se abrió la pantalla — el servidor descarta los envíos instantáneos.
+  const [formOpenedAt] = useState(() => Date.now());
+  const errorRef = useRef<HTMLDivElement>(null);
 
-  const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setForm((f) => ({ ...f, [key]: e.target.value }));
+  const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { value } = e.target;
+    setForm((f) => ({ ...f, [key]: value }));
+    // El error se va apenas corriges el campo, no al siguiente intento.
+    setErrors((prev) => {
+      if (!prev[key] && !prev.general) return prev;
+      const next = { ...prev };
+      delete next[key];
+      delete next.general;
+      return next;
+    });
+  };
 
   const verifyRuc = async (ruc: string) => {
     if (ruc.length !== 11) return;
@@ -38,7 +57,7 @@ function RegisterForm() {
     try {
       const res = await fetch(`/api/verify-ruc?ruc=${ruc}`);
       const data = await res.json();
-      setRucStatus({ valid: data.valid, razonSocial: data.razonSocial });
+      setRucStatus({ valid: data.valid, razonSocial: data.razonSocial, unavailable: !!data.unavailable });
       if (data.valid && data.razonSocial && !form.company) {
         setForm(f => ({ ...f, company: data.razonSocial }));
       }
@@ -64,7 +83,11 @@ function RegisterForm() {
         e.ruc = "RUC inválido. Debe empezar con 10, 15, 17 o 20";
       }
     }
+    if (!accepted) e.accepted = "Debes aceptar los Términos y la Política de privacidad";
     setErrors(e);
+    if (Object.keys(e).length > 0) {
+      errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
     return Object.keys(e).length === 0;
   };
 
@@ -79,13 +102,29 @@ function RegisterForm() {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, customerType }),
+        body: JSON.stringify({
+          ...form,
+          customerType,
+          website,
+          formOpenedAt,
+          legal: {
+            accepted: true,
+            terms_version: TERMS_VERSION,
+            signature_name: form.name.trim(),
+            signature_document: form.ruc.trim() || null,
+            scroll_completed: false,
+            pagare_authorized: false,
+            signed_at: new Date().toISOString(),
+            user_agent: typeof navigator !== "undefined" ? navigator.userAgent : null,
+          },
+        }),
       });
       const data = await res.json();
 
       if (!res.ok) {
         setErrors({ general: data.error });
         setLoading(false);
+        errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
         return;
       }
 
@@ -119,11 +158,13 @@ function RegisterForm() {
             </Link>
           </p>
 
-          {errors.general && (
-            <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-5 text-sm text-red-600">
-              {errors.general}
-            </div>
-          )}
+          <div ref={errorRef} className="scroll-mt-24">
+            {errors.general && (
+              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-5 text-sm text-red-600">
+                {errors.general}
+              </div>
+            )}
+          </div>
 
           {/* Customer type toggle */}
           <div className="flex gap-3 mb-5">
@@ -147,7 +188,7 @@ function RegisterForm() {
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4 relative">
             <Field label="Nombre completo" required error={errors.name}>
               <input type="text" value={form.name} onChange={set("name")}
                 placeholder="Juan Pérez" className={inputClass(!!errors.name)} autoComplete="name" />
@@ -190,12 +231,15 @@ function RegisterForm() {
                       if (v.length === 11) verifyRuc(v);
                       else setRucStatus({});
                     }}
-                    placeholder="20123456789" className={inputClass(!!errors.ruc || rucStatus.valid === false)} />
+                    placeholder="20123456789" className={inputClass(!!errors.ruc || (rucStatus.valid === false && !rucStatus.unavailable))} />
                   {rucStatus.loading && <p className="text-xs text-[#999999] mt-1">Verificando en SUNAT…</p>}
                   {rucStatus.valid === true && (
                     <p className="text-xs text-green-600 mt-1 font-600">✓ {rucStatus.razonSocial}</p>
                   )}
-                  {!errors.ruc && rucStatus.valid === false && form.ruc.length === 11 && (
+                  {!errors.ruc && rucStatus.valid === false && rucStatus.unavailable && form.ruc.length === 11 && (
+                    <p className="text-xs text-[#999999] mt-1">No pudimos consultar SUNAT ahora. Puedes continuar; lo verificamos nosotros.</p>
+                  )}
+                  {!errors.ruc && rucStatus.valid === false && !rucStatus.unavailable && form.ruc.length === 11 && (
                     <p className="text-xs text-red-500 mt-1">✕ RUC no activo o no habido en SUNAT</p>
                   )}
                 </Field>
@@ -209,26 +253,47 @@ function RegisterForm() {
 
             <Field label="Código de referido" optional>
               <input type="text" value={form.referralCode} onChange={set("referralCode")}
-                placeholder="Ej. FLUX-ABC1234" className={inputClass(false)} autoCapitalize="characters" />
+                placeholder="Ej. ABC1234" className={inputClass(false)} autoCapitalize="characters" />
             </Field>
+
+            {/* Campo trampa para altas automatizadas: invisible y fuera del tabulador. */}
+            <div aria-hidden="true" className="absolute left-[-9999px] top-0 h-0 w-0 overflow-hidden">
+              <label htmlFor="website">No llenar</label>
+              <input id="website" name="website" type="text" tabIndex={-1} autoComplete="off"
+                value={website} onChange={(e) => setWebsite(e.target.value)} />
+            </div>
 
             <div className="bg-[#F5F8FF] rounded-xl p-3 flex items-start gap-2 text-xs text-[#666666]">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1B4FFF" strokeWidth="2" className="mt-0.5 flex-shrink-0"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
               <p>Validaremos tu identidad (DNI + selfie) solo cuando quieras alquilar — toma ~2 minutos.</p>
             </div>
 
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input type="checkbox" checked={accepted}
+                onChange={(e) => {
+                  setAccepted(e.target.checked);
+                  setErrors((prev) => {
+                    if (!prev.accepted) return prev;
+                    const next = { ...prev };
+                    delete next.accepted;
+                    return next;
+                  });
+                }}
+                className="mt-0.5 h-4 w-4 flex-shrink-0 accent-[#1B4FFF] cursor-pointer" />
+              <span className="text-xs text-[#666666] leading-relaxed">
+                He leído y acepto los{" "}
+                <Link href="/terminos" target="_blank" className="text-[#1B4FFF] hover:underline">Términos de servicio</Link>{" "}
+                y la{" "}
+                <Link href="/privacidad" target="_blank" className="text-[#1B4FFF] hover:underline">Política de privacidad</Link>.
+              </span>
+            </label>
+            {errors.accepted && <p className="text-red-500 text-xs -mt-2">{errors.accepted}</p>}
+
             <button type="submit" disabled={loading}
               className="w-full mt-2 py-4 rounded-full bg-[#1B4FFF] text-white font-700 text-base hover:bg-[#1340CC] transition-colors disabled:opacity-60 cursor-pointer flex items-center justify-center gap-2">
               {loading ? (<><Spinner /> Creando cuenta…</>) : "Crear cuenta gratis"}
             </button>
           </form>
-
-          <p className="text-xs text-[#999999] text-center mt-4 leading-relaxed">
-            Al registrarte aceptas nuestros{" "}
-            <Link href="/terminos" className="text-[#1B4FFF] hover:underline">Términos de servicio</Link>{" "}
-            y{" "}
-            <Link href="/privacidad" className="text-[#1B4FFF] hover:underline">Política de privacidad</Link>.
-          </p>
 
           {isGoogleOAuthEnabled() && (
             <>
