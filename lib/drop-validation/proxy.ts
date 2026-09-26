@@ -21,7 +21,6 @@
  */
 import { NextResponse } from 'next/server';
 
-import { query } from '@/lib/db';
 import { createSession, isConfigured } from './client';
 import { getMappedSession, storeMappedSession } from './session-map';
 
@@ -200,41 +199,67 @@ export async function proxyVerify(input: {
   formName?: string;
   formDni?: string;
   userId: string | null;
+  /** IP del cliente final, para que la geolocalización de Drop Validation
+   *  no registre la IP del servidor de Vercel en todas las sesiones. */
+  clientIp?: string | null;
 }) {
   const mapped = await getMappedSession(input.correlationId);
   if (!mapped) {
     return NextResponse.json({ status: 'pending', reason: 'session_not_found' });
   }
 
-  const resp = await fetch(`${API_URL}/sessions/${encodeURIComponent(mapped.external_session_id)}/finalize`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${mapped.session_token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ form_name: input.formName, form_dni: input.formDni }),
-    signal: AbortSignal.timeout(60_000),
-  });
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${mapped.session_token}`,
+    'Content-Type': 'application/json',
+  };
+  if (input.clientIp) headers['X-Forwarded-For'] = input.clientIp;
 
+  let resp: Response;
+  try {
+    resp = await fetch(`${API_URL}/sessions/${encodeURIComponent(mapped.external_session_id)}/finalize`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ form_name: input.formName, form_dni: input.formDni }),
+      signal: AbortSignal.timeout(60_000),
+    });
+  } catch (err) {
+    console.warn('[kyc/verify] drop_validation_network', { correlation: input.correlationId, err: (err as Error).message });
+    return NextResponse.json({ status: 'error', reason: 'network', retryable: true });
+  }
+
+  // Un HTTP no-2xx acá es un problema técnico (sesión sin frames, token
+  // vencido, API caído), NO un rechazo biométrico. Antes se devolvía
+  // 'rejected' y el checkout le decía al cliente que su selfie no se
+  // parecía al DNI.
   if (!resp.ok) {
     const text = await resp.text().catch(() => '');
-    return NextResponse.json(
-      { status: 'rejected', reason: 'external_error', debug: text.slice(0, 300) },
-      { status: 200 },
-    );
+    console.warn('[kyc/verify] drop_validation_http', { correlation: input.correlationId, status: resp.status, body: text.slice(0, 300) });
+    return NextResponse.json({ status: 'error', reason: 'external_error', retryable: true, debug: text.slice(0, 300) });
   }
+
   const data = (await resp.json()) as {
-    verdict?: { status?: string; reason?: string };
+    verdict?: { status?: string; reason?: string; detail?: { message?: string } };
     correlation_id?: string;
     pending_review?: boolean;
+    retryable?: boolean;
   };
   const verdict = data.verdict;
+
+  // pipeline_error transitorio: Drop Validation deja la sesión pendiente y
+  // reintentable; tampoco es un rechazo del cliente.
+  if (data.retryable && verdict?.reason?.startsWith('pipeline_error')) {
+    console.warn('[kyc/verify] drop_validation_pipeline_error', { correlation: input.correlationId, reason: verdict.reason });
+    return NextResponse.json({ status: 'error', reason: verdict.reason, retryable: true });
+  }
+
   const status = verdict?.status ?? 'rejected';
   const reason = verdict?.reason;
+  // Mensaje pensado para el cliente (p.ej. liveness: "no giraste la cabeza").
+  const message = verdict?.detail?.message ?? null;
 
   // El UPDATE users lo hace el webhook (idempotente). Acá solo respondemos
   // al frontend para que avance/no avance. Si el webhook todavía no llegó
   // pero el user avanza, el siguiente paso del checkout no debería bloquear
   // (no se reverifica en cada paso).
-  return NextResponse.json({ status, reason });
+  return NextResponse.json({ status, reason, message });
 }

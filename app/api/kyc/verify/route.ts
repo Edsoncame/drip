@@ -48,7 +48,9 @@ export async function POST(req: NextRequest) {
   // se hace por el webhook (idempotente). Acá solo respondemos el verdict
   // para que el frontend avance/no avance.
   if (isCheckoutProxyEnabled()) {
-    return proxyVerify({ correlationId: correlation_id, formName: form_name, formDni: form_dni, userId });
+    const clientIp =
+      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || null;
+    return proxyVerify({ correlationId: correlation_id, formName: form_name, formDni: form_dni, userId, clientIp });
   }
 
   const result = await computeKycVerdict({

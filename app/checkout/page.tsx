@@ -649,21 +649,35 @@ function Step2({
       const verifyData = await verifyRes.json();
       setKycVerifying(false);
 
+      // "review": Drop Validation pidió una mirada humana (el árbitro ya
+      // opinó). No es un rechazo: el cliente sigue con su pedido y el equipo
+      // resuelve desde el admin antes de despachar. Antes esto se mostraba
+      // como "vuelve a capturar DNI y selfie" y el cliente abandonaba.
+      if (verifyData.status === "review") {
+        onNext();
+        return;
+      }
+
       if (verifyData.status !== "verified") {
-        // La prueba de vida pasó, pero la verificación final no. Hay que borrar
-        // TODOS los indicadores de éxito. Si no, la pantalla se contradice: el
-        // check verde del paso 3, la etiqueta "Listo" y el banner "Identidad
-        // verificada" quedaban visibles junto al error en rojo, y el cliente no
-        // tenía forma de saber qué corregir ni el formulario avanzaba.
-        onIdentityChange({ ...identity, selfiePhoto: "" });
-        setKycSelfieOk(false);
-        setKycSelfieScore(null);
+        const technical = verifyData.status !== "rejected";
+        if (!technical) {
+          // La prueba de vida pasó, pero la verificación final no. Hay que
+          // borrar TODOS los indicadores de éxito. Si no, la pantalla se
+          // contradice: el check verde del paso 3, la etiqueta "Listo" y el
+          // banner "Identidad verificada" quedaban visibles junto al error en
+          // rojo, y el cliente no tenía forma de saber qué corregir.
+          onIdentityChange({ ...identity, selfiePhoto: "" });
+          setKycSelfieOk(false);
+          setKycSelfieScore(null);
+        }
+        // Un fallo técnico (API externo caído, sesión incompleta) no es culpa
+        // de la selfie: se conserva lo capturado y se pide reintentar.
         setErrors((prev) => ({
           ...prev,
-          selfiePhoto:
-            verifyData.status === "rejected"
-              ? "No pudimos verificar tu identidad. Revisa que la selfie se parezca al DNI y que los datos coincidan. Vuelve a intentarlo."
-              : "No pudimos completar la verificación. Vuelve a capturar DNI y selfie.",
+          selfiePhoto: technical
+            ? "Tuvimos un problema técnico al verificar tu identidad. Espera unos segundos y vuelve a presionar Continuar."
+            : verifyData.message ||
+              "No pudimos verificar tu identidad. Revisa que la selfie se parezca al DNI y que los datos coincidan. Vuelve a intentarlo.",
         }));
         return;
       }
