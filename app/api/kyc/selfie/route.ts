@@ -39,28 +39,26 @@ export async function POST(req: NextRequest) {
   }
 
   // Feature flag: proxy a Drop Validation. Subimos los 3 frames como
-  // liveness_frame (frame_index 0..2) + el frame 1 también como selfie
-  // principal (igual que ingestSelfie elige el centro).
+  // liveness_frame con su frame_index, UNO POR UNO. El API externo guarda
+  // los frames leyendo y reescribiendo el objeto entero de uploads, así que
+  // tres subidas en paralelo se pisaban entre sí y /finalize respondía
+  // "missing_selfie_frames". Tampoco subimos un cuarto frame como "selfie":
+  // sin índice caía en el slot 0 y reemplazaba al frame de frente, que es
+  // el que Drop Validation usa para el liveness y para comparar con el DNI
+  // (por eso clientes reales caían en "head_pose_static"). El slot 0 ya es
+  // el frame de frente: SelfieLiveness captura centro → izquierda → derecha.
   if (isCheckoutProxyEnabled()) {
-    const livenessUploads = await Promise.all(
-      frames.map((buf, idx) =>
-        proxySelfieUpload({
-          correlationId,
-          userId,
-          imageBuffer: buf,
-          contentType: frameContentTypes[idx],
-          frameIndex: idx,
-        }),
-      ),
-    );
-    const failed = livenessUploads.find((r) => r.status >= 400);
-    if (failed) return failed;
-    return proxySelfieUpload({
-      correlationId,
-      userId,
-      imageBuffer: frames[1],
-      contentType: frameContentTypes[1],
-    });
+    for (let idx = 0; idx < frames.length; idx++) {
+      const uploaded = await proxySelfieUpload({
+        correlationId,
+        userId,
+        imageBuffer: frames[idx],
+        contentType: frameContentTypes[idx],
+        frameIndex: idx,
+      });
+      if (uploaded.status >= 400) return uploaded;
+      if (idx === frames.length - 1) return uploaded;
+    }
   }
 
   const result = await ingestSelfie({ correlationId, userId, frames });
