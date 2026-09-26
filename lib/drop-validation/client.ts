@@ -107,28 +107,53 @@ export async function getSessionStatus(sessionId: string, sessionToken: string):
   }
 }
 
+/** Tolerancia para el timestamp del webhook firmado (anti-replay). */
+const WEBHOOK_TOLERANCE_SECONDS = 5 * 60;
+
 /**
- * Verifica HMAC del webhook. Usa el mismo `webhook_secret` que mandamos
- * al crear la session (o `default_webhook_url` secret del tenant si lo
- * setearon en /admin/settings).
+ * Verifica la firma HMAC del webhook con el mismo `webhook_secret` que
+ * mandamos al crear la session.
  *
- * Header esperado: `X-Drop-Validation-Signature: sha256=<hex>`
+ * Drop Validation firma como el SDK del que fue portado:
+ *   header `X-Flux-KYC-Signature: t=<unix_ts>,v1=<hex>`
+ *   hex = HMAC-SHA256(secret, `${t}.${rawBody}`)
+ * y aceptamos `t` dentro de ±5 minutos para cortar replays.
+ *
+ * Se mantiene el formato original de este receptor por compatibilidad:
+ *   header `X-Drop-Validation-Signature: sha256=<hex>`
+ *   hex = HMAC-SHA256(secret, rawBody)
+ *
+ * `nowSeconds` existe para que los tests fijen el reloj.
  */
-export function verifyWebhookSignature(rawBody: string, signatureHeader: string | null | undefined): boolean {
+export function verifyWebhookSignature(
+  rawBody: string,
+  signatureHeader: string | null | undefined,
+  nowSeconds: number = Math.floor(Date.now() / 1000),
+): boolean {
   if (!WEBHOOK_SECRET) return false;
   if (!signatureHeader) return false;
+  const header = signatureHeader.trim();
 
-  const match = /^sha256=([a-f0-9]{64})$/i.exec(signatureHeader.trim());
-  if (!match) return false;
-  const provided = match[1].toLowerCase();
+  const timed = /^t=(\d{1,12}),v1=([a-f0-9]{64})$/i.exec(header);
+  if (timed) {
+    const ts = Number(timed[1]);
+    if (!Number.isFinite(ts) || Math.abs(nowSeconds - ts) > WEBHOOK_TOLERANCE_SECONDS) return false;
+    return hmacEquals(`${ts}.${rawBody}`, timed[2]);
+  }
 
+  const legacy = /^sha256=([a-f0-9]{64})$/i.exec(header);
+  if (legacy) return hmacEquals(rawBody, legacy[1]);
+
+  return false;
+}
+
+function hmacEquals(message: string, providedHex: string): boolean {
   const expected = crypto
     .createHmac('sha256', WEBHOOK_SECRET)
-    .update(rawBody, 'utf8')
+    .update(message, 'utf8')
     .digest('hex');
-
   try {
-    return crypto.timingSafeEqual(Buffer.from(provided, 'hex'), Buffer.from(expected, 'hex'));
+    return crypto.timingSafeEqual(Buffer.from(providedHex.toLowerCase(), 'hex'), Buffer.from(expected, 'hex'));
   } catch {
     return false;
   }

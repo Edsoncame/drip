@@ -9,6 +9,12 @@
  *   webhook_url: https://www.fluxperu.com/api/webhooks/drop-validation
  *   webhook_secret: <random 32-byte hex>
  *
+ * Firma entrante (ver verifyWebhookSignature): `X-Flux-KYC-Signature:
+ * t=<ts>,v1=<hmac(ts.body)>`. Hasta el 25-set-2026 este receptor solo
+ * aceptaba `X-Drop-Validation-Signature: sha256=<hmac(body)>`, que Drop
+ * Validation nunca envió: todos los webhooks caían en 401 y ningún usuario
+ * quedaba verificado.
+ *
  * Env vars:
  *   DROP_VALIDATION_WEBHOOK_SECRET — el secret de arriba (mismo valor)
  *
@@ -56,7 +62,10 @@ interface WebhookPayload {
 
 export async function POST(req: NextRequest) {
   const rawBody = await req.text();
-  const signature = req.headers.get('x-drop-validation-signature');
+  // Drop Validation firma en `x-flux-kyc-signature` (formato t=,v1=); el
+  // header `x-drop-validation-signature` (sha256=) queda por compatibilidad.
+  const signature =
+    req.headers.get('x-flux-kyc-signature') ?? req.headers.get('x-drop-validation-signature');
 
   if (!verifyWebhookSignature(rawBody, signature)) {
     console.warn(tag, 'invalid_signature', { signature });
