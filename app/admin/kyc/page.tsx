@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/auth";
-import { query } from "@/lib/db";
 import { listKycCases } from "@/lib/kyc/admin-cases";
 import AdminNav from "../AdminNav";
 import KycReview from "./KycReview";
@@ -21,13 +20,10 @@ export default async function AdminKycPage() {
   // Lee TODAS las fuentes de KYC (pipeline propio + Drop Validation).
   const cases = await listKycCases();
 
-  const stats = await query<{ status: string; n: string }>(`
-    SELECT COALESCE(kyc_status, 'pending') AS status, COUNT(*)::text AS n
-    FROM users WHERE kyc_status IS NOT NULL
-    GROUP BY kyc_status
-  `);
+  // Contadores sobre los mismos casos que lista la tabla (antes salían de
+  // users.kyc_status y un intento en revisión de Drop Validation no se contaba).
   const statMap: Record<string, number> = {};
-  for (const r of stats.rows) statMap[r.status] = parseInt(r.n, 10);
+  for (const c of cases) statMap[c.case_status] = (statMap[c.case_status] ?? 0) + 1;
 
   return (
     <div className="min-h-screen bg-[#F7F7F7]">
@@ -44,7 +40,7 @@ export default async function AdminKycPage() {
           <StatCard label="🟡 Review" n={statMap.review ?? 0} color="amber" />
           <StatCard label="🔴 Rechazados" n={statMap.rejected ?? 0} color="red" />
           <StatCard label="✅ Verificados" n={statMap.verified ?? 0} color="green" />
-          <StatCard label="⏳ Pending" n={statMap.pending ?? 0} color="gray" />
+          <StatCard label="⏳ Sin terminar" n={(statMap.pending ?? 0) + (statMap.capturing ?? 0)} color="gray" />
         </div>
 
         <KycReview cases={cases} />
