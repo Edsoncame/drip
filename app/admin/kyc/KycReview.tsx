@@ -10,7 +10,7 @@ export default function KycReview({ cases }: { cases: KycCase[] }) {
 
   const filtered = cases.filter((c) => {
     if (filter === "all") return true;
-    return (c.user_kyc_status ?? "pending") === filter;
+    return c.case_status === filter;
   });
 
   const act = async (action: "approve" | "reject", userId: string | null, corrId: string) => {
@@ -43,7 +43,7 @@ export default function KycReview({ cases }: { cases: KycCase[] }) {
   return (
     <div>
       <div className="flex gap-2 mb-4 flex-wrap">
-        {["review", "rejected", "blocked", "verified", "pending", "all"].map((f) => (
+        {["review", "rejected", "blocked", "capturing", "verified", "pending", "all"].map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
@@ -76,12 +76,12 @@ export default function KycReview({ cases }: { cases: KycCase[] }) {
               {filtered.length === 0 && (
                 <tr>
                   <td colSpan={7} className="text-center py-8 text-[#999]">
-                    No hay casos con status "{filter}"
+                    No hay casos con status &quot;{filter}&quot;
                   </td>
                 </tr>
               )}
               {filtered.map((c) => (
-                <tr key={c.scan_id} className="hover:bg-[#FAFAFA]">
+                <tr key={`${c.source}-${c.correlation_id}`} className="hover:bg-[#FAFAFA]">
                   <td className="px-4 py-3">
                     <p className="font-600 text-[#18191F]">{c.user_name ?? "—"}</p>
                     <p className="text-xs text-[#999]">{c.user_email ?? "guest"}</p>
@@ -115,7 +115,7 @@ export default function KycReview({ cases }: { cases: KycCase[] }) {
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <StatusBadge status={c.user_kyc_status ?? "pending"} />
+                    <StatusBadge status={c.case_status} />
                   </td>
                   <td className="px-4 py-3 text-xs text-[#666]">
                     {new Date(c.scan_created_at).toLocaleString("es-PE", {
@@ -158,6 +158,14 @@ export default function KycReview({ cases }: { cases: KycCase[] }) {
                 <p className="text-xs text-[#999] mt-1 font-mono">
                   corr: {selected.correlation_id}
                 </p>
+                {selected.source === "drop_validation" && (
+                  <p className="text-xs text-[#1B4FFF] mt-1">
+                    Drop Validation · sesión {selected.external_session_id}
+                    {selected.verdict_reason ? ` · ${selected.verdict_reason}` : ""}
+                    <br />
+                    Las fotos del DNI y la selfie se revisan en app.dropchat.pe/validation.
+                  </p>
+                )}
               </div>
               <button
                 onClick={() => !acting && setSelected(null)}
@@ -225,7 +233,8 @@ export default function KycReview({ cases }: { cases: KycCase[] }) {
                   <p><strong>Face score:</strong> {selected.face_score ? `${parseFloat(selected.face_score).toFixed(2)}%` : "—"}</p>
                   <p><strong>Match pasó:</strong> {selected.face_passed === null ? "—" : selected.face_passed ? "✓" : "✕"}</p>
                   <p><strong>Liveness pasó:</strong> {selected.liveness_passed === null ? "—" : selected.liveness_passed ? "✓" : "✕"}</p>
-                  <p><strong>Status actual:</strong> <StatusBadge status={selected.user_kyc_status ?? "pending"} /></p>
+                  <p><strong>Status del intento:</strong> <StatusBadge status={selected.case_status} /></p>
+                  <p><strong>Status del cliente:</strong> <StatusBadge status={selected.user_kyc_status ?? "pending"} /></p>
                 </div>
               </div>
 
