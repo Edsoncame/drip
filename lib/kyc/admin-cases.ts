@@ -93,7 +93,7 @@ export const KYC_CASES_SQL = `
       NULL::text, NULL::text, 'drop_validation'::text,
       m.created_at,
       m.face_score::text,
-      CASE WHEN m.face_score IS NULL THEN NULL ELSE m.verdict_status = 'verified' END,
+      CASE WHEN m.face_score IS NULL THEN NULL ELSE m.face_score >= 85 END,  -- umbral KYC_FACE_MATCH_MIN de Drop Validation
       CASE WHEN m.verdict_reason ILIKE '%liveness%' OR m.verdict_reason ILIKE '%head_pose%' THEN false
            WHEN m.face_score IS NOT NULL THEN true ELSE NULL END,
       NULL::text,
