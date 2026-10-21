@@ -24,6 +24,15 @@ async function ensureMapSchema(): Promise<void> {
   `);
   await query(`CREATE INDEX IF NOT EXISTS idx_dvsm_external ON drop_validation_session_map(external_session_id)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_dvsm_user ON drop_validation_session_map(user_id) WHERE user_id IS NOT NULL`);
+  // Veredicto local de cada sesión externa. Sin esto el panel /admin/kyc no
+  // veía ninguna verificación de Drop Validation (quedó congelado en abril).
+  await query(`
+    ALTER TABLE drop_validation_session_map
+      ADD COLUMN IF NOT EXISTS verdict_status TEXT,
+      ADD COLUMN IF NOT EXISTS verdict_reason TEXT,
+      ADD COLUMN IF NOT EXISTS face_score NUMERIC,
+      ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ
+  `);
   ensured = true;
 }
 
@@ -69,3 +78,35 @@ export async function storeMappedSession(input: {
     [input.correlationId, input.externalSessionId, input.sessionToken, input.expiresAt, input.userId],
   );
 }
+
+export interface SessionVerdict {
+  status: string;
+  reason?: string | null;
+  faceScore?: number | null;
+}
+
+/** Guarda el veredicto de una sesión, por correlation_id (respuesta del finalize). */
+export async function recordVerdictByCorrelation(correlationId: string, v: SessionVerdict): Promise<void> {
+  await ensureMapSchema();
+  await query(
+    `UPDATE drop_validation_session_map
+        SET verdict_status = $2, verdict_reason = $3,
+            face_score = COALESCE($4, face_score), completed_at = NOW()
+      WHERE correlation_id = $1`,
+    [correlationId, v.status, v.reason ?? null, v.faceScore ?? null],
+  );
+}
+
+/** Guarda el veredicto de una sesión, por session_id externo (webhook). */
+export async function recordVerdictBySession(externalSessionId: string, v: SessionVerdict): Promise<void> {
+  await ensureMapSchema();
+  await query(
+    `UPDATE drop_validation_session_map
+        SET verdict_status = $2, verdict_reason = $3,
+            face_score = COALESCE($4, face_score), completed_at = NOW()
+      WHERE external_session_id = $1`,
+    [externalSessionId, v.status, v.reason ?? null, v.faceScore ?? null],
+  );
+}
+
+export { ensureMapSchema };

@@ -26,6 +26,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { query } from '@/lib/db';
 import { verifyWebhookSignature } from '@/lib/drop-validation/client';
+import { recordVerdictBySession } from '@/lib/drop-validation/session-map';
 import { fireSyncToDropchat } from '@/lib/dropchat-sync';
 
 export const runtime = 'nodejs';
@@ -84,6 +85,12 @@ export async function POST(req: NextRequest) {
   if (!status || !['verified', 'rejected', 'review'].includes(status)) {
     return NextResponse.json({ error: 'invalid_verdict_status' }, { status: 400 });
   }
+
+  // El panel /admin/kyc lee este veredicto local; se guarda aunque no haya user.
+  const faceScore = (verdict as { face_score?: number | null }).face_score ?? null;
+  await recordVerdictBySession(session_id, { status, reason: verdict.reason, faceScore }).catch((err) =>
+    console.warn(tag, 'record_verdict_failed', { session_id, err: (err as Error).message }),
+  );
 
   // external_user_id es el users.id que mandamos al crear la session.
   // Sin él no podemos asociar el verdict a un user.

@@ -22,7 +22,7 @@
 import { NextResponse } from 'next/server';
 
 import { createSession, isConfigured } from './client';
-import { getMappedSession, storeMappedSession } from './session-map';
+import { getMappedSession, recordVerdictByCorrelation, storeMappedSession } from './session-map';
 
 const API_URL = (process.env.DROP_VALIDATION_API_URL ?? 'https://api.dropchat.pe/v1').replace(/\/$/, '');
 const PUBLIC_WEBHOOK_URL = process.env.DROP_VALIDATION_WEBHOOK_URL_PUBLIC
@@ -254,6 +254,10 @@ export async function proxyVerify(input: {
 
   const status = verdict?.status ?? 'rejected';
   const reason = verdict?.reason;
+  const faceScore = (verdict as { face_score?: number | null } | undefined)?.face_score ?? null;
+  await recordVerdictByCorrelation(input.correlationId, { status, reason, faceScore }).catch((err) =>
+    console.warn('[kyc/verify] record_verdict_failed', { correlation: input.correlationId, err: (err as Error).message }),
+  );
   // Mensaje pensado para el cliente (p.ej. liveness: "no giraste la cabeza").
   const message = verdict?.detail?.message ?? null;
 
